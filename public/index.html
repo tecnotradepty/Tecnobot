@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="es" class="h-full bg-slate-950 text-slate-100">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tecnobot Studio - Panel de Control & Flujos de Instagram</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f0fdf4',
+              500: '#22c55e',
+              600: '#16a34a',
+              700: '#15803d'
+            },
+            instagram: {
+              gradient: 'linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%)'
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    .ig-badge {
+      background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
+    }
+    .node-line {
+      position: absolute;
+      width: 2px;
+      background: #334155;
+      z-index: 0;
+    }
+    /* Estilos de scrollbar personalizados */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #0f172a; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #475569; }
+  </style>
+</head>
+<body class="h-full flex flex-col font-sans antialiased bg-slate-950 overflow-x-hidden">
+
+  <!-- ========================================== -->
+  <!-- MODAL DE AUTENTICACIÓN POR PIN             -->
+  <!-- ========================================== -->
+  <div id="pinModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-8 max-w-sm w-full shadow-2xl text-center">
+      <div class="w-16 h-16 rounded-2xl ig-badge mx-auto flex items-center justify-center text-white shadow-lg mb-5">
+        <i data-lucide="bot" class="w-9 h-9"></i>
+      </div>
+      <h2 class="text-2xl font-bold text-white mb-2">Tecnobot Studio</h2>
+      <p class="text-sm text-slate-400 mb-6">Ingresa tu PIN de seguridad para acceder al panel de control.</p>
+      
+      <div class="space-y-4">
+        <input 
+          type="password" 
+          id="pinInput" 
+          maxlength="8" 
+          placeholder="••••••" 
+          class="w-full text-center text-2xl tracking-[0.5em] font-mono py-3 bg-slate-950 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+          onkeydown="if(event.key==='Enter') verifyPin()"
+        />
+        <p id="pinError" class="text-xs text-rose-400 font-medium hidden">PIN incorrecto. Intenta de nuevo.</p>
+        
+        <button 
+          onclick="verifyPin()" 
+          class="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-xl transition-all shadow-lg shadow-emerald-600/20 active:scale-95">
+          Entrar al Panel
+        </button>
+      </div>
+      <p class="text-xs text-slate-500 mt-5">PIN predeterminado: <span class="font-mono text-slate-400">047514</span></p>
+    </div>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- BARRA DE NAVEGACIÓN SUPERIOR               -->
+  <!-- ========================================== -->
+  <header class="border-b border-slate-800 bg-slate-900/80 backdrop-blur-md sticky top-0 z-40">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
+      
+      <!-- Logo y Título -->
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl ig-badge flex items-center justify-center text-white shadow-md">
+          <i data-lucide="message-square" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-base font-bold text-white leading-none">Tecnobot</h1>
+            <span class="text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700">Studio</span>
+          </div>
+          <p class="text-xs text-slate-400 mt-1 flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            @tecnotradepty en Instagram
+          </p>
+        </div>
+      </div>
+
+      <!-- Controles Centrales / Estado Maestro -->
+      <div class="flex items-center gap-3">
+        <!-- Switch Maestro Bot ON/OFF -->
+        <button 
+          id="btnMasterToggle" 
+          onclick="toggleBotStatus()" 
+          class="flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-all active:scale-95 shadow-sm bg-emerald-950/60 border-emerald-500/50 text-emerald-400 hover:bg-emerald-900/50">
+          <span id="statusIndicatorDot" class="w-2 h-2 rounded-full bg-emerald-400"></span>
+          <span id="statusIndicatorText">Bot: Encendido</span>
+        </button>
+
+        <span id="storageBadge" class="hidden sm:inline-flex text-[11px] items-center gap-1 px-2.5 py-1 rounded-md bg-slate-800/80 text-slate-300 border border-slate-700/60">
+          <i data-lucide="database" class="w-3 h-3 text-cyan-400"></i>
+          <span id="storageText">Vercel Serverless</span>
+        </span>
+      </div>
+
+      <!-- Acciones Derecha -->
+      <div class="flex items-center gap-2">
+        <button 
+          onclick="toggleSimulator()" 
+          class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium rounded-xl border border-slate-700 flex items-center gap-1.5 transition-all">
+          <i data-lucide="smartphone" class="w-4 h-4 text-pink-400"></i>
+          <span class="hidden sm:inline">Simulador</span>
+        </button>
+
+        <button 
+          onclick="openSettingsModal()" 
+          class="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-xl border border-slate-700 transition-all"
+          title="Ajustes Generales">
+          <i data-lucide="settings" class="w-4 h-4"></i>
+        </button>
+
+        <button 
+          id="btnSaveAll" 
+          onclick="saveCurrentConfig()" 
+          class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-xl shadow-lg shadow-emerald-600/20 flex items-center gap-1.5 transition-all active:scale-95">
+          <i data-lucide="save" class="w-4 h-4"></i>
+          <span>Guardar Cambios</span>
+        </button>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- ========================================== -->
+  <!-- CONTENEDOR PRINCIPAL: CANVAS DE FLUJO      -->
+  <!-- ========================================== -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 flex flex-col gap-6">
+
+    <!-- Banner de Información / Alerta rápida -->
+    <div id="alertBanner" class="p-4 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-400 flex items-center justify-center shrink-0">
+          <i data-lucide="git-branch" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <h2 class="text-sm font-semibold text-white">Flujo Visual de Ganchos (Interactive Hooks)</h2>
+          <p class="text-xs text-slate-400 mt-0.5">Cada gancho representa una palabra clave o número que el cliente envía y la respuesta automatizada que recibe.</p>
+        </div>
+      </div>
+      <button 
+        onclick="addNewHook()" 
+        class="shrink-0 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-xl shadow-md flex items-center gap-1.5 transition-all active:scale-95">
+        <i data-lucide="plus" class="w-4 h-4"></i>
+        <span>Nuevo Gancho</span>
+      </button>
+    </div>
+
+    <!-- NODO INICIAL: EL DISPARADOR DE INSTAGRAM -->
+    <div class="flex flex-col items-center">
+      <div class="bg-gradient-to-r from-purple-900/60 to-pink-900/60 border border-purple-500/30 rounded-2xl p-4 max-w-md w-full shadow-xl flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl ig-badge text-white flex items-center justify-center shadow-md">
+          <i data-lucide="message-circle" class="w-5 h-5"></i>
+        </div>
+        <div class="flex-1">
+          <span class="text-[10px] font-bold tracking-wider uppercase text-pink-300">Entrada Principal</span>
+          <h3 class="text-sm font-bold text-white">Mensaje Directo Entrante (DM)</h3>
+          <p class="text-xs text-slate-300">Cliente escribe a @tecnotradepty</p>
+        </div>
+        <span class="text-xs px-2.5 py-1 rounded-full bg-black/40 text-purple-300 border border-purple-500/20 font-mono">Hook Master</span>
+      </div>
+
+      <!-- Flecha hacia abajo conectora -->
+      <div class="h-8 w-0.5 bg-gradient-to-b from-purple-500/50 to-slate-700"></div>
+    </div>
+
+    <!-- LISTA DE GANCHOS Y BLOQUES VISUALES -->
+    <div id="hooksContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+      <!-- Los nodos de ganchos se inyectan dinámicamente con JS -->
+    </div>
+
+    <!-- NODO DE SALIDA / FALLBACK -->
+    <div class="mt-4 p-5 rounded-2xl bg-slate-900/60 border border-slate-800 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center shrink-0">
+          <i data-lucide="help-circle" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <span class="text-[10px] font-bold uppercase tracking-wider text-amber-400">Respuesta de Respaldo</span>
+          <h4 class="text-sm font-bold text-white">Cuando el cliente escribe algo no reconocido (Fallback)</h4>
+          <p class="text-xs text-slate-400 mt-0.5">Mensaje que se enviará si el texto no coincide con ningún gancho activo.</p>
+        </div>
+      </div>
+      <div class="w-full md:w-1/2">
+        <textarea 
+          id="fallbackInput" 
+          rows="2" 
+          class="w-full text-xs p-3 bg-slate-950 border border-slate-700 rounded-xl text-slate-200 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
+          placeholder="Mensaje no entendido..."></textarea>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- ========================================== -->
+  <!-- MODAL AJUSTES GENERALES                     -->
+  <!-- ========================================== -->
+  <div id="settingsModal" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm hidden items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 max-w-lg w-full shadow-2xl">
+      <div class="flex items-center justify-between pb-4 border-b border-slate-800 mb-5">
+        <h3 class="text-base font-bold text-white flex items-center gap-2">
+          <i data-lucide="sliders" class="w-5 h-5 text-emerald-400"></i>
+          Ajustes Generales del Negocio
+        </h3>
+        <button onclick="closeSettingsModal()" class="text-slate-400 hover:text-white">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="space-y-4 text-xs">
+        <div>
+          <label class="block font-semibold text-slate-300 mb-1">Nombre Comercial del Negocio</label>
+          <input type="text" id="settingBusinessName" class="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-emerald-500" />
+        </div>
+        <div>
+          <label class="block font-semibold text-slate-300 mb-1">URL de la Tienda / Catálogo Web ({TIENDA_URL})</label>
+          <input type="url" id="settingTiendaUrl" class="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-emerald-500" />
+        </div>
+        <div>
+          <label class="block font-semibold text-slate-300 mb-1">Enlace de Google Maps ({MAPS_URL})</label>
+          <input type="url" id="settingMapsUrl" class="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-emerald-500" />
+        </div>
+        <div>
+          <label class="block font-semibold text-slate-300 mb-1">Teléfono o WhatsApp de Contacto</label>
+          <input type="text" id="settingPhone" class="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-emerald-500" />
+        </div>
+      </div>
+
+      <div class="mt-6 flex justify-end gap-2">
+        <button onclick="closeSettingsModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl font-medium text-xs">Cancelar</button>
+        <button onclick="applySettings()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-semibold text-xs shadow-md">Aplicar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- DRAWER: SIMULADOR DE CHAT DE INSTAGRAM     -->
+  <!-- ========================================== -->
+  <div id="simDrawer" class="fixed right-0 top-0 bottom-0 w-full sm:w-96 bg-slate-900 border-l border-slate-800 shadow-2xl z-50 transform translate-x-full transition-transform duration-300 flex flex-col">
+    <!-- Header del chat -->
+    <div class="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-950/80">
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-full ig-badge flex items-center justify-center text-white text-xs font-bold">
+          TT
+        </div>
+        <div>
+          <h4 class="text-xs font-bold text-white">tecnotradepty</h4>
+          <p class="text-[10px] text-emerald-400 font-medium">Simulador en vivo</p>
+        </div>
+      </div>
+      <button onclick="toggleSimulator()" class="p-1.5 text-slate-400 hover:text-white rounded-lg">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+    </div>
+
+    <!-- Área de Mensajes -->
+    <div id="chatMessages" class="flex-1 p-4 overflow-y-auto space-y-3 text-xs bg-slate-950">
+      <div class="text-center text-[10px] text-slate-500 my-2">-- Inicio de conversación de prueba --</div>
+      <div class="flex gap-2">
+        <div class="w-7 h-7 rounded-full ig-badge shrink-0 flex items-center justify-center text-[10px] text-white">TT</div>
+        <div class="bg-slate-800 text-slate-100 p-3 rounded-2xl rounded-tl-sm max-w-[80%] whitespace-pre-line leading-relaxed shadow-sm">
+          ¡Hola! Escribe una palabra clave (ej: *Hola*, *1*, *Horario*, *Ubicación* o *5*) para probar el bot.
+        </div>
+      </div>
+    </div>
+
+    <!-- Barra de envío simulado -->
+    <div class="p-3 border-t border-slate-800 bg-slate-900 flex items-center gap-2">
+      <input 
+        type="text" 
+        id="simInput" 
+        placeholder="Enviar mensaje..." 
+        class="flex-1 text-xs px-3.5 py-2.5 bg-slate-950 border border-slate-700 rounded-full text-white focus:outline-none focus:border-pink-500"
+        onkeydown="if(event.key==='Enter') sendSimMessage()"
+      />
+      <button 
+        onclick="sendSimMessage()" 
+        class="w-9 h-9 rounded-full ig-badge text-white flex items-center justify-center shrink-0 shadow-md active:scale-90 transition-all">
+        <i data-lucide="send" class="w-4 h-4"></i>
+      </button>
+    </div>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- LÓGICA JAVASCRIPT DEL CLIENTE              -->
+  <!-- ========================================== -->
+  <script>
+    let activeConfig = null;
+    let savedPin = localStorage.getItem('tecnobot_pin') || '';
+
+    // Inicializar
+    window.onload = async () => {
+      lucide.createIcons();
+      if (savedPin) {
+        document.getElementById('pinInput').value = savedPin;
+        await verifyPin();
+      }
+    };
+
+    // 1. Verificación de PIN
+    async function verifyPin() {
+      const pin = document.getElementById('pinInput').value.trim();
+      if (!pin) return;
+
+      try {
+        const res = await fetch('/api/config');
+        const data = await res.json();
+        
+        // El PIN predeterminado o el configurado
+        const correctPin = data.settings?.pin || "047514";
+        if (pin === correctPin) {
+          localStorage.setItem('tecnobot_pin', pin);
+          savedPin = pin;
+          document.getElementById('pinModal').classList.add('hidden');
+          loadConfigData(data);
+        } else {
+          document.getElementById('pinError').classList.remove('hidden');
+        }
+      } catch (err) {
+        console.error('Error al conectar con API:', err);
+        // Fallback offline
+        if (pin === "047514") {
+          document.getElementById('pinModal').classList.add('hidden');
+        }
+      }
+    }
+
+    // 2. Cargar datos en la UI
+    function loadConfigData(data) {
+      activeConfig = data;
+
+      // Actualizar estado maestro
+      updateMasterButtonUI(activeConfig.botActive);
+
+      // Actualizar fallback
+      document.getElementById('fallbackInput').value = activeConfig.fallbackResponse || '';
+
+      // Actualizar storage badge
+      if (activeConfig.hasUpstash) {
+        document.getElementById('storageText').innerText = 'Upstash Redis (Persistente)';
+        document.getElementById('storageBadge').classList.remove('hidden');
+      }
+
+      // Renderizar Hooks
+      renderHooks();
+      lucide.createIcons();
+    }
+
+    // 3. Renderizar los Nodos / Ganchos visuales
+    function renderHooks() {
+      const container = document.getElementById('hooksContainer');
+      container.innerHTML = '';
+
+      (activeConfig.hooks || []).forEach((hook, index) => {
+        const card = document.createElement('div');
+        card.className = "bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg flex flex-col justify-between hover:border-slate-700 transition-all relative overflow-hidden group";
+        
+        let typeBadge = '';
+        if (hook.type === 'trigger') {
+          typeBadge = '<span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">Trigger Inicial</span>';
+        } else if (hook.type === 'handoff') {
+          typeBadge = '<span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30">Handoff Asesor</span>';
+        } else {
+          typeBadge = '<span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30">Gancho / Opción</span>';
+        }
+
+        card.innerHTML = `
+          <!-- Cabecera del Gancho -->
+          <div class="flex items-start justify-between gap-2 mb-3">
+            <div>
+              ${typeBadge}
+              <input 
+                type="text" 
+                value="${hook.title || hook.name}" 
+                onchange="updateHookTitle(${index}, this.value)"
+                class="bg-transparent text-sm font-bold text-white mt-1 w-full focus:outline-none focus:border-b border-emerald-500"
+              />
+            </div>
+            <button 
+              onclick="deleteHook(${index})" 
+              class="text-slate-500 hover:text-rose-400 p-1 rounded-lg transition-colors opacity-60 group-hover:opacity-100"
+              title="Eliminar este gancho">
+              <i data-lucide="trash-2" class="w-4 h-4"></i>
+            </button>
+          </div>
+
+          <!-- Palabras clave (Tags) -->
+          <div class="mb-3">
+            <label class="text-[11px] font-semibold text-slate-400 block mb-1">Palabras clave / Disparadores (separados por coma):</label>
+            <input 
+              type="text" 
+              value="${(hook.keywords || []).join(', ')}" 
+              onchange="updateHookKeywords(${index}, this.value)"
+              class="w-full text-xs px-2.5 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-emerald-400 font-mono focus:outline-none focus:border-emerald-500"
+            />
+          </div>
+
+          <!-- Mensaje de respuesta -->
+          <div class="flex-1 mb-2">
+            <label class="text-[11px] font-semibold text-slate-400 block mb-1">Respuesta automática enviada al cliente:</label>
+            <textarea 
+              rows="4" 
+              onchange="updateHookResponse(${index}, this.value)"
+              class="w-full text-xs p-2.5 bg-slate-950 border border-slate-800 rounded-xl text-slate-200 focus:outline-none focus:border-emerald-500 leading-relaxed font-sans">${hook.response}</textarea>
+          </div>
+
+          <!-- Pie del gancho / Variables Rápidas -->
+          <div class="pt-2 border-t border-slate-800/60 flex items-center justify-between text-[10px] text-slate-500">
+            <span>Variables: {TIENDA_URL}, {MAPS_URL}</span>
+            <button 
+              onclick="testHookInSim('${hook.keywords[0]}')" 
+              class="text-pink-400 hover:text-pink-300 font-medium flex items-center gap-1">
+              <i data-lucide="play" class="w-3 h-3"></i> Probar
+            </button>
+          </div>
+        `;
+
+        container.appendChild(card);
+      });
+
+      lucide.createIcons();
+    }
+
+    // 4. Actualizadores locales del objeto
+    function updateHookTitle(idx, val) { activeConfig.hooks[idx].title = val; }
+    function updateHookKeywords(idx, val) { 
+      activeConfig.hooks[idx].keywords = val.split(',').map(s => s.trim()).filter(Boolean); 
+    }
+    function updateHookResponse(idx, val) { activeConfig.hooks[idx].response = val; }
+
+    // 5. Agregar y Eliminar ganchos
+    function addNewHook() {
+      const newId = 'hook_' + Date.now();
+      activeConfig.hooks.push({
+        id: newId,
+        name: "Nuevo Gancho",
+        type: "branch",
+        keywords: ["palabra"],
+        title: "Nuevo Gancho Personalizado",
+        response: "Respuesta de ejemplo para este gancho."
+      });
+      renderHooks();
+    }
+
+    function deleteHook(idx) {
+      if (confirm('¿Seguro que deseas eliminar este gancho?')) {
+        activeConfig.hooks.splice(idx, 1);
+        renderHooks();
+      }
+    }
+
+    // 6. Alternar estado maestro (Bot ON / OFF)
+    async function toggleBotStatus() {
+      try {
+        const res = await fetch('/api/config?action=toggle', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-admin-pin': savedPin
+          }
+        });
+        const data = await res.json();
+        if (data.success) {
+          activeConfig.botActive = data.botActive;
+          updateMasterButtonUI(data.botActive);
+        }
+      } catch (err) {
+        activeConfig.botActive = !activeConfig.botActive;
+        updateMasterButtonUI(activeConfig.botActive);
+      }
+    }
+
+    function updateMasterButtonUI(isActive) {
+      const btn = document.getElementById('btnMasterToggle');
+      const dot = document.getElementById('statusIndicatorDot');
+      const text = document.getElementById('statusIndicatorText');
+
+      if (isActive) {
+        btn.className = "flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-all active:scale-95 shadow-sm bg-emerald-950/60 border-emerald-500/50 text-emerald-400 hover:bg-emerald-900/50";
+        dot.className = "w-2 h-2 rounded-full bg-emerald-400 animate-pulse";
+        text.innerText = "Bot: Encendido";
+      } else {
+        btn.className = "flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-all active:scale-95 shadow-sm bg-rose-950/60 border-rose-500/50 text-rose-400 hover:bg-rose-900/50";
+        dot.className = "w-2 h-2 rounded-full bg-rose-400";
+        text.innerText = "Bot: En Pausa";
+      }
+    }
+
+    // 7. Guardar cambios en el servidor
+    async function saveCurrentConfig() {
+      const btn = document.getElementById('btnSaveAll');
+      const originalText = btn.innerHTML;
+      btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Guardando...`;
+      lucide.createIcons();
+
+      // Recoger fallback
+      activeConfig.fallbackResponse = document.getElementById('fallbackInput').value;
+
+      try {
+        const res = await fetch('/api/config', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-admin-pin': savedPin
+          },
+          body: JSON.stringify(activeConfig)
+        });
+
+        const data = await res.json();
+        if (data.success) {
+          btn.innerHTML = `<i data-lucide="check" class="w-4 h-4 text-emerald-200"></i> ¡Guardado!`;
+          btn.classList.replace('bg-emerald-600', 'bg-emerald-700');
+          setTimeout(() => {
+            btn.innerHTML = originalText;
+            btn.classList.replace('bg-emerald-700', 'bg-emerald-600');
+            lucide.createIcons();
+          }, 2000);
+        } else {
+          alert('Error al guardar: ' + (data.error || 'Desconocido'));
+          btn.innerHTML = originalText;
+        }
+      } catch (err) {
+        console.error(err);
+        alert('Configuración actualizada en memoria local.');
+        btn.innerHTML = originalText;
+      }
+    }
+
+    // 8. Modal de Ajustes Generales
+    function openSettingsModal() {
+      document.getElementById('settingBusinessName').value = activeConfig.settings?.businessName || '';
+      document.getElementById('settingTiendaUrl').value = activeConfig.settings?.tiendaUrl || '';
+      document.getElementById('settingMapsUrl').value = activeConfig.settings?.mapsUrl || '';
+      document.getElementById('settingPhone').value = activeConfig.settings?.phone || '';
+      document.getElementById('settingsModal').classList.remove('hidden');
+      document.getElementById('settingsModal').classList.add('flex');
+    }
+
+    function closeSettingsModal() {
+      document.getElementById('settingsModal').classList.add('hidden');
+      document.getElementById('settingsModal').classList.remove('flex');
+    }
+
+    function applySettings() {
+      activeConfig.settings.businessName = document.getElementById('settingBusinessName').value;
+      activeConfig.settings.tiendaUrl = document.getElementById('settingTiendaUrl').value;
+      activeConfig.settings.mapsUrl = document.getElementById('settingMapsUrl').value;
+      activeConfig.settings.phone = document.getElementById('settingPhone').value;
+      closeSettingsModal();
+      saveCurrentConfig();
+    }
+
+    // 9. Simulador de Instagram en Vivo
+    function toggleSimulator() {
+      const drawer = document.getElementById('simDrawer');
+      drawer.classList.toggle('translate-x-full');
+    }
+
+    function testHookInSim(kw) {
+      const drawer = document.getElementById('simDrawer');
+      drawer.classList.remove('translate-x-full');
+      document.getElementById('simInput').value = kw;
+      sendSimMessage();
+    }
+
+    function sendSimMessage() {
+      const input = document.getElementById('simInput');
+      const text = input.value.trim();
+      if (!text) return;
+
+      const chat = document.getElementById('chatMessages');
+
+      // Burbuja del usuario (lado derecho)
+      const userBubble = document.createElement('div');
+      userBubble.className = "flex justify-end";
+      userBubble.innerHTML = `<div class="bg-indigo-600 text-white p-2.5 rounded-2xl rounded-tr-sm max-w-[80%]">${escapeHtml(text)}</div>`;
+      chat.appendChild(userBubble);
+
+      input.value = '';
+      chat.scrollTop = chat.scrollHeight;
+
+      // Calcular respuesta del bot localmente según los ganchos
+      setTimeout(() => {
+        let reply = activeConfig.fallbackResponse;
+        const clean = text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+
+        if (activeConfig.botActive === false) {
+          reply = "⏸️ [El bot se encuentra en PAUSA MANUAL por el asesor de TecnoTrade]";
+        } else {
+          for (const hook of activeConfig.hooks || []) {
+            const matched = hook.keywords.some(k => {
+              const ck = k.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+              return ck.length <= 2 ? clean === ck : clean.includes(ck);
+            });
+            if (matched) {
+              reply = hook.response
+                .replace(/\{TIENDA_URL\}/g, activeConfig.settings?.tiendaUrl || '')
+                .replace(/\{MAPS_URL\}/g, activeConfig.settings?.mapsUrl || '')
+                .replace(/\{BUSINESS_NAME\}/g, activeConfig.settings?.businessName || '');
+              break;
+            }
+          }
+        }
+
+        const botBubble = document.createElement('div');
+        botBubble.className = "flex gap-2";
+        botBubble.innerHTML = `
+          <div class="w-7 h-7 rounded-full ig-badge shrink-0 flex items-center justify-center text-[10px] text-white">TT</div>
+          <div class="bg-slate-800 text-slate-100 p-3 rounded-2xl rounded-tl-sm max-w-[80%] whitespace-pre-line leading-relaxed shadow-sm">${escapeHtml(reply)}</div>
+        `;
+        chat.appendChild(botBubble);
+        chat.scrollTop = chat.scrollHeight;
+      }, 400);
+    }
+
+    function escapeHtml(str) {
+      return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    }
+  </script>
+</body>
+</html>

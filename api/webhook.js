@@ -1,14 +1,15 @@
 // ========================================================
 // VERCEL SERVERLESS FUNCTION - INSTAGRAM WEBHOOK HANDLER
 // ========================================================
-const { getBotResponse } = require('../config/responses');
+const { resolveBotResponse } = require('../config/responses');
+const { getConfig } = require('../config/storage');
 
 module.exports = async function handler(req, res) {
   const VERIFY_TOKEN = process.env.VERIFY_TOKEN || 'tecnotrade_token_seguro_2026';
   const PAGE_ACCESS_TOKEN = process.env.PAGE_ACCESS_TOKEN || '';
   const DEFAULT_ACCOUNT_ID = process.env.INSTAGRAM_ACCOUNT_ID || '17841441032714945';
 
-  // 1. Handshake inicial de verificación con Meta (Método GET)
+  // 1. Handshake inicial de verificación con Meta (GET)
   if (req.method === 'GET') {
     const mode = req.query['hub.mode'];
     const token = req.query['hub.verify_token'];
@@ -23,14 +24,17 @@ module.exports = async function handler(req, res) {
     }
   }
 
-  // 2. Recepción de mensajes en vivo (Método POST)
+  // 2. Recepción de mensajes en vivo (POST)
   if (req.method === 'POST') {
     const body = req.body;
 
-    // Responder 200 OK inmediatamente a Meta para confirmar recepción
+    // Responder 200 OK inmediatamente a Meta
     res.status(200).send('EVENT_RECEIVED');
 
     if (body && (body.object === 'instagram' || body.object === 'page')) {
+      // Obtener configuración activa en tiempo real
+      const activeConfig = await getConfig();
+
       for (const entry of body.entry || []) {
         const igAccountId = entry.id || DEFAULT_ACCOUNT_ID;
 
@@ -39,13 +43,18 @@ module.exports = async function handler(req, res) {
             const senderId = event.sender?.id;
             const userMessage = event.message?.text?.trim();
 
-            // Ignorar si no hay mensaje o es un eco del propio bot
             if (!userMessage || event.message?.is_echo) continue;
 
             console.log(`[DM Recibido] De: ${senderId} -> "${userMessage}"`);
 
-            // Obtener respuesta del motor de reglas
-            const replyText = getBotResponse(userMessage);
+            // INTERRUPTOR MAESTRO: Si el bot está pausado manualmente
+            if (activeConfig.botActive === false) {
+              console.log(`[Bot Pausado] Ignorado porque el bot está en pausa manual.`);
+              continue;
+            }
+
+            // Resolver respuesta a través de los ganchos y reglas
+            const replyText = resolveBotResponse(userMessage, activeConfig);
 
             // Enviar respuesta a Instagram
             await sendInstagramMessage(igAccountId, senderId, replyText, PAGE_ACCESS_TOKEN);
@@ -56,7 +65,6 @@ module.exports = async function handler(req, res) {
     return;
   }
 
-  // Método no permitido
   return res.status(405).send('Método no permitido');
 };
 
