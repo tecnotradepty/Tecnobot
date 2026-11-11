@@ -1,7 +1,7 @@
 // ========================================================
 // API DE CONFIGURACIÓN Y CONTROL DEL BOT
 // ========================================================
-const { getConfig, saveConfig } = require('../config/storage');
+const { getConfig, saveConfig, getRedisCredentials } = require('../config/storage');
 
 const DEFAULT_PIN = process.env.ADMIN_PIN || "047514";
 
@@ -18,10 +18,10 @@ module.exports = async function handler(req, res) {
   // 1. Obtener la configuración actual (GET)
   if (req.method === 'GET') {
     const config = await getConfig();
-    const hasUpstash = Boolean(process.env.UPSTASH_REDIS_REST_URL || process.env.UPSTASH_URL);
+    const { isConnected } = getRedisCredentials();
     return res.status(200).json({
       ...config,
-      hasUpstash
+      hasUpstash: isConnected
     });
   }
 

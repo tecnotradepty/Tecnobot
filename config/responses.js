@@ -9,8 +9,8 @@ const DEFAULT_CONFIG = {
   // Datos generales del negocio
   settings: {
     businessName: "TecnoTrade Panamá",
-    tiendaUrl: "https://tecnotradepanama.com",
-    mapsUrl: "https://maps.app.goo.gl/afVivm8pKRZtd5gF9",
+    tiendaUrl: "https://tecno-trade.vercel.app/",
+    mapsUrl: "https://maps.app.goo.gl/MzJWv73e1xWhbXWY6",
     phone: "+507 6852-9324",
     pin: "047514"
   },
@@ -77,11 +77,14 @@ const DEFAULT_CONFIG = {
       keywords: ["4", "vender", "vendo", "trade", "tradein", "abono", "cambio", "cotizar"],
       title: "📲 Vender o Cambiar Equipo",
       response: 
-        "📲 *Vende o Cambia tu Equipo (Trade-In)*\n\n" +
-        "¿Quieres vender tu teléfono o darlo como abono por uno nuevo?\n\n" +
-        "Cotízalo de inmediato en nuestra sección web:\n" +
-        "🔗 {TIENDA_URL}#vender\n\n" +
-        "Evaluamos tu equipo y te pagamos al instante."
+        "¿Me brindas estos detalles del equipo, por favor? 📱\n" +
+        "🔹 Modelo del equipo:\n" +
+        "🔹 Almacenamiento:\n" +
+        "🔹 Salud de batería:\n" +
+        "🔹 Piezas cambiadas:\n" +
+        "🔹 Detalles o daños:\n" +
+        "🔹 ¿Es eSIM o chip?:\n\n" +
+        "Con eso podemos revisar mejor el equipo y darte una cotización. 🙌"
     },
     {
       id: "hook_advisor",
@@ -126,6 +129,10 @@ function resolveBotResponse(userText, config = DEFAULT_CONFIG) {
       finalResponse = finalResponse.replace(/\{TIENDA_URL\}/g, config.settings?.tiendaUrl || "");
       finalResponse = finalResponse.replace(/\{MAPS_URL\}/g, config.settings?.mapsUrl || "");
       finalResponse = finalResponse.replace(/\{BUSINESS_NAME\}/g, config.settings?.businessName || "");
+
+      // Limpiar llaves residuales alrededor de enlaces que se hayan dejado en el editor web (ej: {https://...})
+      finalResponse = finalResponse.replace(/\{(\s*https?:\/\/[^\}]+)\}/g, '$1');
+
       return finalResponse;
     }
   }
