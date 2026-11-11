@@ -611,7 +611,8 @@
         if (activeConfig.botActive === false) {
           reply = "⏸️ [El bot se encuentra en PAUSA MANUAL por el asesor de TecnoTrade]";
         } else {
-          for (const hook of activeConfig.hooks || []) {
+          const sorted = [...(activeConfig.hooks || [])].sort((a, b) => (b.priority || 0) - (a.priority || 0));
+          for (const hook of sorted) {
             const matched = hook.keywords.some(k => {
               const ck = k.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
               return ck.length <= 2 ? clean === ck : clean.includes(ck);
@@ -620,7 +621,8 @@
               reply = hook.response
                 .replace(/\{TIENDA_URL\}/g, activeConfig.settings?.tiendaUrl || '')
                 .replace(/\{MAPS_URL\}/g, activeConfig.settings?.mapsUrl || '')
-                .replace(/\{BUSINESS_NAME\}/g, activeConfig.settings?.businessName || '');
+                .replace(/\{BUSINESS_NAME\}/g, activeConfig.settings?.businessName || '')
+                .replace(/\{(\s*https?:\/\/[^\}]+)\}/g, '$1');
               break;
             }
           }

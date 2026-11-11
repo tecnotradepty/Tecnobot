@@ -1,8 +1,14 @@
 // ========================================================
 // VERCEL SERVERLESS FUNCTION - INSTAGRAM WEBHOOK HANDLER
 // ========================================================
-const { resolveBotResponse } = require('../config/responses');
-const { getConfig } = require('../config/storage');
+const { resolveBotResponse, DEFAULT_CONFIG } = require('../config/responses');
+const { 
+  getConfig, 
+  isUserPaused, 
+  pauseUser, 
+  unpauseUser, 
+  isFirstTimeUser 
+} = require('../config/storage');
 
 module.exports = async function handler(req, res) {
   const VERIFY_TOKEN = process.env.VERIFY_TOKEN || 'tecnotrade_token_seguro_2026';
@@ -29,38 +35,106 @@ module.exports = async function handler(req, res) {
     const body = req.body;
 
     if (body && (body.object === 'instagram' || body.object === 'page')) {
-      // Obtener configuración activa en tiempo real
       const activeConfig = await getConfig();
+      const pauseDuration = (activeConfig.settings?.advisorPauseHours || 12) * 3600;
 
       for (const entry of body.entry || []) {
         const igAccountId = entry.id || DEFAULT_ACCOUNT_ID;
 
         if (entry.messaging) {
           for (const event of entry.messaging) {
-            const senderId = event.sender?.id;
-            const userMessage = event.message?.text?.trim();
+            const isEcho = Boolean(event.message?.is_echo);
 
-            if (!userMessage || event.message?.is_echo) continue;
-
-            console.log(`[DM Recibido] De: ${senderId} -> "${userMessage}"`);
-
-            // INTERRUPTOR MAESTRO: Si el bot está pausado manualmente
-            if (activeConfig.botActive === false) {
-              console.log(`[Bot Pausado] Ignorado porque el bot está en pausa manual.`);
+            // =================================================================
+            // MEJORA 4: AUTO-SILENCIO AL INTERVENIR TÚ DESDE EL CELULAR
+            // =================================================================
+            // Si el mensaje es un "echo", significa que tú respondiste manualmente
+            // desde la app de Instagram. En ese momento pausamos al bot para ese cliente.
+            if (isEcho) {
+              const customerId = event.recipient?.id;
+              if (customerId) {
+                console.log(`[Intervención Humana] Asesor respondió manualmente a ${customerId}. Pausando bot por ${activeConfig.settings?.advisorPauseHours || 12}h.`);
+                await pauseUser(customerId, pauseDuration);
+              }
               continue;
             }
 
-            // Resolver respuesta a través de los ganchos y reglas
-            const replyText = resolveBotResponse(userMessage, activeConfig);
+            // Mensaje enviado por un cliente
+            const senderId = event.sender?.id;
+            const userMessage = event.message?.text?.trim();
 
-            // Enviar respuesta a Instagram y esperar a que termine antes de cerrar la función
+            if (!userMessage) continue;
+
+            const cleanMsg = userMessage.toLowerCase().trim();
+
+            // Comando manual para reactivar el bot si el cliente o asesor lo pide
+            if (cleanMsg === 'activar bot' || cleanMsg === '/bot' || cleanMsg === 'iniciar bot') {
+              await unpauseUser(senderId);
+              await sendInstagramMessage(
+                igAccountId, 
+                senderId, 
+                "🤖 *Bot de TecnoTrade Reactivado*\n\n¿En qué te podemos ayudar? Escribe *Menú* para ver las opciones.", 
+                PAGE_ACCESS_TOKEN
+              );
+              continue;
+            }
+
+            // =================================================================
+            // INTERRUPTOR MAESTRO: Si todo el bot está en pausa global
+            // =================================================================
+            if (activeConfig.botActive === false) {
+              console.log(`[Bot Global en Pausa] Mensaje de ${senderId} ignorado.`);
+              continue;
+            }
+
+            // =================================================================
+            // MEJORA 2: VERIFICAR SI EL USUARIO ESTÁ EN PAUSA (HANDOFF ACTIVO)
+            // =================================================================
+            const isPaused = await isUserPaused(senderId);
+            if (isPaused) {
+              console.log(`[Usuario en Silencio] ${senderId} está hablando con asesor humano. Bot en silencio.`);
+              continue;
+            }
+
+            // =================================================================
+            // MEJORA 3: DETECCIÓN DE USUARIO NUEVO (PRIMER CONTACTO)
+            // =================================================================
+            const isNewCustomer = await isFirstTimeUser(senderId);
+            if (isNewCustomer) {
+              console.log(`[Nuevo Cliente] Primera interacción registrada para ${senderId}.`);
+            }
+
+            console.log(`[DM Recibido] De: ${senderId} -> "${userMessage}"`);
+
+            // =================================================================
+            // MEJORA 1: RESOLUCIÓN CON PRIORIDADES ESTRICTAS (TALLER vs VENTA)
+            // =================================================================
+            let { text: replyText, hookId, isHandoff } = resolveBotResponse(userMessage, activeConfig);
+
+            // Si es un cliente 100% nuevo y su mensaje no coincidió con ninguna opción específica,
+            // asegurar que reciba la bienvenida oficial y el menú completo
+            if (isNewCustomer && hookId === null) {
+              const welcomeHook = (activeConfig.hooks || []).find(h => h.id === 'hook_welcome');
+              if (welcomeHook) {
+                replyText = welcomeHook.response;
+              }
+            }
+
+            // =================================================================
+            // ACTIVACIÓN DE HANDOFF: Si pidió asesor, pausar al bot para este usuario
+            // =================================================================
+            if (isHandoff) {
+              console.log(`[Handoff Activado] ${senderId} solicitó asesor. Silenciando bot para este chat por ${activeConfig.settings?.advisorPauseHours || 12}h.`);
+              await pauseUser(senderId, pauseDuration);
+            }
+
+            // Enviar respuesta a Instagram y esperar antes de cerrar la función
             await sendInstagramMessage(igAccountId, senderId, replyText, PAGE_ACCESS_TOKEN);
           }
         }
       }
     }
 
-    // Responder 200 OK a Meta una vez que todo el envío haya concluido
     return res.status(200).send('EVENT_RECEIVED');
   }
 
