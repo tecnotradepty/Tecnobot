@@ -1,9 +1,13 @@
 <!DOCTYPE html>
-<html lang="es" class="h-full bg-slate-950 text-slate-100">
+<html lang="es" class="h-full bg-[#F5F7FC] text-[#0D1017]">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Tecnobot Studio - Panel de Control & Flujos de Instagram</title>
+  <title>Tecnobot Studio — Automatización de Instagram</title>
+  <!-- Google Fonts: Inter & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Lucide Icons -->
@@ -12,318 +16,535 @@
     tailwind.config = {
       theme: {
         extend: {
+          fontFamily: {
+            sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace']
+          },
           colors: {
-            brand: {
-              50: '#f0fdf4',
-              500: '#22c55e',
-              600: '#16a34a',
-              700: '#15803d'
-            }
+            canvas: '#F5F7FC',
+            ink: '#0D1017',
+            muted: '#6B7280'
           }
         }
       }
     }
   </script>
   <style>
-    .ig-badge {
-      background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
+    body {
+      background-color: #F5F7FC;
+      background-image: radial-gradient(ellipse 80% 50% at 50% -20%, rgba(16, 185, 129, 0.07), transparent);
+      color: #0D1017;
+    }
+    .ig-gradient {
+      background: linear-gradient(135deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
+    }
+    .glass-nav {
+      background: rgba(255, 255, 255, 0.82);
+      backdrop-filter: blur(20px) saturate(180%);
+      -webkit-backdrop-filter: blur(20px) saturate(180%);
+      border-bottom: 1px solid rgba(13, 16, 23, 0.06);
+    }
+    .studio-card {
+      background: #FFFFFF;
+      border: 1px solid rgba(13, 16, 23, 0.06);
+      box-shadow: 0 2px 10px rgba(13, 16, 23, 0.02), 0 1px 2px rgba(13, 16, 23, 0.03);
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .studio-card:hover {
+      border-color: rgba(13, 16, 23, 0.11);
+      box-shadow: 0 12px 32px rgba(13, 16, 23, 0.05), 0 2px 6px rgba(13, 16, 23, 0.03);
+    }
+    .tabular-nums {
+      font-variant-numeric: tabular-nums;
     }
     ::-webkit-scrollbar { width: 6px; height: 6px; }
-    ::-webkit-scrollbar-track { background: #0f172a; }
-    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
-    ::-webkit-scrollbar-thumb:hover { background: #475569; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(13, 16, 23, 0.15); border-radius: 9999px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(13, 16, 23, 0.28); }
   </style>
 </head>
-<body class="h-full flex flex-col font-sans antialiased bg-slate-950 overflow-x-hidden">
+<body class="min-h-full flex flex-col font-sans antialiased selection:bg-zinc-900 selection:text-white overflow-x-hidden">
 
-  <!-- ========================================== -->
-  <!-- MODAL DE AUTENTICACIÓN POR PIN             -->
-  <!-- ========================================== -->
-  <div id="pinModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
-    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-8 max-w-sm w-full shadow-2xl text-center">
-      <div class="w-16 h-16 rounded-2xl ig-badge mx-auto flex items-center justify-center text-white shadow-lg mb-5">
-        <i data-lucide="bot" class="w-9 h-9"></i>
+  <!-- ========================================================= -->
+  <!-- MODAL DE ACCESO POR PIN (ESTÉTICA EDITORIAL / APPLE)      -->
+  <!-- ========================================================= -->
+  <div id="pinModal" class="fixed inset-0 z-50 bg-[#F5F7FC]/95 backdrop-blur-xl flex items-center justify-center p-4">
+    <div class="bg-white border border-black/[0.06] rounded-[2rem] p-8 sm:p-10 max-w-sm w-full shadow-[0_24px_60px_rgba(0,0,0,0.07)] text-center">
+      <div class="w-14 h-14 rounded-2xl bg-zinc-900 mx-auto flex items-center justify-center text-white shadow-md mb-5">
+        <i data-lucide="sparkles" class="w-6 h-6"></i>
       </div>
-      <h2 class="text-2xl font-bold text-white mb-2">Tecnobot Studio</h2>
-      <p class="text-sm text-slate-400 mb-6">Ingresa tu PIN de seguridad para acceder al panel de control.</p>
+      <h2 class="text-xl font-bold tracking-tight text-zinc-900">Tecnobot Studio</h2>
+      <p class="text-xs text-zinc-500 mt-1 mb-6">Ingresa tu código de seguridad para gestionar el bot</p>
       
-      <div class="space-y-4">
-        <input 
-          type="password" 
-          id="pinInput" 
-          maxlength="8" 
-          placeholder="••••••" 
-          class="w-full text-center text-2xl tracking-[0.5em] font-mono py-3 bg-slate-950 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
-          onkeydown="if(event.key==='Enter') verifyPin()"
-        />
-        <p id="pinError" class="text-xs text-rose-400 font-medium hidden">PIN incorrecto. Intenta de nuevo.</p>
-        
-        <button 
-          onclick="verifyPin()" 
-          class="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-xl transition-all shadow-lg shadow-emerald-600/20 active:scale-95">
-          Entrar al Panel
+      <!-- Indicadores de 6 dígitos -->
+      <div id="pinDots" class="flex justify-center gap-2.5 mb-5">
+        <div class="w-3 h-3 rounded-full bg-zinc-200 transition-all duration-150"></div>
+        <div class="w-3 h-3 rounded-full bg-zinc-200 transition-all duration-150"></div>
+        <div class="w-3 h-3 rounded-full bg-zinc-200 transition-all duration-150"></div>
+        <div class="w-3 h-3 rounded-full bg-zinc-200 transition-all duration-150"></div>
+        <div class="w-3 h-3 rounded-full bg-zinc-200 transition-all duration-150"></div>
+        <div class="w-3 h-3 rounded-full bg-zinc-200 transition-all duration-150"></div>
+      </div>
+
+      <input type="password" id="pinInput" maxlength="8" class="sr-only" />
+      <p id="pinError" class="text-xs text-rose-600 font-medium mb-4 hidden">Código incorrecto. Intenta nuevamente.</p>
+
+      <!-- Teclado numérico táctil -->
+      <div class="grid grid-cols-3 gap-2.5 mb-4">
+        <button onclick="appendPinDigit('1')" class="h-12 rounded-2xl bg-zinc-50 hover:bg-zinc-100 active:scale-95 text-base font-semibold text-zinc-900 transition-all border border-black/[0.04]">1</button>
+        <button onclick="appendPinDigit('2')" class="h-12 rounded-2xl bg-zinc-50 hover:bg-zinc-100 active:scale-95 text-base font-semibold text-zinc-900 transition-all border border-black/[0.04]">2</button>
+        <button onclick="appendPinDigit('3')" class="h-12 rounded-2xl bg-zinc-50 hover:bg-zinc-100 active:scale-95 text-base font-semibold text-zinc-900 transition-all border border-black/[0.04]">3</button>
+        <button onclick="appendPinDigit('4')" class="h-12 rounded-2xl bg-zinc-50 hover:bg-zinc-100 active:scale-95 text-base font-semibold text-zinc-900 transition-all border border-black/[0.04]">4</button>
+        <button onclick="appendPinDigit('5')" class="h-12 rounded-2xl bg-zinc-50 hover:bg-zinc-100 active:scale-95 text-base font-semibold text-zinc-900 transition-all border border-black/[0.04]">5</button>
+        <button onclick="appendPinDigit('6')" class="h-12 rounded-2xl bg-zinc-50 hover:bg-zinc-100 active:scale-95 text-base font-semibold text-zinc-900 transition-all border border-black/[0.04]">6</button>
+        <button onclick="appendPinDigit('7')" class="h-12 rounded-2xl bg-zinc-50 hover:bg-zinc-100 active:scale-95 text-base font-semibold text-zinc-900 transition-all border border-black/[0.04]">7</button>
+        <button onclick="appendPinDigit('8')" class="h-12 rounded-2xl bg-zinc-50 hover:bg-zinc-100 active:scale-95 text-base font-semibold text-zinc-900 transition-all border border-black/[0.04]">8</button>
+        <button onclick="appendPinDigit('9')" class="h-12 rounded-2xl bg-zinc-50 hover:bg-zinc-100 active:scale-95 text-base font-semibold text-zinc-900 transition-all border border-black/[0.04]">9</button>
+        <button onclick="clearPinDigits()" class="h-12 rounded-2xl bg-zinc-50 hover:bg-rose-50 hover:text-rose-600 active:scale-95 text-xs font-semibold text-zinc-400 transition-all border border-black/[0.04]">Borrar</button>
+        <button onclick="appendPinDigit('0')" class="h-12 rounded-2xl bg-zinc-50 hover:bg-zinc-100 active:scale-95 text-base font-semibold text-zinc-900 transition-all border border-black/[0.04]">0</button>
+        <button onclick="verifyPin()" class="h-12 rounded-2xl bg-zinc-900 hover:bg-zinc-800 active:scale-95 text-xs font-semibold text-white transition-all shadow-sm flex items-center justify-center">
+          <i data-lucide="arrow-right" class="w-4 h-4"></i>
         </button>
       </div>
-      <p class="text-xs text-slate-500 mt-5">PIN predeterminado: <span class="font-mono text-slate-400">047514</span></p>
+
+      <p class="text-[11px] text-zinc-400">También puedes escribir con tu teclado</p>
     </div>
   </div>
 
-  <!-- ========================================== -->
-  <!-- BARRA DE NAVEGACIÓN SUPERIOR               -->
-  <!-- ========================================== -->
-  <header class="border-b border-slate-800 bg-slate-900/80 backdrop-blur-md sticky top-0 z-40">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
+  <!-- ========================================================= -->
+  <!-- BARRA DE NAVEGACIÓN SUPERIOR (LIQUID GLASS)               -->
+  <!-- ========================================================= -->
+  <header class="glass-nav sticky top-0 z-40">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-3">
       
-      <!-- Logo y Título -->
+      <!-- Identidad -->
       <div class="flex items-center gap-3">
-        <div class="w-10 h-10 rounded-xl ig-badge flex items-center justify-center text-white shadow-md">
-          <i data-lucide="message-square" class="w-5 h-5"></i>
+        <div class="w-9 h-9 rounded-xl bg-zinc-900 flex items-center justify-center text-white shadow-sm shrink-0">
+          <i data-lucide="bot" class="w-4 h-4"></i>
         </div>
         <div>
           <div class="flex items-center gap-2">
-            <h1 class="text-base font-bold text-white leading-none">Tecnobot</h1>
-            <span class="text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-700/50">v2.0 Inteligente</span>
+            <h1 class="text-sm font-bold tracking-tight text-zinc-900">Tecnobot Studio</h1>
+            <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-600 border border-black/[0.05]">v2.2</span>
           </div>
-          <p class="text-xs text-slate-400 mt-1 flex items-center gap-1.5">
-            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-            @tecnotradepty • Recepcionista No-Intrusivo
+          <p class="text-[11px] text-zinc-500 flex items-center gap-1.5">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+            <span>@tecnotradepty</span>
+            <span class="text-zinc-300">•</span>
+            <span id="storageText" class="text-zinc-400">Conectando...</span>
           </p>
         </div>
       </div>
 
-      <!-- Controles Centrales / Estado Maestro -->
-      <div class="flex items-center gap-3">
+      <!-- Selector de Vista (Segmented Control) -->
+      <div class="hidden md:flex items-center p-1 rounded-full bg-zinc-100/90 border border-black/[0.05]">
+        <button onclick="setViewMode('all')" id="tabAll" class="px-3.5 py-1 rounded-full text-xs font-semibold transition-all bg-white text-zinc-900 shadow-sm">
+          Vista General
+        </button>
+        <button onclick="setViewMode('hooks')" id="tabHooks" class="px-3.5 py-1 rounded-full text-xs font-medium transition-all text-zinc-500 hover:text-zinc-900">
+          Ganchos <span id="navHooksCount" class="ml-1 text-[10px] px-1.5 py-0.2 rounded-full bg-zinc-200/70 text-zinc-700">0</span>
+        </button>
+        <button onclick="setViewMode('customers')" id="tabCustomers" class="px-3.5 py-1 rounded-full text-xs font-medium transition-all text-zinc-500 hover:text-zinc-900 flex items-center gap-1.5">
+          <span>Clientes y Pausas</span>
+          <span id="navCustomersCount" class="text-[10px] px-1.5 py-0.2 rounded-full bg-amber-100 text-amber-800 font-semibold">0</span>
+        </button>
+      </div>
+
+      <!-- Acciones Rápidas -->
+      <div class="flex items-center gap-2">
+        <!-- Estado Maestro -->
         <button 
           id="btnMasterToggle" 
           onclick="toggleBotStatus()" 
-          class="flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-all active:scale-95 shadow-sm bg-emerald-950/60 border-emerald-500/50 text-emerald-400 hover:bg-emerald-900/50">
-          <span id="statusIndicatorDot" class="w-2 h-2 rounded-full bg-emerald-400"></span>
-          <span id="statusIndicatorText">Bot: Encendido</span>
+          class="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all active:scale-95 bg-emerald-50/80 border-emerald-200 text-emerald-800 hover:bg-emerald-100/70">
+          <span id="statusIndicatorDot" class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+          <span id="statusIndicatorText" class="hidden sm:inline">Bot Activo</span>
         </button>
 
-        <span id="storageBadge" class="hidden sm:inline-flex text-[11px] items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-800/80 text-slate-300 border border-slate-700/60">
-          <span id="storageDot" class="w-2 h-2 rounded-full bg-amber-400"></span>
-          <span id="storageText">Cargando...</span>
-        </span>
-      </div>
-
-      <!-- Acciones Derecha -->
-      <div class="flex items-center gap-2">
+        <!-- Simulador -->
         <button 
           onclick="toggleSimulator()" 
-          class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium rounded-xl border border-slate-700 flex items-center gap-1.5 transition-all">
-          <i data-lucide="smartphone" class="w-4 h-4 text-pink-400"></i>
-          <span class="hidden sm:inline">Simulador</span>
+          class="px-3 py-1.5 bg-white hover:bg-zinc-50 text-zinc-700 text-xs font-semibold rounded-full border border-black/[0.08] shadow-2xs flex items-center gap-1.5 transition-all active:scale-95">
+          <i data-lucide="smartphone" class="w-3.5 h-3.5 text-pink-600"></i>
+          <span class="hidden sm:inline">Probar Chat</span>
         </button>
 
+        <!-- Ajustes -->
         <button 
           onclick="openSettingsModal()" 
-          class="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-xl border border-slate-700 transition-all"
-          title="Ajustes Generales">
-          <i data-lucide="settings" class="w-4 h-4"></i>
+          class="p-2 bg-white hover:bg-zinc-50 text-zinc-600 hover:text-zinc-900 rounded-full border border-black/[0.08] transition-all"
+          title="Ajustes del Negocio">
+          <i data-lucide="sliders-horizontal" class="w-3.5 h-3.5"></i>
         </button>
 
+        <!-- Guardar Cambios -->
         <button 
           id="btnSaveAll" 
           onclick="saveCurrentConfig()" 
-          class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-xl shadow-lg shadow-emerald-600/20 flex items-center gap-1.5 transition-all active:scale-95">
-          <i data-lucide="save" class="w-4 h-4"></i>
-          <span>Guardar Cambios</span>
+          class="px-4 py-1.5 bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-semibold rounded-full shadow-sm flex items-center gap-1.5 transition-all active:scale-95">
+          <i data-lucide="check" class="w-3.5 h-3.5"></i>
+          <span>Guardar</span>
         </button>
       </div>
 
     </div>
   </header>
 
-  <!-- ========================================== -->
-  <!-- CONTENEDOR PRINCIPAL: CANVAS DE FLUJO      -->
-  <!-- ========================================== -->
-  <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 flex flex-col gap-6">
+  <!-- ========================================================= -->
+  <!-- CONTENIDO PRINCIPAL                                       -->
+  <!-- ========================================================= -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-8">
 
-    <!-- Banner de Información -->
-    <div class="p-4 rounded-2xl bg-slate-900 border border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-      <div class="flex items-center gap-3">
-        <div class="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-400 flex items-center justify-center shrink-0">
-          <i data-lucide="shield-check" class="w-5 h-5"></i>
-        </div>
+    <!-- TARJETAS DE RESUMEN (KPIs) -->
+    <section class="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+      <div class="studio-card rounded-2xl p-4 flex items-center justify-between">
         <div>
-          <h2 class="text-sm font-semibold text-white">Motor de Intenciones, Prioridades y Palabras Clave Negativas</h2>
-          <p class="text-xs text-slate-400 mt-0.5">
-            Los ganchos con <span class="text-amber-300 font-semibold">Auto-Pausa</span> silencian el bot por 12h tras enviar preguntas para que el cliente responda (ej: *"pantalla cambiada"*) sin activar otros ganchos.
+          <p class="text-[11px] font-medium text-zinc-400 uppercase tracking-wider">Modo Operativo</p>
+          <p id="kpiModeText" class="text-sm font-bold text-zinc-900 mt-1">Recepcionista</p>
+          <p class="text-[11px] text-zinc-500 mt-0.5">Silencio en dudas libres</p>
+        </div>
+        <div class="w-9 h-9 rounded-xl bg-emerald-50 border border-emerald-100 text-emerald-600 flex items-center justify-center">
+          <i data-lucide="shield-check" class="w-4 h-4"></i>
+        </div>
+      </div>
+
+      <div class="studio-card rounded-2xl p-4 flex items-center justify-between cursor-pointer" onclick="setViewMode('hooks')">
+        <div>
+          <p class="text-[11px] font-medium text-zinc-400 uppercase tracking-wider">Ganchos Activos</p>
+          <p id="kpiHooksCount" class="text-xl font-bold text-zinc-900 mt-0.5 tabular-nums">7</p>
+          <p class="text-[11px] text-zinc-500 mt-0.5">Con filtro negativo</p>
+        </div>
+        <div class="w-9 h-9 rounded-xl bg-zinc-100 border border-zinc-200/60 text-zinc-700 flex items-center justify-center">
+          <i data-lucide="layers" class="w-4 h-4"></i>
+        </div>
+      </div>
+
+      <div class="studio-card rounded-2xl p-4 flex items-center justify-between cursor-pointer" onclick="setViewMode('customers')">
+        <div>
+          <p class="text-[11px] font-medium text-zinc-400 uppercase tracking-wider">Clientes Registrados</p>
+          <p id="kpiCustomersTotal" class="text-xl font-bold text-zinc-900 mt-0.5 tabular-nums">0</p>
+          <p class="text-[11px] text-zinc-500 mt-0.5">En base de datos Redis</p>
+        </div>
+        <div class="w-9 h-9 rounded-xl bg-blue-50 border border-blue-100 text-blue-600 flex items-center justify-center">
+          <i data-lucide="users" class="w-4 h-4"></i>
+        </div>
+      </div>
+
+      <div class="studio-card rounded-2xl p-4 flex items-center justify-between cursor-pointer" onclick="setViewMode('customers')">
+        <div>
+          <p class="text-[11px] font-medium text-zinc-400 uppercase tracking-wider">En Pausa Humana</p>
+          <p id="kpiPausedTotal" class="text-xl font-bold text-amber-600 mt-0.5 tabular-nums">0</p>
+          <p class="text-[11px] text-zinc-500 mt-0.5">Con contador activo</p>
+        </div>
+        <div class="w-9 h-9 rounded-xl bg-amber-50 border border-amber-100 text-amber-600 flex items-center justify-center">
+          <i data-lucide="timer" class="w-4 h-4"></i>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================================= -->
+    <!-- SECCIÓN 1: CLIENTES REGISTRADOS Y CONTADOR DE PAUSA       -->
+    <!-- ========================================================= -->
+    <section id="sectionCustomers" class="space-y-4">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <div class="flex items-center gap-2">
+            <h2 class="text-base font-bold tracking-tight text-zinc-900">Clientes Registrados y Contador de Pausa</h2>
+            <span id="liveTickBadge" class="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200/60">
+              <span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping"></span>
+              Tiempo real
+            </span>
+          </div>
+          <p class="text-xs text-zinc-500 mt-0.5">
+            Monitorea las horas restantes de silencio por cliente cuando tú hablas con ellos o cuando responden un cuestionario.
           </p>
         </div>
-      </div>
-      <button 
-        onclick="addNewHook()" 
-        class="shrink-0 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-xl shadow-md flex items-center gap-1.5 transition-all active:scale-95">
-        <i data-lucide="plus" class="w-4 h-4"></i>
-        <span>Nuevo Gancho</span>
-      </button>
-    </div>
 
-    <!-- LISTA DE GANCHOS Y BLOQUES VISUALES -->
-    <div id="hooksContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-      <!-- Inyectado dinámicamente -->
-    </div>
+        <!-- Barra de herramientas de clientes -->
+        <div class="flex items-center gap-2 flex-wrap">
+          <div class="flex items-center bg-white border border-black/[0.08] rounded-full p-0.5 pl-3 shadow-2xs">
+            <input 
+              type="text" 
+              id="manualCustomerIdInput" 
+              placeholder="ID cliente IG..." 
+              class="text-xs bg-transparent text-zinc-800 placeholder:text-zinc-400 focus:outline-none w-32 sm:w-36 font-mono"
+            />
+            <button 
+              onclick="pauseManualCustomer()" 
+              class="px-2.5 py-1 rounded-full bg-zinc-900 hover:bg-zinc-800 text-white text-[11px] font-medium transition-all">
+              + Pausar 12h
+            </button>
+          </div>
 
-    <!-- CONFIGURACIÓN DE COMPORTAMIENTO NO-INTRUSIVO (FALLBACK) -->
-    <div class="mt-2 p-5 rounded-2xl bg-slate-900/90 border border-slate-800 flex flex-col gap-4">
-      <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
-            <i data-lucide="user-check" class="w-5 h-5"></i>
-          </div>
-          <div>
-            <span class="text-[10px] font-bold uppercase tracking-wider text-emerald-400">Comportamiento de No-Intromisión</span>
-            <h4 class="text-sm font-bold text-white">Modo Recepcionista Silencioso (Silent Fallback)</h4>
-            <p class="text-xs text-slate-400 mt-0.5">
-              Si está activado, cuando un cliente que ya fue saludado escribe una duda específica que no coincide con ningún gancho, **el bot guarda silencio** en lugar de mandar un mensaje de error, permitiéndote conversar naturalmente.
-            </p>
-          </div>
+          <button 
+            onclick="refreshCustomers()" 
+            id="btnRefreshCustomers"
+            class="px-3 py-1.5 bg-white hover:bg-zinc-50 text-zinc-700 text-xs font-medium rounded-full border border-black/[0.08] flex items-center gap-1.5 transition-all active:scale-95">
+            <i data-lucide="refresh-cw" class="w-3.5 h-3.5 text-zinc-500"></i>
+            <span>Sincronizar</span>
+          </button>
         </div>
-        <label class="inline-flex items-center cursor-pointer shrink-0">
-          <input type="checkbox" id="silentFallbackToggle" class="sr-only peer" checked onchange="toggleSilentFallback(this.checked)">
-          <div class="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all relative peer-checked:bg-emerald-600"></div>
-          <span id="silentFallbackLabel" class="ml-2.5 text-xs font-semibold text-emerald-400">Activado (Recomendado)</span>
-        </label>
       </div>
 
-      <div id="fallbackBoxContainer" class="pt-3 border-t border-slate-800/80 hidden">
-        <label class="text-xs font-semibold text-slate-400 block mb-1.5">Mensaje de respaldo (Solo se envía si desactivas el Modo Recepcionista Silencioso):</label>
-        <textarea 
-          id="fallbackInput" 
-          rows="2" 
-          class="w-full text-xs p-3 bg-slate-950 border border-slate-700 rounded-xl text-slate-200 focus:outline-none focus:border-amber-500"
-          placeholder="Mensaje cuando no se reconoce el texto..."></textarea>
+      <!-- Contenedor de tarjetas/filas de clientes -->
+      <div id="customersContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <!-- Inyectado dinámicamente -->
       </div>
-    </div>
+    </section>
+
+    <!-- ========================================================= -->
+    <!-- SECCIÓN 2: GANCHOS DE RESPUESTA Y PALABRAS CLAVE          -->
+    <!-- ========================================================= -->
+    <section id="sectionHooks" class="space-y-4">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">
+        <div>
+          <h2 class="text-base font-bold tracking-tight text-zinc-900">Ganchos de Respuesta e Intenciones</h2>
+          <p class="text-xs text-zinc-500 mt-0.5">
+            Agrega o quita palabras clave con un clic. Las <span class="text-rose-600 font-medium">palabras negativas</span> impiden que un gancho salte por error.
+          </p>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <!-- Filtro rápido de ganchos -->
+          <div class="relative">
+            <i data-lucide="search" class="w-3.5 h-3.5 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2"></i>
+            <input 
+              type="text" 
+              id="hookSearchInput" 
+              oninput="renderHooks()"
+              placeholder="Buscar gancho o keyword..." 
+              class="pl-8 pr-3 py-1.5 bg-white border border-black/[0.08] rounded-full text-xs text-zinc-800 placeholder:text-zinc-400 focus:outline-none focus:border-zinc-900 w-44 sm:w-56"
+            />
+          </div>
+
+          <button 
+            onclick="addNewHook()" 
+            class="px-3.5 py-1.5 bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-semibold rounded-full shadow-xs flex items-center gap-1.5 transition-all active:scale-95 shrink-0">
+            <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+            <span>Nuevo Gancho</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Grid de Ganchos -->
+      <div id="hooksContainer" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+        <!-- Inyectado dinámicamente -->
+      </div>
+
+      <!-- Tarjeta de Modo Recepcionista Silencioso -->
+      <div class="studio-card rounded-2xl p-5 mt-6">
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div class="flex items-start gap-3.5">
+            <div class="w-10 h-10 rounded-2xl bg-zinc-900 text-white flex items-center justify-center shrink-0 mt-0.5">
+              <i data-lucide="Ear" class="w-4 h-4"></i>
+            </div>
+            <div>
+              <div class="flex items-center gap-2">
+                <h4 class="text-sm font-bold text-zinc-900">Modo Recepcionista No-Intrusivo</h4>
+                <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">Recomendado</span>
+              </div>
+              <p class="text-xs text-zinc-500 mt-1 max-w-3xl leading-relaxed">
+                Cuando está activo, el bot saluda con el Menú Principal la primera vez que un cliente escribe, pero si luego el cliente envía una consulta libre que no coincide con ningún gancho, <strong>el bot guarda silencio</strong> en vez de enviar mensajes de error.
+              </p>
+            </div>
+          </div>
+
+          <label class="inline-flex items-center cursor-pointer shrink-0 select-none">
+            <input type="checkbox" id="silentFallbackToggle" class="sr-only peer" checked onchange="toggleSilentFallback(this.checked)">
+            <div class="w-11 h-6 bg-zinc-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all after:shadow-xs relative peer-checked:bg-zinc-900"></div>
+            <span id="silentFallbackLabel" class="ml-2.5 text-xs font-semibold text-zinc-800">Activado</span>
+          </label>
+        </div>
+
+        <div id="fallbackBoxContainer" class="pt-4 mt-4 border-t border-black/[0.06] hidden">
+          <label class="text-xs font-semibold text-zinc-600 block mb-1.5">Mensaje de respaldo (solo se envía si desactivas el Modo Recepcionista):</label>
+          <textarea 
+            id="fallbackInput" 
+            rows="2" 
+            class="w-full text-xs p-3 bg-[#F8FAFC] border border-black/[0.08] rounded-xl text-zinc-800 focus:outline-none focus:bg-white focus:border-zinc-900"
+            placeholder="Mensaje cuando no se reconoce el texto..."></textarea>
+        </div>
+      </div>
+    </section>
 
   </main>
 
-  <!-- ========================================== -->
-  <!-- MODAL AJUSTES GENERALES                     -->
-  <!-- ========================================== -->
-  <div id="settingsModal" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm hidden items-center justify-center p-4">
-    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 max-w-lg w-full shadow-2xl">
-      <div class="flex items-center justify-between pb-4 border-b border-slate-800 mb-5">
-        <h3 class="text-base font-bold text-white flex items-center gap-2">
-          <i data-lucide="sliders" class="w-5 h-5 text-emerald-400"></i>
-          Ajustes Generales del Negocio
-        </h3>
-        <button onclick="closeSettingsModal()" class="text-slate-400 hover:text-white">
-          <i data-lucide="x" class="w-5 h-5"></i>
+  <!-- ========================================================= -->
+  <!-- MODAL AJUSTES GENERALES                                   -->
+  <!-- ========================================================= -->
+  <div id="settingsModal" class="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs hidden items-center justify-center p-4">
+    <div class="bg-white border border-black/[0.08] rounded-[1.75rem] p-6 sm:p-7 max-w-lg w-full shadow-2xl">
+      <div class="flex items-center justify-between pb-4 border-b border-black/[0.06] mb-5">
+        <div class="flex items-center gap-2.5">
+          <div class="w-8 h-8 rounded-xl bg-zinc-100 flex items-center justify-center text-zinc-800">
+            <i data-lucide="sliders-horizontal" class="w-4 h-4"></i>
+          </div>
+          <h3 class="text-sm font-bold text-zinc-900">Variables y Ajustes del Negocio</h3>
+        </div>
+        <button onclick="closeSettingsModal()" class="p-1.5 rounded-full text-zinc-400 hover:text-zinc-800 hover:bg-zinc-100">
+          <i data-lucide="x" class="w-4 h-4"></i>
         </button>
       </div>
 
       <div class="space-y-4 text-xs">
         <div>
-          <label class="block font-semibold text-slate-300 mb-1">Nombre Comercial del Negocio</label>
-          <input type="text" id="settingBusinessName" class="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-emerald-500" />
+          <label class="block font-semibold text-zinc-700 mb-1">Nombre Comercial <span class="font-mono text-zinc-400 font-normal">{BUSINESS_NAME}</span></label>
+          <input type="text" id="settingBusinessName" class="w-full px-3 py-2.5 bg-[#F8FAFC] border border-black/[0.08] rounded-xl text-zinc-900 focus:outline-none focus:bg-white focus:border-zinc-900" />
         </div>
         <div>
-          <label class="block font-semibold text-slate-300 mb-1">URL de la Tienda / Catálogo Web ({TIENDA_URL})</label>
-          <input type="url" id="settingTiendaUrl" class="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-emerald-500" />
+          <label class="block font-semibold text-zinc-700 mb-1">Catálogo Web <span class="font-mono text-zinc-400 font-normal">{TIENDA_URL}</span></label>
+          <input type="url" id="settingTiendaUrl" class="w-full px-3 py-2.5 bg-[#F8FAFC] border border-black/[0.08] rounded-xl text-zinc-900 focus:outline-none focus:bg-white focus:border-zinc-900" />
         </div>
         <div>
-          <label class="block font-semibold text-slate-300 mb-1">Enlace de Google Maps ({MAPS_URL})</label>
-          <input type="url" id="settingMapsUrl" class="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-emerald-500" />
+          <label class="block font-semibold text-zinc-700 mb-1">Ubicación en Google Maps <span class="font-mono text-zinc-400 font-normal">{MAPS_URL}</span></label>
+          <input type="url" id="settingMapsUrl" class="w-full px-3 py-2.5 bg-[#F8FAFC] border border-black/[0.08] rounded-xl text-zinc-900 focus:outline-none focus:bg-white focus:border-zinc-900" />
         </div>
         <div class="grid grid-cols-2 gap-3">
           <div>
-            <label class="block font-semibold text-slate-300 mb-1">Teléfono / WhatsApp</label>
-            <input type="text" id="settingPhone" class="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-emerald-500" />
+            <label class="block font-semibold text-zinc-700 mb-1">Teléfono / WhatsApp</label>
+            <input type="text" id="settingPhone" class="w-full px-3 py-2.5 bg-[#F8FAFC] border border-black/[0.08] rounded-xl text-zinc-900 focus:outline-none focus:bg-white focus:border-zinc-900" />
           </div>
           <div>
-            <label class="block font-semibold text-slate-300 mb-1">Horas de Auto-Pausa Humana</label>
-            <input type="number" id="settingPauseHours" min="1" max="72" class="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-emerald-500" />
+            <label class="block font-semibold text-zinc-700 mb-1">Duración de Auto-Pausa (Horas)</label>
+            <input type="number" id="settingPauseHours" min="1" max="72" class="w-full px-3 py-2.5 bg-[#F8FAFC] border border-black/[0.08] rounded-xl text-zinc-900 focus:outline-none focus:bg-white focus:border-zinc-900" />
           </div>
         </div>
       </div>
 
-      <div class="mt-6 flex justify-end gap-2">
-        <button onclick="closeSettingsModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl font-medium text-xs">Cancelar</button>
-        <button onclick="applySettings()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-semibold text-xs shadow-md">Aplicar y Guardar</button>
+      <div class="mt-6 pt-4 border-t border-black/[0.06] flex justify-end gap-2">
+        <button onclick="closeSettingsModal()" class="px-4 py-2 bg-zinc-100 hover:bg-zinc-200/70 text-zinc-700 rounded-full font-semibold text-xs transition-all">Cancelar</button>
+        <button onclick="applySettings()" class="px-5 py-2 bg-zinc-900 hover:bg-zinc-800 text-white rounded-full font-semibold text-xs shadow-sm transition-all">Aplicar y Guardar</button>
       </div>
     </div>
   </div>
 
-  <!-- ========================================== -->
-  <!-- DRAWER: SIMULADOR DE CHAT DE INSTAGRAM     -->
-  <!-- ========================================== -->
-  <div id="simDrawer" class="fixed right-0 top-0 bottom-0 w-full sm:w-96 bg-slate-900 border-l border-slate-800 shadow-2xl z-50 transform translate-x-full transition-transform duration-300 flex flex-col">
-    <!-- Header del chat -->
-    <div class="p-3.5 border-b border-slate-800 flex items-center justify-between bg-slate-950/90">
+  <!-- ========================================================= -->
+  <!-- DRAWER: SIMULADOR DE INSTAGRAM DM                         -->
+  <!-- ========================================================= -->
+  <div id="simDrawer" class="fixed right-0 top-0 bottom-0 w-full sm:w-[400px] bg-white border-l border-black/[0.08] shadow-2xl z-50 transform translate-x-full transition-transform duration-300 flex flex-col">
+    <!-- Cabecera del Simulador -->
+    <div class="p-4 border-b border-black/[0.06] flex items-center justify-between bg-white/90 backdrop-blur-md">
       <div class="flex items-center gap-2.5">
-        <div class="w-9 h-9 rounded-full ig-badge flex items-center justify-center text-white text-xs font-bold">
+        <div class="w-9 h-9 rounded-full ig-gradient flex items-center justify-center text-white text-xs font-bold shadow-xs">
           TT
         </div>
         <div>
-          <h4 class="text-xs font-bold text-white">tecnotradepty</h4>
-          <p id="simStateBadge" class="text-[10px] text-emerald-400 font-medium">🟢 Cliente Nuevo (Bot Activo)</p>
+          <h4 class="text-xs font-bold text-zinc-900">Simulador • @tecnotradepty</h4>
+          <p id="simStateBadge" class="text-[11px] text-emerald-600 font-medium">🟢 Cliente Nuevo (Bot Activo)</p>
         </div>
       </div>
-      <div class="flex items-center gap-1">
-        <button onclick="resetSimulatorChat()" class="px-2 py-1 text-[10px] bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg border border-slate-700" title="Reiniciar como cliente nuevo">
+      <div class="flex items-center gap-1.5">
+        <button onclick="resetSimulatorChat()" class="px-2.5 py-1 text-[11px] font-medium bg-zinc-100 hover:bg-zinc-200/70 text-zinc-700 rounded-full transition-all" title="Reiniciar como cliente nuevo">
           Reiniciar
         </button>
-        <button onclick="toggleSimulator()" class="p-1.5 text-slate-400 hover:text-white rounded-lg">
-          <i data-lucide="x" class="w-5 h-5"></i>
+        <button onclick="toggleSimulator()" class="p-1.5 text-zinc-400 hover:text-zinc-800 rounded-full hover:bg-zinc-100">
+          <i data-lucide="x" class="w-4 h-4"></i>
         </button>
       </div>
     </div>
 
-    <!-- Área de Mensajes -->
-    <div id="chatMessages" class="flex-1 p-4 overflow-y-auto space-y-3 text-xs bg-slate-950">
-      <!-- Mensajes simulados -->
-    </div>
+    <!-- Mensajes -->
+    <div id="chatMessages" class="flex-1 p-4 overflow-y-auto space-y-3 text-xs bg-[#F8FAFC]"></div>
 
-    <!-- Barra de envío simulado -->
-    <div class="p-3 border-t border-slate-800 bg-slate-900 flex items-center gap-2">
+    <!-- Input del Simulador -->
+    <div class="p-3.5 border-t border-black/[0.06] bg-white flex items-center gap-2">
       <input 
         type="text" 
         id="simInput" 
-        placeholder="Prueba ej: vender, pantalla, 1..." 
-        class="flex-1 text-xs px-3.5 py-2.5 bg-slate-950 border border-slate-700 rounded-full text-white focus:outline-none focus:border-pink-500"
+        placeholder="Escribe un mensaje de prueba..." 
+        class="flex-1 text-xs px-4 py-2.5 bg-[#F5F7FC] border border-black/[0.08] rounded-full text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:bg-white focus:border-zinc-900"
         onkeydown="if(event.key==='Enter') sendSimMessage()"
       />
       <button 
         onclick="sendSimMessage()" 
-        class="w-9 h-9 rounded-full ig-badge text-white flex items-center justify-center shrink-0 shadow-md active:scale-90 transition-all">
-        <i data-lucide="send" class="w-4 h-4"></i>
+        class="w-9 h-9 rounded-full bg-zinc-900 hover:bg-zinc-800 text-white flex items-center justify-center shrink-0 shadow-xs active:scale-90 transition-all">
+        <i data-lucide="send" class="w-3.5 h-3.5"></i>
       </button>
     </div>
   </div>
 
-  <!-- ========================================== -->
-  <!-- LÓGICA JAVASCRIPT DEL CLIENTE              -->
-  <!-- ========================================== -->
+  <!-- ========================================================= -->
+  <!-- LÓGICA DE APLICACIÓN                                      -->
+  <!-- ========================================================= -->
   <script>
     let activeConfig = null;
+    let customersList = [];
     let savedPin = localStorage.getItem('tecnobot_pin') || '';
+    let currentPinAttempt = '';
+    let currentViewMode = 'all';
+    let countdownInterval = null;
 
-    // Estado interno del simulador para emular exactamente Redis
+    // Estado del simulador
     let simIsPaused = false;
     let simIsNewCustomer = true;
 
     window.onload = async () => {
       lucide.createIcons();
       resetSimulatorChat();
+      setupKeyboardPinListener();
+
       if (savedPin) {
-        document.getElementById('pinInput').value = savedPin;
+        currentPinAttempt = savedPin;
+        updatePinDots();
         await verifyPin();
       }
     };
 
-    // 1. Verificación de PIN
+    // =========================================================
+    // 1. AUTENTICACIÓN CON TECLADO TÁCTIL Y FÍSICO
+    // =========================================================
+    function setupKeyboardPinListener() {
+      window.addEventListener('keydown', (e) => {
+        const modal = document.getElementById('pinModal');
+        if (modal.classList.contains('hidden')) return;
+
+        if (e.key >= '0' && e.key <= '9') {
+          appendPinDigit(e.key);
+        } else if (e.key === 'Backspace') {
+          currentPinAttempt = currentPinAttempt.slice(0, -1);
+          updatePinDots();
+        } else if (e.key === 'Enter') {
+          verifyPin();
+        }
+      });
+    }
+
+    function appendPinDigit(digit) {
+      if (currentPinAttempt.length >= 6) return;
+      document.getElementById('pinError').classList.add('hidden');
+      currentPinAttempt += digit;
+      updatePinDots();
+      if (currentPinAttempt.length === 6) {
+        verifyPin();
+      }
+    }
+
+    function clearPinDigits() {
+      currentPinAttempt = '';
+      document.getElementById('pinError').classList.add('hidden');
+      updatePinDots();
+    }
+
+    function updatePinDots() {
+      const dots = document.querySelectorAll('#pinDots > div');
+      dots.forEach((dot, idx) => {
+        if (idx < currentPinAttempt.length) {
+          dot.className = "w-3 h-3 rounded-full bg-zinc-900 scale-110 transition-all duration-150";
+        } else {
+          dot.className = "w-3 h-3 rounded-full bg-zinc-200 transition-all duration-150";
+        }
+      });
+    }
+
     async function verifyPin() {
-      const pin = document.getElementById('pinInput').value.trim();
+      const pin = currentPinAttempt.trim();
       if (!pin) return;
 
       try {
         const res = await fetch('/api/config');
         const data = await res.json();
-        
         const correctPin = data.settings?.pin || "047514";
+
         if (pin === correctPin) {
           localStorage.setItem('tecnobot_pin', pin);
           savedPin = pin;
@@ -331,15 +552,20 @@
           loadConfigData(data);
         } else {
           document.getElementById('pinError').classList.remove('hidden');
+          currentPinAttempt = '';
+          updatePinDots();
         }
       } catch (err) {
-        console.error('Error al conectar con API:', err);
+        console.error('Error al verificar PIN:', err);
       }
     }
 
-    // 2. Cargar datos en la UI
+    // =========================================================
+    // 2. CARGA DE DATOS Y NAVEGACIÓN DE VISTAS
+    // =========================================================
     function loadConfigData(data) {
       activeConfig = data;
+      customersList = Array.isArray(data.customers) ? data.customers : [];
 
       updateMasterButtonUI(activeConfig.botActive);
 
@@ -349,132 +575,203 @@
 
       document.getElementById('fallbackInput').value = activeConfig.fallbackResponse || '';
 
-      const badge = document.getElementById('storageBadge');
-      const dot = document.getElementById('storageDot');
       const txt = document.getElementById('storageText');
-      badge.classList.remove('hidden');
-
       if (activeConfig.hasUpstash) {
-        dot.className = "w-2 h-2 rounded-full bg-emerald-400";
-        txt.innerText = "Upstash Redis (Persistente)";
+        txt.innerText = "Upstash Redis Activo";
+        txt.className = "text-emerald-600 font-medium";
       } else {
-        dot.className = "w-2 h-2 rounded-full bg-amber-400";
-        txt.innerText = "Memoria Temporal";
+        txt.innerText = "Memoria Local";
+        txt.className = "text-amber-600 font-medium";
       }
 
+      renderCustomers();
       renderHooks();
+      updateKPIs();
+      startLiveCountdowns();
       lucide.createIcons();
     }
 
-    function toggleSilentFallback(checked) {
-      if (activeConfig && activeConfig.settings) {
-        activeConfig.settings.silentFallback = checked;
-      }
-      const lbl = document.getElementById('silentFallbackLabel');
-      const box = document.getElementById('fallbackBoxContainer');
-      if (checked) {
-        lbl.innerText = "Activado (No interrumpe chats)";
-        lbl.className = "ml-2.5 text-xs font-semibold text-emerald-400";
-        box.classList.add('hidden');
-      } else {
-        lbl.innerText = "Desactivado (Envía respuesta de respaldo)";
-        lbl.className = "ml-2.5 text-xs font-semibold text-amber-400";
-        box.classList.remove('hidden');
+    function setViewMode(mode) {
+      currentViewMode = mode;
+      const secCust = document.getElementById('sectionCustomers');
+      const secHooks = document.getElementById('sectionHooks');
+
+      const tabAll = document.getElementById('tabAll');
+      const tabHooks = document.getElementById('tabHooks');
+      const tabCustomers = document.getElementById('tabCustomers');
+
+      const activeClass = "px-3.5 py-1 rounded-full text-xs font-semibold transition-all bg-white text-zinc-900 shadow-xs flex items-center gap-1.5";
+      const inactiveClass = "px-3.5 py-1 rounded-full text-xs font-medium transition-all text-zinc-500 hover:text-zinc-900 flex items-center gap-1.5";
+
+      tabAll.className = mode === 'all' ? activeClass : inactiveClass;
+      tabHooks.className = mode === 'hooks' ? activeClass : inactiveClass;
+      tabCustomers.className = mode === 'customers' ? activeClass : inactiveClass;
+
+      if (mode === 'all') {
+        secCust.classList.remove('hidden');
+        secHooks.classList.remove('hidden');
+      } else if (mode === 'hooks') {
+        secCust.classList.add('hidden');
+        secHooks.classList.remove('hidden');
+      } else if (mode === 'customers') {
+        secCust.classList.remove('hidden');
+        secHooks.classList.add('hidden');
       }
     }
 
-    // 3. Renderizar Ganchos Visuales
-    function renderHooks() {
-      const container = document.getElementById('hooksContainer');
+    function updateKPIs() {
+      const hooksCount = (activeConfig?.hooks || []).length;
+      const totalCust = customersList.length;
+      const now = Date.now();
+      const pausedCust = customersList.filter(c => c.pausedUntil && Number(c.pausedUntil) > now).length;
+
+      document.getElementById('kpiHooksCount').innerText = hooksCount;
+      document.getElementById('navHooksCount').innerText = hooksCount;
+      document.getElementById('kpiCustomersTotal').innerText = totalCust;
+      document.getElementById('kpiPausedTotal').innerText = pausedCust;
+      document.getElementById('navCustomersCount').innerText = pausedCust > 0 ? `${pausedCust} en pausa` : totalCust;
+    }
+
+    // =========================================================
+    // 3. LISTA VISUAL DE CLIENTES Y CONTADOR REGRESIVO EN VIVO
+    // =========================================================
+    function renderCustomers() {
+      const container = document.getElementById('customersContainer');
       container.innerHTML = '';
 
-      // Mostrar ordenados por prioridad
-      (activeConfig.hooks || []).forEach((hook, index) => {
-        const card = document.createElement('div');
-        card.className = "bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg flex flex-col justify-between hover:border-slate-700 transition-all relative group";
-        
-        const isAutoPause = Boolean(hook.autoPause || hook.type === 'handoff');
+      if (!customersList || customersList.length === 0) {
+        container.innerHTML = `
+          <div class="col-span-full studio-card rounded-2xl p-8 text-center">
+            <div class="w-11 h-11 rounded-2xl bg-zinc-100 text-zinc-500 mx-auto flex items-center justify-center mb-3">
+              <i data-lucide="users" class="w-5 h-5"></i>
+            </div>
+            <h3 class="text-sm font-bold text-zinc-900">Aún no hay clientes registrados</h3>
+            <p class="text-xs text-zinc-500 mt-1 max-w-md mx-auto">
+              En cuanto un usuario escriba al DM de <b>@tecnotradepty</b>, aparecerá aquí con su foto de perfil, su último mensaje y el contador en vivo de horas en pausa.
+            </p>
+          </div>
+        `;
+        lucide.createIcons();
+        return;
+      }
 
-        let typeBadge = '';
-        if (hook.type === 'trigger') {
-          typeBadge = '<span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">Bienvenida / Menú</span>';
-        } else if (isAutoPause) {
-          typeBadge = '<span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">⏸️ Con Auto-Pausa</span>';
-        } else {
-          typeBadge = '<span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30">Informativo</span>';
-        }
+      const now = Date.now();
+
+      customersList.forEach((cust) => {
+        const pausedUntil = cust.pausedUntil ? Number(cust.pausedUntil) : 0;
+        const isPaused = pausedUntil > now;
+        const remainingMs = isPaused ? Math.max(0, pausedUntil - now) : 0;
+        const totalDurationMs = Number(cust.pauseDurationMs) || ((activeConfig?.settings?.advisorPauseHours || 12) * 3600 * 1000);
+        const progressPct = isPaused ? Math.min(100, Math.max(2, (remainingMs / totalDurationMs) * 100)) : 0;
+
+        const displayName = cust.name || (cust.username ? `@${cust.username}` : `Cliente IG`);
+        const displayHandle = cust.username ? `@${cust.username}` : `ID: ${cust.id}`;
+        const initials = (cust.username || cust.name || 'IG').slice(0, 2).toUpperCase();
+
+        const avatarHtml = cust.profilePic
+          ? `<img src="${escapeHtml(cust.profilePic)}" alt="${escapeHtml(displayHandle)}" onerror="this.onerror=null;this.parentElement.innerHTML='<span class=\\'text-xs font-bold text-white\\'>${initials}</span>';" class="w-10 h-10 rounded-full object-cover border border-black/[0.08]" />`
+          : `<span class="text-xs font-bold text-white">${initials}</span>`;
+
+        const card = document.createElement('div');
+        card.className = `studio-card rounded-2xl p-4 flex flex-col justify-between gap-3.5 ${isPaused ? 'ring-1 ring-amber-300/70' : ''}`;
 
         card.innerHTML = `
-          <!-- Cabecera del Gancho -->
-          <div class="flex items-start justify-between gap-2 mb-3">
-            <div class="flex-1">
-              <div class="flex items-center gap-1.5 flex-wrap">
-                ${typeBadge}
-                <span class="text-[10px] font-mono text-slate-400 bg-slate-950 px-2 py-0.5 rounded border border-slate-800">Prioridad: ${hook.priority || 1}</span>
+          <!-- Cabecera del Cliente -->
+          <div class="flex items-start justify-between gap-3">
+            <div class="flex items-center gap-3 min-w-0">
+              <div class="w-10 h-10 rounded-full ig-gradient flex items-center justify-center shrink-0 shadow-2xs overflow-hidden">
+                ${avatarHtml}
               </div>
-              <input 
-                type="text" 
-                value="${hook.title || hook.name}" 
-                onchange="updateHookField(${index}, 'title', this.value)"
-                class="bg-transparent text-sm font-bold text-white mt-2 w-full focus:outline-none focus:border-b border-emerald-500"
-              />
+              <div class="min-w-0">
+                <div class="flex items-center gap-1.5">
+                  <h4 class="text-xs font-bold text-zinc-900 truncate">${escapeHtml(displayName)}</h4>
+                  ${cust.username ? `
+                    <a href="https://instagram.com/${encodeURIComponent(cust.username)}" target="_blank" class="text-zinc-400 hover:text-zinc-800 transition-colors" title="Ver perfil en Instagram">
+                      <i data-lucide="external-link" class="w-3 h-3"></i>
+                    </a>
+                  ` : ''}
+                </div>
+                <p class="text-[11px] font-mono text-zinc-400 truncate">${escapeHtml(displayHandle)}</p>
+              </div>
             </div>
+
+            <!-- Badge de Estado -->
+            <span id="custBadge_${cust.id}" class="shrink-0 inline-flex items-center gap-1 text-[10px] font-semibold px-2.5 py-1 rounded-full ${
+              isPaused 
+                ? 'bg-amber-50 text-amber-800 border border-amber-200/80' 
+                : 'bg-emerald-50 text-emerald-700 border border-emerald-200/80'
+            }">
+              <span class="w-1.5 h-1.5 rounded-full ${isPaused ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500'}"></span>
+              <span>${isPaused ? 'En Pausa' : 'Bot Activo'}</span>
+            </span>
+          </div>
+
+          <!-- Bloque del Contador Regresivo de Horas en Pausa -->
+          <div class="rounded-xl p-3 ${isPaused ? 'bg-amber-50/50 border border-amber-200/60' : 'bg-[#F8FAFC] border border-black/[0.04]'}">
+            <div class="flex items-center justify-between text-[11px] mb-1">
+              <span class="font-medium ${isPaused ? 'text-amber-800' : 'text-zinc-500'} flex items-center gap-1">
+                <i data-lucide="clock" class="w-3.5 h-3.5"></i>
+                <span>${isPaused ? 'Tiempo restante en pausa:' : 'Contador de silencio:'}</span>
+              </span>
+              <span 
+                class="font-mono font-bold text-xs tabular-nums ${isPaused ? 'text-amber-900' : 'text-zinc-400'}"
+                data-countdown-user="${cust.id}"
+                data-paused-until="${pausedUntil}"
+                data-pause-duration="${totalDurationMs}">
+                ${isPaused ? formatDurationMs(remainingMs) : '00h 00m 00s'}
+              </span>
+            </div>
+
+            <!-- Barra de progreso visual -->
+            <div class="w-full h-1.5 bg-black/[0.06] rounded-full overflow-hidden mt-1.5">
+              <div 
+                id="custBar_${cust.id}"
+                class="h-full transition-all duration-500 rounded-full ${isPaused ? 'bg-amber-500' : 'bg-emerald-500'}" 
+                style="width: ${isPaused ? progressPct : 0}%"></div>
+            </div>
+
+            <div class="flex items-center justify-between mt-2 text-[10px] text-zinc-500">
+              <span class="truncate">${escapeHtml(cust.pauseReason || (isPaused ? 'Atención humana activa' : 'El bot responderá a palabras clave'))}</span>
+              <span class="shrink-0 font-mono text-zinc-400">${formatRelativeTime(cust.lastInteractionAt)}</span>
+            </div>
+          </div>
+
+          <!-- Último Mensaje Recibido -->
+          <div class="text-xs bg-[#F8FAFC] border border-black/[0.04] rounded-xl px-3 py-2 flex items-start justify-between gap-2">
+            <div class="min-w-0">
+              <span class="text-[10px] font-semibold uppercase tracking-wider text-zinc-400 block">Último mensaje</span>
+              <p class="text-zinc-700 truncate mt-0.5 font-medium">"${escapeHtml(cust.lastMessage || 'Sin texto')}"</p>
+            </div>
+            ${cust.lastHookTitle ? `
+              <span class="shrink-0 text-[10px] font-medium px-2 py-0.5 rounded-md bg-white border border-black/[0.06] text-zinc-600">
+                ${escapeHtml(cust.lastHookTitle)}
+              </span>
+            ` : ''}
+          </div>
+
+          <!-- Controles de Acción en 1 Clic -->
+          <div class="pt-1 flex items-center justify-between gap-2">
+            ${isPaused ? `
+              <button 
+                onclick="unpauseCustomerAction('${cust.id}')" 
+                class="flex-1 py-1.5 px-3 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition-all active:scale-95 shadow-2xs">
+                <i data-lucide="play" class="w-3.5 h-3.5"></i>
+                <span>Reactivar Bot Ahora</span>
+              </button>
+            ` : `
+              <button 
+                onclick="pauseCustomerAction('${cust.id}', 12)" 
+                class="flex-1 py-1.5 px-3 rounded-xl bg-white hover:bg-amber-50 text-zinc-700 hover:text-amber-800 border border-black/[0.08] hover:border-amber-300 text-xs font-semibold flex items-center justify-center gap-1.5 transition-all active:scale-95">
+                <i data-lucide="pause" class="w-3.5 h-3.5"></i>
+                <span>Pausar 12h</span>
+              </button>
+            `}
+
             <button 
-              onclick="deleteHook(${index})" 
-              class="text-slate-500 hover:text-rose-400 p-1 rounded-lg transition-colors opacity-60 group-hover:opacity-100"
-              title="Eliminar este gancho">
-              <i data-lucide="trash-2" class="w-4 h-4"></i>
-            </button>
-          </div>
-
-          <!-- Palabras clave POSITIVAS -->
-          <div class="mb-2.5">
-            <label class="text-[11px] font-semibold text-emerald-400 block mb-1">✅ Palabras Activadoras (separadas por coma):</label>
-            <input 
-              type="text" 
-              value="${(hook.keywords || []).join(', ')}" 
-              onchange="updateHookArray(${index}, 'keywords', this.value)"
-              class="w-full text-xs px-2.5 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-emerald-300 font-mono focus:outline-none focus:border-emerald-500"
-            />
-          </div>
-
-          <!-- Palabras clave NEGATIVAS -->
-          <div class="mb-3">
-            <label class="text-[11px] font-semibold text-rose-400 block mb-1">🚫 Palabras Negativas / Bloqueos (separadas por coma):</label>
-            <input 
-              type="text" 
-              placeholder="Ej: reparar, pantalla, vender..."
-              value="${(hook.negativeKeywords || []).join(', ')}" 
-              onchange="updateHookArray(${index}, 'negativeKeywords', this.value)"
-              class="w-full text-xs px-2.5 py-1.5 bg-slate-950 border border-rose-950/60 rounded-lg text-rose-300 font-mono focus:outline-none focus:border-rose-500"
-            />
-          </div>
-
-          <!-- Mensaje de respuesta -->
-          <div class="flex-1 mb-3">
-            <label class="text-[11px] font-semibold text-slate-400 block mb-1">Respuesta enviada al cliente:</label>
-            <textarea 
-              rows="5" 
-              onchange="updateHookField(${index}, 'response', this.value)"
-              class="w-full text-xs p-2.5 bg-slate-950 border border-slate-800 rounded-xl text-slate-200 focus:outline-none focus:border-emerald-500 leading-relaxed font-sans">${hook.response}</textarea>
-          </div>
-
-          <!-- Selector de Auto-Pausa y Prueba -->
-          <div class="pt-2.5 border-t border-slate-800/80 flex items-center justify-between gap-2">
-            <label class="flex items-center gap-2 cursor-pointer text-[11px] text-slate-300 select-none">
-              <input 
-                type="checkbox" 
-                ${isAutoPause ? 'checked' : ''} 
-                onchange="updateHookField(${index}, 'autoPause', this.checked); renderHooks();"
-                class="rounded bg-slate-950 border-slate-700 text-amber-500 focus:ring-0"
-              />
-              <span>Pausar bot tras responder</span>
-            </label>
-
-            <button 
-              onclick="testHookInSim('${(hook.keywords && hook.keywords[0]) || 'hola'}')" 
-              class="text-pink-400 hover:text-pink-300 text-xs font-semibold flex items-center gap-1 shrink-0">
-              <i data-lucide="play" class="w-3 h-3"></i> Probar
+              onclick="deleteCustomerAction('${cust.id}')" 
+              class="p-1.5 rounded-xl bg-white hover:bg-rose-50 text-zinc-400 hover:text-rose-600 border border-black/[0.06] transition-all"
+              title="Resetear cliente (volverá a recibir bienvenida como cliente nuevo)">
+              <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
             </button>
           </div>
         `;
@@ -485,38 +782,410 @@
       lucide.createIcons();
     }
 
+    function startLiveCountdowns() {
+      if (countdownInterval) clearInterval(countdownInterval);
+      countdownInterval = setInterval(() => {
+        const now = Date.now();
+        const nodes = document.querySelectorAll('[data-countdown-user]');
+        let anyExpiredJustNow = false;
+
+        nodes.forEach(node => {
+          const userId = node.getAttribute('data-countdown-user');
+          const pausedUntil = Number(node.getAttribute('data-paused-until')) || 0;
+          const totalDuration = Number(node.getAttribute('data-pause-duration')) || 43200000;
+
+          if (pausedUntil > now) {
+            const rem = pausedUntil - now;
+            node.innerText = formatDurationMs(rem);
+            const bar = document.getElementById(`custBar_${userId}`);
+            if (bar) {
+              const pct = Math.min(100, Math.max(2, (rem / totalDuration) * 100));
+              bar.style.width = `${pct}%`;
+            }
+          } else if (pausedUntil > 0 && pausedUntil <= now) {
+            node.setAttribute('data-paused-until', '0');
+            node.innerText = '00h 00m 00s';
+            anyExpiredJustNow = true;
+          }
+        });
+
+        if (anyExpiredJustNow) {
+          renderCustomers();
+          updateKPIs();
+        }
+      }, 1000);
+    }
+
+    function formatDurationMs(ms) {
+      if (!ms || ms <= 0) return '00h 00m 00s';
+      const totalSeconds = Math.floor(ms / 1000);
+      const hours = Math.floor(totalSeconds / 3600);
+      const minutes = Math.floor((totalSeconds % 3600) / 60);
+      const seconds = totalSeconds % 60;
+      const pad = (n) => String(n).padStart(2, '0');
+      return `${pad(hours)}h ${pad(minutes)}m ${pad(seconds)}s`;
+    }
+
+    function formatRelativeTime(timestamp) {
+      if (!timestamp) return '';
+      const diffSec = Math.max(0, Math.floor((Date.now() - Number(timestamp)) / 1000));
+      if (diffSec < 60) return 'hace instantes';
+      const diffMin = Math.floor(diffSec / 60);
+      if (diffMin < 60) return `hace ${diffMin} min`;
+      const diffHours = Math.floor(diffMin / 60);
+      if (diffHours < 24) return `hace ${diffHours}h`;
+      const diffDays = Math.floor(diffHours / 24);
+      return `hace ${diffDays}d`;
+    }
+
+    async function refreshCustomers() {
+      const btn = document.getElementById('btnRefreshCustomers');
+      const oldHtml = btn.innerHTML;
+      btn.innerHTML = `<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i><span>Sincronizando...</span>`;
+      lucide.createIcons();
+
+      try {
+        const res = await fetch('/api/config');
+        const data = await res.json();
+        customersList = Array.isArray(data.customers) ? data.customers : [];
+        renderCustomers();
+        updateKPIs();
+      } catch (e) {
+        console.error(e);
+      } finally {
+        btn.innerHTML = oldHtml;
+        lucide.createIcons();
+      }
+    }
+
+    async function pauseManualCustomer() {
+      const input = document.getElementById('manualCustomerIdInput');
+      const userId = input.value.trim();
+      if (!userId) return;
+      input.value = '';
+      await pauseCustomerAction(userId, activeConfig?.settings?.advisorPauseHours || 12);
+    }
+
+    async function pauseCustomerAction(userId, hours = 12) {
+      try {
+        const res = await fetch('/api/config?action=customer_pause', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-admin-pin': savedPin },
+          body: JSON.stringify({ userId, hours, reason: 'Pausa manual desde panel' })
+        });
+        const data = await res.json();
+        if (data.success) {
+          customersList = data.customers || [];
+          renderCustomers();
+          updateKPIs();
+        }
+      } catch (err) {
+        console.error('Error al pausar cliente:', err);
+      }
+    }
+
+    async function unpauseCustomerAction(userId) {
+      try {
+        const res = await fetch('/api/config?action=customer_unpause', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-admin-pin': savedPin },
+          body: JSON.stringify({ userId })
+        });
+        const data = await res.json();
+        if (data.success) {
+          customersList = data.customers || [];
+          renderCustomers();
+          updateKPIs();
+        }
+      } catch (err) {
+        console.error('Error al reactivar cliente:', err);
+      }
+    }
+
+    async function deleteCustomerAction(userId) {
+      if (!confirm('¿Resetear este cliente? Volverá a recibir el Menú Principal cuando escriba de nuevo.')) return;
+      try {
+        const res = await fetch('/api/config?action=customer_delete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-admin-pin': savedPin },
+          body: JSON.stringify({ userId })
+        });
+        const data = await res.json();
+        if (data.success) {
+          customersList = data.customers || [];
+          renderCustomers();
+          updateKPIs();
+        }
+      } catch (err) {
+        console.error('Error al eliminar cliente:', err);
+      }
+    }
+
+    // =========================================================
+    // 4. RENDERIZADO MINIMALISTA DE GANCHOS CON PILL CHIPS
+    // =========================================================
+    function renderHooks() {
+      const container = document.getElementById('hooksContainer');
+      const query = (document.getElementById('hookSearchInput')?.value || '').toLowerCase().trim();
+      container.innerHTML = '';
+
+      (activeConfig.hooks || []).forEach((hook, index) => {
+        if (query) {
+          const hay = [
+            hook.title,
+            hook.name,
+            hook.response,
+            ...(hook.keywords || []),
+            ...(hook.negativeKeywords || [])
+          ].join(' ').toLowerCase();
+          if (!hay.includes(query)) return;
+        }
+
+        const isAutoPause = Boolean(hook.autoPause || hook.type === 'handoff');
+
+        let badgeHtml = '';
+        if (hook.type === 'trigger' || hook.id === 'hook_welcome') {
+          badgeHtml = `<span class="text-[10px] font-semibold px-2.5 py-0.5 rounded-full bg-zinc-900 text-white">Menú / Bienvenida</span>`;
+        } else if (isAutoPause) {
+          badgeHtml = `<span class="text-[10px] font-semibold px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200/80">⏸️ Auto-Pausa 12h</span>`;
+        } else {
+          badgeHtml = `<span class="text-[10px] font-semibold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200/80">Respuesta Directa</span>`;
+        }
+
+        const posChipsHtml = (hook.keywords || []).map((kw, kwIdx) => `
+          <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] font-medium bg-zinc-100 text-zinc-800 border border-black/[0.06]">
+            <span>${escapeHtml(kw)}</span>
+            <button type="button" onclick="removeKeywordChip(${index}, 'keywords', ${kwIdx})" class="text-zinc-400 hover:text-zinc-900 ml-0.5">×</button>
+          </span>
+        `).join('');
+
+        const negChipsHtml = (hook.negativeKeywords || []).map((nkw, nkwIdx) => `
+          <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] font-medium bg-rose-50 text-rose-700 border border-rose-200/70">
+            <span>${escapeHtml(nkw)}</span>
+            <button type="button" onclick="removeKeywordChip(${index}, 'negativeKeywords', ${nkwIdx})" class="text-rose-400 hover:text-rose-800 ml-0.5">×</button>
+          </span>
+        `).join('');
+
+        const card = document.createElement('div');
+        card.className = "studio-card rounded-[1.5rem] p-5 flex flex-col justify-between gap-4 group";
+
+        card.innerHTML = `
+          <!-- Cabecera de la Tarjeta -->
+          <div>
+            <div class="flex items-center justify-between gap-2 mb-2.5">
+              <div class="flex items-center gap-1.5 flex-wrap">
+                ${badgeHtml}
+                <div class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#F8FAFC] border border-black/[0.06] text-[10px] font-mono text-zinc-500" title="Mayor prioridad se evalúa primero">
+                  <span>Prioridad</span>
+                  <input 
+                    type="number" 
+                    min="1" 
+                    max="20" 
+                    value="${hook.priority || 5}" 
+                    onchange="updateHookField(${index}, 'priority', Number(this.value))"
+                    class="w-7 text-center font-bold text-zinc-800 bg-transparent focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <button 
+                onclick="deleteHook(${index})" 
+                class="p-1.5 rounded-full text-zinc-300 hover:text-rose-600 hover:bg-rose-50 transition-all"
+                title="Eliminar gancho">
+                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+              </button>
+            </div>
+
+            <input 
+              type="text" 
+              value="${escapeHtml(hook.title || hook.name)}" 
+              onchange="updateHookField(${index}, 'title', this.value)"
+              class="w-full text-sm font-bold text-zinc-900 bg-transparent border-b border-transparent focus:border-zinc-900 focus:outline-none pb-0.5 transition-colors"
+            />
+          </div>
+
+          <!-- Palabras Clave Activadoras (Chips) -->
+          <div class="space-y-1.5">
+            <div class="flex items-center justify-between">
+              <label class="text-[11px] font-semibold text-zinc-600 flex items-center gap-1">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                <span>Palabras Activadoras</span>
+              </label>
+              <span class="text-[10px] text-zinc-400">${(hook.keywords || []).length} activas</span>
+            </div>
+            <div class="p-2 rounded-xl bg-[#F8FAFC] border border-black/[0.06] focus-within:bg-white focus-within:border-zinc-400 transition-all flex flex-wrap items-center gap-1.5 min-h-[40px]">
+              ${posChipsHtml}
+              <input 
+                type="text" 
+                placeholder="+ añadir y Enter..." 
+                onkeydown="handleChipInputKey(event, ${index}, 'keywords')"
+                onblur="handleChipInputBlur(this, ${index}, 'keywords')"
+                class="flex-1 min-w-[110px] text-[11px] bg-transparent text-zinc-800 placeholder:text-zinc-400 focus:outline-none px-1 py-0.5"
+              />
+            </div>
+          </div>
+
+          <!-- Palabras Clave Negativas (Bloqueos) -->
+          <div class="space-y-1.5">
+            <div class="flex items-center justify-between">
+              <label class="text-[11px] font-semibold text-rose-600/90 flex items-center gap-1">
+                <span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+                <span>Palabras Negativas (No disparar si contiene)</span>
+              </label>
+            </div>
+            <div class="p-2 rounded-xl bg-rose-50/30 border border-rose-200/60 focus-within:bg-white focus-within:border-rose-400 transition-all flex flex-wrap items-center gap-1.5 min-h-[38px]">
+              ${negChipsHtml}
+              <input 
+                type="text" 
+                placeholder="+ bloquear palabra..." 
+                onkeydown="handleChipInputKey(event, ${index}, 'negativeKeywords')"
+                onblur="handleChipInputBlur(this, ${index}, 'negativeKeywords')"
+                class="flex-1 min-w-[115px] text-[11px] bg-transparent text-rose-900 placeholder:text-rose-300 focus:outline-none px-1 py-0.5"
+              />
+            </div>
+          </div>
+
+          <!-- Mensaje de Respuesta -->
+          <div class="space-y-1.5 flex-1 flex flex-col">
+            <div class="flex items-center justify-between">
+              <label class="text-[11px] font-semibold text-zinc-600">Respuesta automática</label>
+              <div class="flex items-center gap-1">
+                <button type="button" onclick="insertVariableInHook(${index}, '{TIENDA_URL}')" class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-zinc-100 hover:bg-zinc-200 text-zinc-600 transition-colors" title="Insertar enlace de tienda">+Tienda</button>
+                <button type="button" onclick="insertVariableInHook(${index}, '{MAPS_URL}')" class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-zinc-100 hover:bg-zinc-200 text-zinc-600 transition-colors" title="Insertar enlace de Google Maps">+Maps</button>
+              </div>
+            </div>
+            <textarea 
+              id="hookTextarea_${index}"
+              rows="5" 
+              onchange="updateHookField(${index}, 'response', this.value)"
+              class="w-full flex-1 text-xs p-3 bg-[#F8FAFC] border border-black/[0.06] rounded-xl text-zinc-800 focus:outline-none focus:bg-white focus:border-zinc-900 leading-relaxed resize-y">${escapeHtml(hook.response)}</textarea>
+          </div>
+
+          <!-- Pie del Gancho -->
+          <div class="pt-3 border-t border-black/[0.05] flex items-center justify-between gap-2">
+            <label class="inline-flex items-center gap-2 cursor-pointer select-none">
+              <input 
+                type="checkbox" 
+                ${isAutoPause ? 'checked' : ''} 
+                onchange="updateHookField(${index}, 'autoPause', this.checked); renderHooks();"
+                class="sr-only peer"
+              />
+              <div class="w-8 h-4.5 bg-zinc-200 rounded-full peer peer-checked:after:translate-x-3.5 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-3.5 after:w-3.5 after:transition-all relative peer-checked:bg-amber-500"></div>
+              <span class="text-[11px] font-medium text-zinc-600">Pausar bot tras responder</span>
+            </label>
+
+            <button 
+              onclick="testHookInSim('${escapeJsSingleQuote((hook.keywords && hook.keywords[0]) || 'hola')}')" 
+              class="px-2.5 py-1 rounded-full bg-zinc-100 hover:bg-zinc-900 text-zinc-700 hover:text-white text-[11px] font-semibold flex items-center gap-1 transition-all shrink-0">
+              <i data-lucide="play" class="w-3 h-3"></i>
+              <span>Probar</span>
+            </button>
+          </div>
+        `;
+
+        container.appendChild(card);
+      });
+
+      lucide.createIcons();
+    }
+
+    function handleChipInputKey(event, hookIdx, field) {
+      if (event.key === 'Enter' || event.key === ',') {
+        event.preventDefault();
+        addChipsFromValue(event.target, hookIdx, field);
+      }
+    }
+
+    function handleChipInputBlur(inputEl, hookIdx, field) {
+      if (inputEl.value.trim()) {
+        addChipsFromValue(inputEl, hookIdx, field);
+      }
+    }
+
+    function addChipsFromValue(inputEl, hookIdx, field) {
+      const raw = inputEl.value;
+      const parts = raw.split(',').map(s => s.trim()).filter(Boolean);
+      if (parts.length === 0) return;
+
+      const list = Array.isArray(activeConfig.hooks[hookIdx][field]) ? activeConfig.hooks[hookIdx][field] : [];
+      parts.forEach(p => {
+        if (!list.includes(p)) list.push(p);
+      });
+      activeConfig.hooks[hookIdx][field] = list;
+      inputEl.value = '';
+      renderHooks();
+    }
+
+    function removeKeywordChip(hookIdx, field, kwIdx) {
+      const list = activeConfig.hooks[hookIdx][field] || [];
+      list.splice(kwIdx, 1);
+      activeConfig.hooks[hookIdx][field] = list;
+      renderHooks();
+    }
+
+    function insertVariableInHook(hookIdx, variableStr) {
+      const textarea = document.getElementById(`hookTextarea_${hookIdx}`);
+      if (!textarea) return;
+      const start = textarea.selectionStart || textarea.value.length;
+      const end = textarea.selectionEnd || textarea.value.length;
+      const val = textarea.value;
+      textarea.value = val.slice(0, start) + variableStr + val.slice(end);
+      activeConfig.hooks[hookIdx].response = textarea.value;
+      textarea.focus();
+    }
+
     function updateHookField(idx, field, val) {
       activeConfig.hooks[idx][field] = val;
     }
 
-    function updateHookArray(idx, field, val) {
-      activeConfig.hooks[idx][field] = val.split(',').map(s => s.trim()).filter(Boolean);
-    }
-
     function addNewHook() {
       const newId = 'hook_' + Date.now();
-      activeConfig.hooks.push({
+      activeConfig.hooks.unshift({
         id: newId,
         name: "Nuevo Gancho",
         type: "branch",
-        priority: 5,
+        priority: 6,
         autoPause: false,
-        keywords: ["palabra"],
+        keywords: ["ejemplo"],
         negativeKeywords: [],
         title: "✨ Nuevo Gancho Personalizado",
-        response: "Escribe aquí la respuesta para este gancho."
+        response: "Escribe aquí la respuesta automática para el cliente."
       });
       renderHooks();
+      updateKPIs();
     }
 
     function deleteHook(idx) {
-      if (confirm('¿Seguro que deseas eliminar este gancho?')) {
+      if (confirm('¿Eliminar este gancho de respuesta?')) {
         activeConfig.hooks.splice(idx, 1);
         renderHooks();
+        updateKPIs();
       }
     }
 
-    // Alternar estado maestro (Bot ON / OFF)
+    // =========================================================
+    // 5. GUARDADO Y CONTROL DE ESTADO GLOBAL
+    // =========================================================
+    function toggleSilentFallback(checked) {
+      if (activeConfig && activeConfig.settings) {
+        activeConfig.settings.silentFallback = checked;
+      }
+      const lbl = document.getElementById('silentFallbackLabel');
+      const box = document.getElementById('fallbackBoxContainer');
+      const kpi = document.getElementById('kpiModeText');
+      if (checked) {
+        lbl.innerText = "Activado";
+        lbl.className = "ml-2.5 text-xs font-semibold text-zinc-900";
+        box.classList.add('hidden');
+        if (kpi) kpi.innerText = "Recepcionista";
+      } else {
+        lbl.innerText = "Desactivado";
+        lbl.className = "ml-2.5 text-xs font-semibold text-amber-600";
+        box.classList.remove('hidden');
+        if (kpi) kpi.innerText = "Respuesta Continua";
+      }
+    }
+
     async function toggleBotStatus() {
       try {
         const res = await fetch('/api/config?action=toggle', {
@@ -543,21 +1212,20 @@
       const text = document.getElementById('statusIndicatorText');
 
       if (isActive) {
-        btn.className = "flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-all active:scale-95 shadow-sm bg-emerald-950/60 border-emerald-500/50 text-emerald-400 hover:bg-emerald-900/50";
-        dot.className = "w-2 h-2 rounded-full bg-emerald-400 animate-pulse";
-        text.innerText = "Bot: Encendido";
+        btn.className = "flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all active:scale-95 bg-emerald-50/90 border-emerald-200 text-emerald-800 hover:bg-emerald-100/80";
+        dot.className = "w-2 h-2 rounded-full bg-emerald-500 animate-pulse";
+        text.innerText = "Bot Activo";
       } else {
-        btn.className = "flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-all active:scale-95 shadow-sm bg-rose-950/60 border-rose-500/50 text-rose-400 hover:bg-rose-900/50";
-        dot.className = "w-2 h-2 rounded-full bg-rose-400";
-        text.innerText = "Bot: En Pausa";
+        btn.className = "flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all active:scale-95 bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100";
+        dot.className = "w-2 h-2 rounded-full bg-rose-500";
+        text.innerText = "Bot Pausado";
       }
     }
 
-    // Guardar cambios en Redis / Servidor
     async function saveCurrentConfig() {
       const btn = document.getElementById('btnSaveAll');
-      const originalText = btn.innerHTML;
-      btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Guardando...`;
+      const originalHtml = btn.innerHTML;
+      btn.innerHTML = `<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i><span>Guardando...</span>`;
       lucide.createIcons();
 
       activeConfig.fallbackResponse = document.getElementById('fallbackInput').value;
@@ -574,22 +1242,26 @@
 
         const data = await res.json();
         if (data.success) {
-          btn.innerHTML = `<i data-lucide="check" class="w-4 h-4 text-emerald-200"></i> ¡Guardado en ${data.persistence === 'upstash_redis' ? 'Redis' : 'Servidor'}!`;
+          btn.className = "px-4 py-1.5 bg-emerald-600 text-white text-xs font-semibold rounded-full shadow-sm flex items-center gap-1.5 transition-all";
+          btn.innerHTML = `<i data-lucide="check" class="w-3.5 h-3.5"></i><span>¡Guardado!</span>`;
+          lucide.createIcons();
           setTimeout(() => {
-            btn.innerHTML = originalText;
+            btn.className = "px-4 py-1.5 bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-semibold rounded-full shadow-sm flex items-center gap-1.5 transition-all active:scale-95";
+            btn.innerHTML = originalHtml;
             lucide.createIcons();
-          }, 2200);
+          }, 2000);
         } else {
           alert('Error al guardar: ' + (data.error || 'Desconocido'));
-          btn.innerHTML = originalText;
+          btn.innerHTML = originalHtml;
+          lucide.createIcons();
         }
       } catch (err) {
         console.error(err);
-        btn.innerHTML = originalText;
+        btn.innerHTML = originalHtml;
+        lucide.createIcons();
       }
     }
 
-    // Modal Ajustes Generales
     function openSettingsModal() {
       document.getElementById('settingBusinessName').value = activeConfig.settings?.businessName || '';
       document.getElementById('settingTiendaUrl').value = activeConfig.settings?.tiendaUrl || '';
@@ -615,7 +1287,9 @@
       saveCurrentConfig();
     }
 
-    // Simulador de Instagram con Máquina de Estados
+    // =========================================================
+    // 6. SIMULADOR DE CHAT DE INSTAGRAM
+    // =========================================================
     function toggleSimulator() {
       document.getElementById('simDrawer').classList.toggle('translate-x-full');
     }
@@ -626,11 +1300,11 @@
       updateSimBadge();
       const chat = document.getElementById('chatMessages');
       chat.innerHTML = `
-        <div class="text-center text-[10px] text-slate-500 my-2">-- Chat reiniciado (Simulando Cliente Nuevo) --</div>
-        <div class="bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-[11px] text-slate-400">
-          💡 <b>Prueba el flujo real:</b><br>
+        <div class="text-center text-[10px] text-zinc-400 my-1">Simulando conversación como cliente nuevo</div>
+        <div class="bg-white border border-black/[0.06] rounded-2xl p-3 text-[11px] text-zinc-600 shadow-2xs leading-relaxed">
+          💡 <b>Prueba de Auto-Pausa y Palabras Negativas:</b><br>
           1. Escribe <b>"Quiero vender mi iPhone"</b>.<br>
-          2. Cuando te pida los datos, escribe <b>"pantalla cambiada, 85% batería"</b> y verás cómo el bot <b>NO</b> te interrumpe con el gancho de taller.
+          2. Luego responde <b>"pantalla cambiada, 85% batería"</b> y comprueba cómo el bot permanece en silencio sin activar el gancho de taller.
         </div>
       `;
     }
@@ -638,14 +1312,14 @@
     function updateSimBadge() {
       const badge = document.getElementById('simStateBadge');
       if (simIsPaused) {
-        badge.className = "text-[10px] text-amber-400 font-semibold";
-        badge.innerText = "⏸️ Modo Escucha Humana (Bot en Silencio)";
+        badge.className = "text-[11px] text-amber-600 font-semibold";
+        badge.innerText = "⏸️ En Auto-Pausa (Modo Escucha Humana)";
       } else if (simIsNewCustomer) {
-        badge.className = "text-[10px] text-emerald-400 font-medium";
+        badge.className = "text-[11px] text-emerald-600 font-medium";
         badge.innerText = "🟢 Cliente Nuevo (Esperando 1er mensaje)";
       } else {
-        badge.className = "text-[10px] text-cyan-400 font-medium";
-        badge.innerText = "🤖 Cliente Ya Recibido (Recepcionista Activo)";
+        badge.className = "text-[11px] text-zinc-500 font-medium";
+        badge.innerText = "🤖 Cliente Registrado (Recepcionista Activo)";
       }
     }
 
@@ -668,10 +1342,9 @@
 
       const chat = document.getElementById('chatMessages');
 
-      // Burbuja del cliente
       const userBubble = document.createElement('div');
       userBubble.className = "flex justify-end";
-      userBubble.innerHTML = `<div class="bg-indigo-600 text-white p-2.5 rounded-2xl rounded-tr-sm max-w-[80%]">${escapeHtml(text)}</div>`;
+      userBubble.innerHTML = `<div class="bg-zinc-900 text-white px-3.5 py-2.5 rounded-2xl rounded-tr-xs max-w-[82%] shadow-2xs">${escapeHtml(text)}</div>`;
       chat.appendChild(userBubble);
 
       input.value = '';
@@ -684,18 +1357,15 @@
         let shouldUnpause = false;
 
         if (activeConfig.botActive === false) {
-          appendSystemNotice("⏸️ Bot apagado globalmente. No se envía respuesta.");
+          appendSystemNotice("⏸️ El bot está pausado globalmente.");
           return;
         }
 
-        // 1. Comando explícito Menú
         if (clean === "menu" || clean === "activar bot" || clean === "/bot" || clean === "inicio") {
           const wHook = (activeConfig.hooks || []).find(h => h.id === "hook_welcome");
           if (wHook) reply = formatSimText(wHook.response);
           shouldUnpause = true;
-        } 
-        // 2. Si el usuario está en Auto-Pausa (Modo Escucha Humana)
-        else if (simIsPaused) {
+        } else if (simIsPaused) {
           const allowedHooks = (activeConfig.hooks || []).filter(h => h.allowedWhenPaused);
           for (const h of allowedHooks) {
             const hasNeg = (h.negativeKeywords || []).some(n => normalizeStr(n) && clean.includes(normalizeStr(n)));
@@ -710,12 +1380,10 @@
             }
           }
           if (!reply) {
-            appendSystemNotice("🤫 [Silencio Inteligente]: El cliente está respondiendo datos para el asesor. El bot NO interrumpe.");
+            appendSystemNotice("🤫 Silencio Inteligente: El cliente está enviando datos para el asesor. El bot no interrumpe.");
             return;
           }
-        } 
-        // 3. Evaluación normal con prioridades y Negative Keywords
-        else {
+        } else {
           const sorted = [...(activeConfig.hooks || [])].sort((a, b) => (b.priority || 0) - (a.priority || 0));
           for (const h of sorted) {
             const hasNeg = (h.negativeKeywords || []).some(n => normalizeStr(n) && clean.includes(normalizeStr(n)));
@@ -740,7 +1408,7 @@
               const wHook = (activeConfig.hooks || []).find(h => h.id === "hook_welcome");
               if (wHook) reply = formatSimText(wHook.response);
             } else if (activeConfig.settings?.silentFallback !== false) {
-              appendSystemNotice("🤫 [Modo Recepcionista]: Mensaje conversacional no reconocido. El bot guarda silencio para no interrumpir.");
+              appendSystemNotice("🤫 Modo Recepcionista: Mensaje libre no reconocido. El bot guarda silencio.");
               simIsNewCustomer = false;
               updateSimBadge();
               return;
@@ -757,26 +1425,26 @@
 
         if (reply) {
           const botBubble = document.createElement('div');
-          botBubble.className = "flex gap-2";
+          botBubble.className = "flex gap-2 items-end";
           botBubble.innerHTML = `
-            <div class="w-7 h-7 rounded-full ig-badge shrink-0 flex items-center justify-center text-[10px] text-white">TT</div>
-            <div class="bg-slate-800 text-slate-100 p-3 rounded-2xl rounded-tl-sm max-w-[80%] whitespace-pre-line leading-relaxed shadow-sm">${escapeHtml(reply)}</div>
+            <div class="w-6 h-6 rounded-full ig-gradient shrink-0 flex items-center justify-center text-[9px] font-bold text-white">TT</div>
+            <div class="bg-white border border-black/[0.06] text-zinc-800 p-3 rounded-2xl rounded-tl-xs max-w-[82%] whitespace-pre-line leading-relaxed shadow-2xs">${escapeHtml(reply)}</div>
           `;
           chat.appendChild(botBubble);
         }
 
         if (shouldPause) {
-          appendSystemNotice("⏸️ Auto-Pausa activada para este cliente. Ahora el cliente puede responder los detalles de su equipo sin que el bot salte.");
+          appendSystemNotice("⏸️ Auto-Pausa (12h) activada para este cliente.");
         }
 
         chat.scrollTop = chat.scrollHeight;
-      }, 300);
+      }, 240);
     }
 
     function appendSystemNotice(msg) {
       const chat = document.getElementById('chatMessages');
       const div = document.createElement('div');
-      div.className = "text-center text-[10px] py-1.5 px-3 rounded-lg bg-slate-900 border border-slate-800 text-amber-300/90 my-1";
+      div.className = "text-center text-[10px] py-1.5 px-3 rounded-xl bg-amber-50 border border-amber-200/70 text-amber-800 my-1";
       div.innerText = msg;
       chat.appendChild(div);
       chat.scrollTop = chat.scrollHeight;
@@ -791,7 +1459,15 @@
     }
 
     function escapeHtml(str) {
-      return (str || '').replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      return String(str || '')
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    function escapeJsSingleQuote(str) {
+      return String(str || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
     }
   </script>
 </body>

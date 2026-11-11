@@ -4,6 +4,7 @@
 const { resolveBotResponse } = require('../config/responses');
 const { 
   getConfig, 
+  upsertCustomer,
   isUserPaused, 
   pauseUser, 
   unpauseUser, 
@@ -59,7 +60,7 @@ module.exports = async function handler(req, res) {
 
               if (customerId && !isBotOwnReply) {
                 console.log(`[Intervención Humana] Asesor respondió manualmente a ${customerId}. Silenciando bot por ${activeConfig.settings?.advisorPauseHours || 12}h.`);
-                await pauseUser(customerId, pauseDuration);
+                await pauseUser(customerId, pauseDuration, 'Intervención manual del asesor', PAGE_ACCESS_TOKEN);
               }
               continue;
             }
@@ -76,6 +77,7 @@ module.exports = async function handler(req, res) {
             // =================================================================
             if (activeConfig.botActive === false) {
               console.log(`[Bot Global en Pausa] Mensaje de ${senderId} ignorado.`);
+              await upsertCustomer(senderId, { lastMessage: userMessage, incrementCount: true }, PAGE_ACCESS_TOKEN);
               continue;
             }
 
@@ -96,6 +98,23 @@ module.exports = async function handler(req, res) {
               { isPaused, isNewCustomer }
             );
 
+            const matchedHook = (activeConfig.hooks || []).find(h => h.id === hookId);
+            const hookLabel = matchedHook
+              ? matchedHook.title
+              : (hookId === 'welcome_first_time' ? 'Menú Principal (Bienvenida)' : null);
+
+            // Registrar al cliente y su último mensaje en la lista visual
+            await upsertCustomer(
+              senderId,
+              {
+                lastMessage: userMessage,
+                ...(hookId ? { lastHookId: hookId } : {}),
+                ...(hookLabel ? { lastHookTitle: hookLabel } : {}),
+                incrementCount: true
+              },
+              PAGE_ACCESS_TOKEN
+            );
+
             // Si el usuario escribió "Menú" o "/bot", reactivar el bot para él
             if (shouldUnpause) {
               console.log(`[Reactivación] Usuario ${senderId} pidió el menú. Saliendo de pausa.`);
@@ -104,8 +123,9 @@ module.exports = async function handler(req, res) {
 
             // Si el gancho activado requiere espera de datos (Trade-In, Taller, Asesor), pausar al bot tras responder
             if (shouldPause) {
+              const reason = matchedHook ? `Auto-Pausa: ${matchedHook.title}` : 'En atención humana';
               console.log(`[Auto-Pausa Activada] Gancho "${hookId}" requiere seguimiento humano. Pausando bot para ${senderId} por ${activeConfig.settings?.advisorPauseHours || 12}h.`);
-              await pauseUser(senderId, pauseDuration);
+              await pauseUser(senderId, pauseDuration, reason, PAGE_ACCESS_TOKEN);
             }
 
             // Si el motor decidió hacer Silencio Inteligente (replyText === null), no enviar nada
