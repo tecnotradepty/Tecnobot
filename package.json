@@ -1,0 +1,22 @@
+{
+  "name": "tecnobot",
+  "version": "1.0.0",
+  "description": "Bot de mensajería automatizada para Instagram de TecnoTrade en Vercel",
+  "main": "api/webhook.js",
+  "scripts": {
+    "dev": "node local-server.js"
+  },
+  "keywords": [
+    "instagram",
+    "bot",
+    "meta",
+    "tecnotrade",
+    "vercel"
+  ],
+  "author": "TecnoTrade",
+  "license": "ISC",
+  "dependencies": {
+    "dotenv": "^18.0.10",
+    "express": "^5.3.0"
+  }
+}
