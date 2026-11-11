@@ -4,7 +4,9 @@
 
 const { DEFAULT_CONFIG } = require('./responses');
 
-let inMemoryConfig = { ...DEFAULT_CONFIG };
+const CURRENT_SCHEMA_VERSION = 2;
+
+let inMemoryConfig = { ...DEFAULT_CONFIG, schemaVersion: CURRENT_SCHEMA_VERSION };
 const inMemoryPausedUsers = new Map();
 const inMemorySeenUsers = new Set();
 
@@ -69,6 +71,59 @@ async function executeRedis(commandArray) {
   }
 }
 
+/**
+ * Sincroniza e hidrata configuraciones guardadas en versiones anteriores
+ * para asegurar que siempre cuenten con negativeKeywords, autoPause y hook_repairs
+ */
+function upgradeAndMergeConfig(saved) {
+  if (!saved || typeof saved !== 'object') {
+    return { ...DEFAULT_CONFIG, schemaVersion: CURRENT_SCHEMA_VERSION };
+  }
+
+  // Si la configuración guardada en Redis es del esquema antiguo (sin negativeKeywords ni Taller),
+  // migrar inteligentemente preservando textos personalizados de Trade-In y URLs
+  const isOldSchema = !saved.schemaVersion || saved.schemaVersion < CURRENT_SCHEMA_VERSION;
+
+  const mergedSettings = {
+    ...DEFAULT_CONFIG.settings,
+    ...(saved.settings || {}),
+    silentFallback: saved.settings?.silentFallback !== undefined ? saved.settings.silentFallback : true
+  };
+
+  if (isOldSchema) {
+    return {
+      ...DEFAULT_CONFIG,
+      botActive: saved.botActive !== undefined ? saved.botActive : true,
+      settings: mergedSettings,
+      schemaVersion: CURRENT_SCHEMA_VERSION
+    };
+  }
+
+  // Si ya es versión 2+, combinar cada gancho asegurando que no falten propiedades clave
+  const savedHooks = Array.isArray(saved.hooks) ? saved.hooks : DEFAULT_CONFIG.hooks;
+  const mergedHooks = savedHooks.map(hook => {
+    const defaultMatch = DEFAULT_CONFIG.hooks.find(d => d.id === hook.id);
+    if (!defaultMatch) return hook;
+    return {
+      ...defaultMatch,
+      ...hook,
+      negativeKeywords: Array.isArray(hook.negativeKeywords) ? hook.negativeKeywords : defaultMatch.negativeKeywords,
+      autoPause: hook.autoPause !== undefined ? hook.autoPause : defaultMatch.autoPause,
+      priority: hook.priority !== undefined ? hook.priority : defaultMatch.priority,
+      allowedWhenPaused: hook.allowedWhenPaused !== undefined ? hook.allowedWhenPaused : defaultMatch.allowedWhenPaused,
+      unpauseOnTrigger: hook.unpauseOnTrigger !== undefined ? hook.unpauseOnTrigger : defaultMatch.unpauseOnTrigger
+    };
+  });
+
+  return {
+    ...DEFAULT_CONFIG,
+    ...saved,
+    settings: mergedSettings,
+    hooks: mergedHooks,
+    schemaVersion: CURRENT_SCHEMA_VERSION
+  };
+}
+
 // 1. Configuración del Bot
 async function getConfig() {
   const { isConnected } = getRedisCredentials();
@@ -77,7 +132,12 @@ async function getConfig() {
     if (raw) {
       try {
         const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
-        return { ...DEFAULT_CONFIG, ...parsed };
+        const upgraded = upgradeAndMergeConfig(parsed);
+        // Si fue migrado desde versión antigua, actualizar Redis de inmediato
+        if (!parsed.schemaVersion || parsed.schemaVersion < CURRENT_SCHEMA_VERSION) {
+          await executeRedis(["SET", "tecnobot_config", JSON.stringify(upgraded)]);
+        }
+        return upgraded;
       } catch (e) {
         console.error('Error parseando tecnobot_config:', e);
       }
@@ -87,7 +147,11 @@ async function getConfig() {
 }
 
 async function saveConfig(newConfig) {
-  inMemoryConfig = { ...DEFAULT_CONFIG, ...newConfig };
+  inMemoryConfig = {
+    ...DEFAULT_CONFIG,
+    ...newConfig,
+    schemaVersion: CURRENT_SCHEMA_VERSION
+  };
   const { isConnected } = getRedisCredentials();
 
   if (isConnected) {
@@ -99,7 +163,7 @@ async function saveConfig(newConfig) {
   return { success: true, persistence: 'memory' };
 }
 
-// 2. Control de Pausa por Usuario (Handoff a Asesor y Silencio por Intervención Humana)
+// 2. Control de Pausa por Usuario (Handoff a Asesor y Auto-Pausa en Cuestionarios)
 async function isUserPaused(userId) {
   if (!userId) return false;
   const { isConnected } = getRedisCredentials();
@@ -148,7 +212,6 @@ async function isFirstTimeUser(userId) {
   if (isConnected) {
     const seen = await executeRedis(["GET", `tecnobot:seen:${userId}`]);
     if (!seen) {
-      // Marcar como visto (persiste 90 días)
       await executeRedis(["SET", `tecnobot:seen:${userId}`, "1", "EX", "7776000"]);
       return true;
     }

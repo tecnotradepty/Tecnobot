@@ -1,7 +1,7 @@
 // ========================================================
 // VERCEL SERVERLESS FUNCTION - INSTAGRAM WEBHOOK HANDLER
 // ========================================================
-const { resolveBotResponse, DEFAULT_CONFIG } = require('../config/responses');
+const { resolveBotResponse } = require('../config/responses');
 const { 
   getConfig, 
   isUserPaused, 
@@ -46,14 +46,19 @@ module.exports = async function handler(req, res) {
             const isEcho = Boolean(event.message?.is_echo);
 
             // =================================================================
-            // MEJORA 4: AUTO-SILENCIO AL INTERVENIR TÚ DESDE EL CELULAR
+            // 1. AUTO-SILENCIO AL INTERVENIR TÚ DESDE EL CELULAR (ECHO)
             // =================================================================
-            // Si el mensaje es un "echo", significa que tú respondiste manualmente
-            // desde la app de Instagram. En ese momento pausamos al bot para ese cliente.
             if (isEcho) {
               const customerId = event.recipient?.id;
-              if (customerId) {
-                console.log(`[Intervención Humana] Asesor respondió manualmente a ${customerId}. Pausando bot por ${activeConfig.settings?.advisorPauseHours || 12}h.`);
+              // Evitar que los propios mensajes automáticos del bot disparen la pausa de eco:
+              // Si el mensaje tiene metadata o si ya fue pausado por el gancho, se maneja en shouldPause.
+              // Nota: Meta marca todos los mensajes salientes con is_echo=true, por lo que verificamos
+              // si el texto saliente coincide con alguna respuesta automática del bot antes de asumir que fue un humano.
+              const echoText = (event.message?.text || '').trim();
+              const isBotOwnReply = isKnownBotResponse(echoText, activeConfig);
+
+              if (customerId && !isBotOwnReply) {
+                console.log(`[Intervención Humana] Asesor respondió manualmente a ${customerId}. Silenciando bot por ${activeConfig.settings?.advisorPauseHours || 12}h.`);
                 await pauseUser(customerId, pauseDuration);
               }
               continue;
@@ -63,24 +68,11 @@ module.exports = async function handler(req, res) {
             const senderId = event.sender?.id;
             const userMessage = event.message?.text?.trim();
 
+            // Si envió una foto, audio o sticker sin texto, no interrumpir
             if (!userMessage) continue;
 
-            const cleanMsg = userMessage.toLowerCase().trim();
-
-            // Comando manual para reactivar el bot si el cliente o asesor lo pide
-            if (cleanMsg === 'activar bot' || cleanMsg === '/bot' || cleanMsg === 'iniciar bot') {
-              await unpauseUser(senderId);
-              await sendInstagramMessage(
-                igAccountId, 
-                senderId, 
-                "🤖 *Bot de TecnoTrade Reactivado*\n\n¿En qué te podemos ayudar? Escribe *Menú* para ver las opciones.", 
-                PAGE_ACCESS_TOKEN
-              );
-              continue;
-            }
-
             // =================================================================
-            // INTERRUPTOR MAESTRO: Si todo el bot está en pausa global
+            // 2. INTERRUPTOR MAESTRO GLOBAL
             // =================================================================
             if (activeConfig.botActive === false) {
               console.log(`[Bot Global en Pausa] Mensaje de ${senderId} ignorado.`);
@@ -88,44 +80,38 @@ module.exports = async function handler(req, res) {
             }
 
             // =================================================================
-            // MEJORA 2: VERIFICAR SI EL USUARIO ESTÁ EN PAUSA (HANDOFF ACTIVO)
+            // 3. CONSULTAR ESTADO DEL CLIENTE EN REDIS (PAUSA Y NUEVO USUARIO)
             // =================================================================
             const isPaused = await isUserPaused(senderId);
-            if (isPaused) {
-              console.log(`[Usuario en Silencio] ${senderId} está hablando con asesor humano. Bot en silencio.`);
-              continue;
-            }
-
-            // =================================================================
-            // MEJORA 3: DETECCIÓN DE USUARIO NUEVO (PRIMER CONTACTO)
-            // =================================================================
             const isNewCustomer = await isFirstTimeUser(senderId);
-            if (isNewCustomer) {
-              console.log(`[Nuevo Cliente] Primera interacción registrada para ${senderId}.`);
+
+            console.log(`[DM Recibido] De: ${senderId} | Nuevo: ${isNewCustomer} | EnPausa: ${isPaused} -> "${userMessage}"`);
+
+            // =================================================================
+            // 4. RESOLVER CON MOTOR DE RAZONAMIENTO Y NEGATIVE KEYWORDS
+            // =================================================================
+            const { text: replyText, hookId, shouldPause, shouldUnpause } = resolveBotResponse(
+              userMessage,
+              activeConfig,
+              { isPaused, isNewCustomer }
+            );
+
+            // Si el usuario escribió "Menú" o "/bot", reactivar el bot para él
+            if (shouldUnpause) {
+              console.log(`[Reactivación] Usuario ${senderId} pidió el menú. Saliendo de pausa.`);
+              await unpauseUser(senderId);
             }
 
-            console.log(`[DM Recibido] De: ${senderId} -> "${userMessage}"`);
-
-            // =================================================================
-            // MEJORA 1: RESOLUCIÓN CON PRIORIDADES ESTRICTAS (TALLER vs VENTA)
-            // =================================================================
-            let { text: replyText, hookId, isHandoff } = resolveBotResponse(userMessage, activeConfig);
-
-            // Si es un cliente 100% nuevo y su mensaje no coincidió con ninguna opción específica,
-            // asegurar que reciba la bienvenida oficial y el menú completo
-            if (isNewCustomer && hookId === null) {
-              const welcomeHook = (activeConfig.hooks || []).find(h => h.id === 'hook_welcome');
-              if (welcomeHook) {
-                replyText = welcomeHook.response;
-              }
-            }
-
-            // =================================================================
-            // ACTIVACIÓN DE HANDOFF: Si pidió asesor, pausar al bot para este usuario
-            // =================================================================
-            if (isHandoff) {
-              console.log(`[Handoff Activado] ${senderId} solicitó asesor. Silenciando bot para este chat por ${activeConfig.settings?.advisorPauseHours || 12}h.`);
+            // Si el gancho activado requiere espera de datos (Trade-In, Taller, Asesor), pausar al bot tras responder
+            if (shouldPause) {
+              console.log(`[Auto-Pausa Activada] Gancho "${hookId}" requiere seguimiento humano. Pausando bot para ${senderId} por ${activeConfig.settings?.advisorPauseHours || 12}h.`);
               await pauseUser(senderId, pauseDuration);
+            }
+
+            // Si el motor decidió hacer Silencio Inteligente (replyText === null), no enviar nada
+            if (!replyText) {
+              console.log(`[Silencio Inteligente] No se interrumpe la conversación de ${senderId}.`);
+              continue;
             }
 
             // Enviar respuesta a Instagram y esperar antes de cerrar la función
@@ -140,6 +126,28 @@ module.exports = async function handler(req, res) {
 
   return res.status(405).send('Método no permitido');
 };
+
+/**
+ * Comprueba si el mensaje de eco saliente fue generado por el propio bot
+ * (Para que las respuestas informativas como Catálogo, Horario o Menú no silencien al bot por error)
+ */
+function isKnownBotResponse(echoText, config) {
+  if (!echoText) return false;
+  const cleanEcho = echoText.slice(0, 40).toLowerCase();
+
+  for (const hook of config.hooks || []) {
+    const cleanHook = (hook.response || '').slice(0, 40).toLowerCase();
+    if (cleanHook && cleanEcho === cleanHook) {
+      return true;
+    }
+  }
+
+  if (config.fallbackResponse && cleanEcho === config.fallbackResponse.slice(0, 40).toLowerCase()) {
+    return true;
+  }
+
+  return false;
+}
 
 /**
  * Enviar mensaje de vuelta a Instagram a través de Meta Graph API

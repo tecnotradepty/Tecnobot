@@ -18,9 +18,6 @@
               500: '#22c55e',
               600: '#16a34a',
               700: '#15803d'
-            },
-            instagram: {
-              gradient: 'linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%)'
             }
           }
         }
@@ -31,13 +28,6 @@
     .ig-badge {
       background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
     }
-    .node-line {
-      position: absolute;
-      width: 2px;
-      background: #334155;
-      z-index: 0;
-    }
-    /* Estilos de scrollbar personalizados */
     ::-webkit-scrollbar { width: 6px; height: 6px; }
     ::-webkit-scrollbar-track { background: #0f172a; }
     ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
@@ -92,18 +82,17 @@
         <div>
           <div class="flex items-center gap-2">
             <h1 class="text-base font-bold text-white leading-none">Tecnobot</h1>
-            <span class="text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700">Studio</span>
+            <span class="text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-700/50">v2.0 Inteligente</span>
           </div>
           <p class="text-xs text-slate-400 mt-1 flex items-center gap-1.5">
             <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-            @tecnotradepty en Instagram
+            @tecnotradepty • Recepcionista No-Intrusivo
           </p>
         </div>
       </div>
 
       <!-- Controles Centrales / Estado Maestro -->
       <div class="flex items-center gap-3">
-        <!-- Switch Maestro Bot ON/OFF -->
         <button 
           id="btnMasterToggle" 
           onclick="toggleBotStatus()" 
@@ -112,9 +101,9 @@
           <span id="statusIndicatorText">Bot: Encendido</span>
         </button>
 
-        <span id="storageBadge" class="hidden sm:inline-flex text-[11px] items-center gap-1 px-2.5 py-1 rounded-md bg-slate-800/80 text-slate-300 border border-slate-700/60">
-          <i data-lucide="database" class="w-3 h-3 text-cyan-400"></i>
-          <span id="storageText">Vercel Serverless</span>
+        <span id="storageBadge" class="hidden sm:inline-flex text-[11px] items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-800/80 text-slate-300 border border-slate-700/60">
+          <span id="storageDot" class="w-2 h-2 rounded-full bg-amber-400"></span>
+          <span id="storageText">Cargando...</span>
         </span>
       </div>
 
@@ -151,15 +140,17 @@
   <!-- ========================================== -->
   <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 flex flex-col gap-6">
 
-    <!-- Banner de Información / Alerta rápida -->
-    <div id="alertBanner" class="p-4 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-between gap-4">
+    <!-- Banner de Información -->
+    <div class="p-4 rounded-2xl bg-slate-900 border border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
       <div class="flex items-center gap-3">
-        <div class="w-9 h-9 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-400 flex items-center justify-center shrink-0">
-          <i data-lucide="git-branch" class="w-5 h-5"></i>
+        <div class="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-400 flex items-center justify-center shrink-0">
+          <i data-lucide="shield-check" class="w-5 h-5"></i>
         </div>
         <div>
-          <h2 class="text-sm font-semibold text-white">Flujo Visual de Ganchos (Interactive Hooks)</h2>
-          <p class="text-xs text-slate-400 mt-0.5">Cada gancho representa una palabra clave o número que el cliente envía y la respuesta automatizada que recibe.</p>
+          <h2 class="text-sm font-semibold text-white">Motor de Intenciones, Prioridades y Palabras Clave Negativas</h2>
+          <p class="text-xs text-slate-400 mt-0.5">
+            Los ganchos con <span class="text-amber-300 font-semibold">Auto-Pausa</span> silencian el bot por 12h tras enviar preguntas para que el cliente responda (ej: *"pantalla cambiada"*) sin activar otros ganchos.
+          </p>
         </div>
       </div>
       <button 
@@ -170,47 +161,40 @@
       </button>
     </div>
 
-    <!-- NODO INICIAL: EL DISPARADOR DE INSTAGRAM -->
-    <div class="flex flex-col items-center">
-      <div class="bg-gradient-to-r from-purple-900/60 to-pink-900/60 border border-purple-500/30 rounded-2xl p-4 max-w-md w-full shadow-xl flex items-center gap-3">
-        <div class="w-10 h-10 rounded-xl ig-badge text-white flex items-center justify-center shadow-md">
-          <i data-lucide="message-circle" class="w-5 h-5"></i>
-        </div>
-        <div class="flex-1">
-          <span class="text-[10px] font-bold tracking-wider uppercase text-pink-300">Entrada Principal</span>
-          <h3 class="text-sm font-bold text-white">Mensaje Directo Entrante (DM)</h3>
-          <p class="text-xs text-slate-300">Cliente escribe a @tecnotradepty</p>
-        </div>
-        <span class="text-xs px-2.5 py-1 rounded-full bg-black/40 text-purple-300 border border-purple-500/20 font-mono">Hook Master</span>
-      </div>
-
-      <!-- Flecha hacia abajo conectora -->
-      <div class="h-8 w-0.5 bg-gradient-to-b from-purple-500/50 to-slate-700"></div>
-    </div>
-
     <!-- LISTA DE GANCHOS Y BLOQUES VISUALES -->
     <div id="hooksContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-      <!-- Los nodos de ganchos se inyectan dinámicamente con JS -->
+      <!-- Inyectado dinámicamente -->
     </div>
 
-    <!-- NODO DE SALIDA / FALLBACK -->
-    <div class="mt-4 p-5 rounded-2xl bg-slate-900/60 border border-slate-800 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-      <div class="flex items-center gap-3">
-        <div class="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center shrink-0">
-          <i data-lucide="help-circle" class="w-5 h-5"></i>
+    <!-- CONFIGURACIÓN DE COMPORTAMIENTO NO-INTRUSIVO (FALLBACK) -->
+    <div class="mt-2 p-5 rounded-2xl bg-slate-900/90 border border-slate-800 flex flex-col gap-4">
+      <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
+            <i data-lucide="user-check" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <span class="text-[10px] font-bold uppercase tracking-wider text-emerald-400">Comportamiento de No-Intromisión</span>
+            <h4 class="text-sm font-bold text-white">Modo Recepcionista Silencioso (Silent Fallback)</h4>
+            <p class="text-xs text-slate-400 mt-0.5">
+              Si está activado, cuando un cliente que ya fue saludado escribe una duda específica que no coincide con ningún gancho, **el bot guarda silencio** en lugar de mandar un mensaje de error, permitiéndote conversar naturalmente.
+            </p>
+          </div>
         </div>
-        <div>
-          <span class="text-[10px] font-bold uppercase tracking-wider text-amber-400">Respuesta de Respaldo</span>
-          <h4 class="text-sm font-bold text-white">Cuando el cliente escribe algo no reconocido (Fallback)</h4>
-          <p class="text-xs text-slate-400 mt-0.5">Mensaje que se enviará si el texto no coincide con ningún gancho activo.</p>
-        </div>
+        <label class="inline-flex items-center cursor-pointer shrink-0">
+          <input type="checkbox" id="silentFallbackToggle" class="sr-only peer" checked onchange="toggleSilentFallback(this.checked)">
+          <div class="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all relative peer-checked:bg-emerald-600"></div>
+          <span id="silentFallbackLabel" class="ml-2.5 text-xs font-semibold text-emerald-400">Activado (Recomendado)</span>
+        </label>
       </div>
-      <div class="w-full md:w-1/2">
+
+      <div id="fallbackBoxContainer" class="pt-3 border-t border-slate-800/80 hidden">
+        <label class="text-xs font-semibold text-slate-400 block mb-1.5">Mensaje de respaldo (Solo se envía si desactivas el Modo Recepcionista Silencioso):</label>
         <textarea 
           id="fallbackInput" 
           rows="2" 
-          class="w-full text-xs p-3 bg-slate-950 border border-slate-700 rounded-xl text-slate-200 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
-          placeholder="Mensaje no entendido..."></textarea>
+          class="w-full text-xs p-3 bg-slate-950 border border-slate-700 rounded-xl text-slate-200 focus:outline-none focus:border-amber-500"
+          placeholder="Mensaje cuando no se reconoce el texto..."></textarea>
       </div>
     </div>
 
@@ -244,15 +228,21 @@
           <label class="block font-semibold text-slate-300 mb-1">Enlace de Google Maps ({MAPS_URL})</label>
           <input type="url" id="settingMapsUrl" class="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-emerald-500" />
         </div>
-        <div>
-          <label class="block font-semibold text-slate-300 mb-1">Teléfono o WhatsApp de Contacto</label>
-          <input type="text" id="settingPhone" class="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-emerald-500" />
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block font-semibold text-slate-300 mb-1">Teléfono / WhatsApp</label>
+            <input type="text" id="settingPhone" class="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-emerald-500" />
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-300 mb-1">Horas de Auto-Pausa Humana</label>
+            <input type="number" id="settingPauseHours" min="1" max="72" class="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-emerald-500" />
+          </div>
         </div>
       </div>
 
       <div class="mt-6 flex justify-end gap-2">
         <button onclick="closeSettingsModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl font-medium text-xs">Cancelar</button>
-        <button onclick="applySettings()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-semibold text-xs shadow-md">Aplicar</button>
+        <button onclick="applySettings()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-semibold text-xs shadow-md">Aplicar y Guardar</button>
       </div>
     </div>
   </div>
@@ -262,30 +252,29 @@
   <!-- ========================================== -->
   <div id="simDrawer" class="fixed right-0 top-0 bottom-0 w-full sm:w-96 bg-slate-900 border-l border-slate-800 shadow-2xl z-50 transform translate-x-full transition-transform duration-300 flex flex-col">
     <!-- Header del chat -->
-    <div class="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-950/80">
-      <div class="flex items-center gap-3">
+    <div class="p-3.5 border-b border-slate-800 flex items-center justify-between bg-slate-950/90">
+      <div class="flex items-center gap-2.5">
         <div class="w-9 h-9 rounded-full ig-badge flex items-center justify-center text-white text-xs font-bold">
           TT
         </div>
         <div>
           <h4 class="text-xs font-bold text-white">tecnotradepty</h4>
-          <p class="text-[10px] text-emerald-400 font-medium">Simulador en vivo</p>
+          <p id="simStateBadge" class="text-[10px] text-emerald-400 font-medium">🟢 Cliente Nuevo (Bot Activo)</p>
         </div>
       </div>
-      <button onclick="toggleSimulator()" class="p-1.5 text-slate-400 hover:text-white rounded-lg">
-        <i data-lucide="x" class="w-5 h-5"></i>
-      </button>
+      <div class="flex items-center gap-1">
+        <button onclick="resetSimulatorChat()" class="px-2 py-1 text-[10px] bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg border border-slate-700" title="Reiniciar como cliente nuevo">
+          Reiniciar
+        </button>
+        <button onclick="toggleSimulator()" class="p-1.5 text-slate-400 hover:text-white rounded-lg">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
     </div>
 
     <!-- Área de Mensajes -->
     <div id="chatMessages" class="flex-1 p-4 overflow-y-auto space-y-3 text-xs bg-slate-950">
-      <div class="text-center text-[10px] text-slate-500 my-2">-- Inicio de conversación de prueba --</div>
-      <div class="flex gap-2">
-        <div class="w-7 h-7 rounded-full ig-badge shrink-0 flex items-center justify-center text-[10px] text-white">TT</div>
-        <div class="bg-slate-800 text-slate-100 p-3 rounded-2xl rounded-tl-sm max-w-[80%] whitespace-pre-line leading-relaxed shadow-sm">
-          ¡Hola! Escribe una palabra clave (ej: *Hola*, *1*, *Horario*, *Ubicación* o *5*) para probar el bot.
-        </div>
-      </div>
+      <!-- Mensajes simulados -->
     </div>
 
     <!-- Barra de envío simulado -->
@@ -293,7 +282,7 @@
       <input 
         type="text" 
         id="simInput" 
-        placeholder="Enviar mensaje..." 
+        placeholder="Prueba ej: vender, pantalla, 1..." 
         class="flex-1 text-xs px-3.5 py-2.5 bg-slate-950 border border-slate-700 rounded-full text-white focus:outline-none focus:border-pink-500"
         onkeydown="if(event.key==='Enter') sendSimMessage()"
       />
@@ -312,9 +301,13 @@
     let activeConfig = null;
     let savedPin = localStorage.getItem('tecnobot_pin') || '';
 
-    // Inicializar
+    // Estado interno del simulador para emular exactamente Redis
+    let simIsPaused = false;
+    let simIsNewCustomer = true;
+
     window.onload = async () => {
       lucide.createIcons();
+      resetSimulatorChat();
       if (savedPin) {
         document.getElementById('pinInput').value = savedPin;
         await verifyPin();
@@ -330,7 +323,6 @@
         const res = await fetch('/api/config');
         const data = await res.json();
         
-        // El PIN predeterminado o el configurado
         const correctPin = data.settings?.pin || "047514";
         if (pin === correctPin) {
           localStorage.setItem('tecnobot_pin', pin);
@@ -342,10 +334,6 @@
         }
       } catch (err) {
         console.error('Error al conectar con API:', err);
-        // Fallback offline
-        if (pin === "047514") {
-          document.getElementById('pinModal').classList.add('hidden');
-        }
       }
     }
 
@@ -353,51 +341,82 @@
     function loadConfigData(data) {
       activeConfig = data;
 
-      // Actualizar estado maestro
       updateMasterButtonUI(activeConfig.botActive);
 
-      // Actualizar fallback
+      const isSilent = activeConfig.settings?.silentFallback !== false;
+      document.getElementById('silentFallbackToggle').checked = isSilent;
+      toggleSilentFallback(isSilent);
+
       document.getElementById('fallbackInput').value = activeConfig.fallbackResponse || '';
 
-      // Actualizar storage badge
+      const badge = document.getElementById('storageBadge');
+      const dot = document.getElementById('storageDot');
+      const txt = document.getElementById('storageText');
+      badge.classList.remove('hidden');
+
       if (activeConfig.hasUpstash) {
-        document.getElementById('storageText').innerText = 'Upstash Redis (Persistente)';
-        document.getElementById('storageBadge').classList.remove('hidden');
+        dot.className = "w-2 h-2 rounded-full bg-emerald-400";
+        txt.innerText = "Upstash Redis (Persistente)";
+      } else {
+        dot.className = "w-2 h-2 rounded-full bg-amber-400";
+        txt.innerText = "Memoria Temporal";
       }
 
-      // Renderizar Hooks
       renderHooks();
       lucide.createIcons();
     }
 
-    // 3. Renderizar los Nodos / Ganchos visuales
+    function toggleSilentFallback(checked) {
+      if (activeConfig && activeConfig.settings) {
+        activeConfig.settings.silentFallback = checked;
+      }
+      const lbl = document.getElementById('silentFallbackLabel');
+      const box = document.getElementById('fallbackBoxContainer');
+      if (checked) {
+        lbl.innerText = "Activado (No interrumpe chats)";
+        lbl.className = "ml-2.5 text-xs font-semibold text-emerald-400";
+        box.classList.add('hidden');
+      } else {
+        lbl.innerText = "Desactivado (Envía respuesta de respaldo)";
+        lbl.className = "ml-2.5 text-xs font-semibold text-amber-400";
+        box.classList.remove('hidden');
+      }
+    }
+
+    // 3. Renderizar Ganchos Visuales
     function renderHooks() {
       const container = document.getElementById('hooksContainer');
       container.innerHTML = '';
 
+      // Mostrar ordenados por prioridad
       (activeConfig.hooks || []).forEach((hook, index) => {
         const card = document.createElement('div');
-        card.className = "bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg flex flex-col justify-between hover:border-slate-700 transition-all relative overflow-hidden group";
+        card.className = "bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg flex flex-col justify-between hover:border-slate-700 transition-all relative group";
         
+        const isAutoPause = Boolean(hook.autoPause || hook.type === 'handoff');
+
         let typeBadge = '';
         if (hook.type === 'trigger') {
-          typeBadge = '<span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">Trigger Inicial</span>';
-        } else if (hook.type === 'handoff') {
-          typeBadge = '<span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30">Handoff Asesor</span>';
+          typeBadge = '<span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">Bienvenida / Menú</span>';
+        } else if (isAutoPause) {
+          typeBadge = '<span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">⏸️ Con Auto-Pausa</span>';
         } else {
-          typeBadge = '<span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30">Gancho / Opción</span>';
+          typeBadge = '<span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30">Informativo</span>';
         }
 
         card.innerHTML = `
           <!-- Cabecera del Gancho -->
           <div class="flex items-start justify-between gap-2 mb-3">
-            <div>
-              ${typeBadge}
+            <div class="flex-1">
+              <div class="flex items-center gap-1.5 flex-wrap">
+                ${typeBadge}
+                <span class="text-[10px] font-mono text-slate-400 bg-slate-950 px-2 py-0.5 rounded border border-slate-800">Prioridad: ${hook.priority || 1}</span>
+              </div>
               <input 
                 type="text" 
                 value="${hook.title || hook.name}" 
-                onchange="updateHookTitle(${index}, this.value)"
-                class="bg-transparent text-sm font-bold text-white mt-1 w-full focus:outline-none focus:border-b border-emerald-500"
+                onchange="updateHookField(${index}, 'title', this.value)"
+                class="bg-transparent text-sm font-bold text-white mt-2 w-full focus:outline-none focus:border-b border-emerald-500"
               />
             </div>
             <button 
@@ -408,32 +427,53 @@
             </button>
           </div>
 
-          <!-- Palabras clave (Tags) -->
-          <div class="mb-3">
-            <label class="text-[11px] font-semibold text-slate-400 block mb-1">Palabras clave / Disparadores (separados por coma):</label>
+          <!-- Palabras clave POSITIVAS -->
+          <div class="mb-2.5">
+            <label class="text-[11px] font-semibold text-emerald-400 block mb-1">✅ Palabras Activadoras (separadas por coma):</label>
             <input 
               type="text" 
               value="${(hook.keywords || []).join(', ')}" 
-              onchange="updateHookKeywords(${index}, this.value)"
-              class="w-full text-xs px-2.5 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-emerald-400 font-mono focus:outline-none focus:border-emerald-500"
+              onchange="updateHookArray(${index}, 'keywords', this.value)"
+              class="w-full text-xs px-2.5 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-emerald-300 font-mono focus:outline-none focus:border-emerald-500"
+            />
+          </div>
+
+          <!-- Palabras clave NEGATIVAS -->
+          <div class="mb-3">
+            <label class="text-[11px] font-semibold text-rose-400 block mb-1">🚫 Palabras Negativas / Bloqueos (separadas por coma):</label>
+            <input 
+              type="text" 
+              placeholder="Ej: reparar, pantalla, vender..."
+              value="${(hook.negativeKeywords || []).join(', ')}" 
+              onchange="updateHookArray(${index}, 'negativeKeywords', this.value)"
+              class="w-full text-xs px-2.5 py-1.5 bg-slate-950 border border-rose-950/60 rounded-lg text-rose-300 font-mono focus:outline-none focus:border-rose-500"
             />
           </div>
 
           <!-- Mensaje de respuesta -->
-          <div class="flex-1 mb-2">
-            <label class="text-[11px] font-semibold text-slate-400 block mb-1">Respuesta automática enviada al cliente:</label>
+          <div class="flex-1 mb-3">
+            <label class="text-[11px] font-semibold text-slate-400 block mb-1">Respuesta enviada al cliente:</label>
             <textarea 
-              rows="4" 
-              onchange="updateHookResponse(${index}, this.value)"
+              rows="5" 
+              onchange="updateHookField(${index}, 'response', this.value)"
               class="w-full text-xs p-2.5 bg-slate-950 border border-slate-800 rounded-xl text-slate-200 focus:outline-none focus:border-emerald-500 leading-relaxed font-sans">${hook.response}</textarea>
           </div>
 
-          <!-- Pie del gancho / Variables Rápidas -->
-          <div class="pt-2 border-t border-slate-800/60 flex items-center justify-between text-[10px] text-slate-500">
-            <span>Variables: {TIENDA_URL}, {MAPS_URL}</span>
+          <!-- Selector de Auto-Pausa y Prueba -->
+          <div class="pt-2.5 border-t border-slate-800/80 flex items-center justify-between gap-2">
+            <label class="flex items-center gap-2 cursor-pointer text-[11px] text-slate-300 select-none">
+              <input 
+                type="checkbox" 
+                ${isAutoPause ? 'checked' : ''} 
+                onchange="updateHookField(${index}, 'autoPause', this.checked); renderHooks();"
+                class="rounded bg-slate-950 border-slate-700 text-amber-500 focus:ring-0"
+              />
+              <span>Pausar bot tras responder</span>
+            </label>
+
             <button 
-              onclick="testHookInSim('${hook.keywords[0]}')" 
-              class="text-pink-400 hover:text-pink-300 font-medium flex items-center gap-1">
+              onclick="testHookInSim('${(hook.keywords && hook.keywords[0]) || 'hola'}')" 
+              class="text-pink-400 hover:text-pink-300 text-xs font-semibold flex items-center gap-1 shrink-0">
               <i data-lucide="play" class="w-3 h-3"></i> Probar
             </button>
           </div>
@@ -445,23 +485,26 @@
       lucide.createIcons();
     }
 
-    // 4. Actualizadores locales del objeto
-    function updateHookTitle(idx, val) { activeConfig.hooks[idx].title = val; }
-    function updateHookKeywords(idx, val) { 
-      activeConfig.hooks[idx].keywords = val.split(',').map(s => s.trim()).filter(Boolean); 
+    function updateHookField(idx, field, val) {
+      activeConfig.hooks[idx][field] = val;
     }
-    function updateHookResponse(idx, val) { activeConfig.hooks[idx].response = val; }
 
-    // 5. Agregar y Eliminar ganchos
+    function updateHookArray(idx, field, val) {
+      activeConfig.hooks[idx][field] = val.split(',').map(s => s.trim()).filter(Boolean);
+    }
+
     function addNewHook() {
       const newId = 'hook_' + Date.now();
       activeConfig.hooks.push({
         id: newId,
         name: "Nuevo Gancho",
         type: "branch",
+        priority: 5,
+        autoPause: false,
         keywords: ["palabra"],
-        title: "Nuevo Gancho Personalizado",
-        response: "Respuesta de ejemplo para este gancho."
+        negativeKeywords: [],
+        title: "✨ Nuevo Gancho Personalizado",
+        response: "Escribe aquí la respuesta para este gancho."
       });
       renderHooks();
     }
@@ -473,7 +516,7 @@
       }
     }
 
-    // 6. Alternar estado maestro (Bot ON / OFF)
+    // Alternar estado maestro (Bot ON / OFF)
     async function toggleBotStatus() {
       try {
         const res = await fetch('/api/config?action=toggle', {
@@ -510,14 +553,13 @@
       }
     }
 
-    // 7. Guardar cambios en el servidor
+    // Guardar cambios en Redis / Servidor
     async function saveCurrentConfig() {
       const btn = document.getElementById('btnSaveAll');
       const originalText = btn.innerHTML;
       btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Guardando...`;
       lucide.createIcons();
 
-      // Recoger fallback
       activeConfig.fallbackResponse = document.getElementById('fallbackInput').value;
 
       try {
@@ -532,30 +574,28 @@
 
         const data = await res.json();
         if (data.success) {
-          btn.innerHTML = `<i data-lucide="check" class="w-4 h-4 text-emerald-200"></i> ¡Guardado!`;
-          btn.classList.replace('bg-emerald-600', 'bg-emerald-700');
+          btn.innerHTML = `<i data-lucide="check" class="w-4 h-4 text-emerald-200"></i> ¡Guardado en ${data.persistence === 'upstash_redis' ? 'Redis' : 'Servidor'}!`;
           setTimeout(() => {
             btn.innerHTML = originalText;
-            btn.classList.replace('bg-emerald-700', 'bg-emerald-600');
             lucide.createIcons();
-          }, 2000);
+          }, 2200);
         } else {
           alert('Error al guardar: ' + (data.error || 'Desconocido'));
           btn.innerHTML = originalText;
         }
       } catch (err) {
         console.error(err);
-        alert('Configuración actualizada en memoria local.');
         btn.innerHTML = originalText;
       }
     }
 
-    // 8. Modal de Ajustes Generales
+    // Modal Ajustes Generales
     function openSettingsModal() {
       document.getElementById('settingBusinessName').value = activeConfig.settings?.businessName || '';
       document.getElementById('settingTiendaUrl').value = activeConfig.settings?.tiendaUrl || '';
       document.getElementById('settingMapsUrl').value = activeConfig.settings?.mapsUrl || '';
       document.getElementById('settingPhone').value = activeConfig.settings?.phone || '';
+      document.getElementById('settingPauseHours').value = activeConfig.settings?.advisorPauseHours || 12;
       document.getElementById('settingsModal').classList.remove('hidden');
       document.getElementById('settingsModal').classList.add('flex');
     }
@@ -570,21 +610,55 @@
       activeConfig.settings.tiendaUrl = document.getElementById('settingTiendaUrl').value;
       activeConfig.settings.mapsUrl = document.getElementById('settingMapsUrl').value;
       activeConfig.settings.phone = document.getElementById('settingPhone').value;
+      activeConfig.settings.advisorPauseHours = Number(document.getElementById('settingPauseHours').value) || 12;
       closeSettingsModal();
       saveCurrentConfig();
     }
 
-    // 9. Simulador de Instagram en Vivo
+    // Simulador de Instagram con Máquina de Estados
     function toggleSimulator() {
-      const drawer = document.getElementById('simDrawer');
-      drawer.classList.toggle('translate-x-full');
+      document.getElementById('simDrawer').classList.toggle('translate-x-full');
+    }
+
+    function resetSimulatorChat() {
+      simIsPaused = false;
+      simIsNewCustomer = true;
+      updateSimBadge();
+      const chat = document.getElementById('chatMessages');
+      chat.innerHTML = `
+        <div class="text-center text-[10px] text-slate-500 my-2">-- Chat reiniciado (Simulando Cliente Nuevo) --</div>
+        <div class="bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-[11px] text-slate-400">
+          💡 <b>Prueba el flujo real:</b><br>
+          1. Escribe <b>"Quiero vender mi iPhone"</b>.<br>
+          2. Cuando te pida los datos, escribe <b>"pantalla cambiada, 85% batería"</b> y verás cómo el bot <b>NO</b> te interrumpe con el gancho de taller.
+        </div>
+      `;
+    }
+
+    function updateSimBadge() {
+      const badge = document.getElementById('simStateBadge');
+      if (simIsPaused) {
+        badge.className = "text-[10px] text-amber-400 font-semibold";
+        badge.innerText = "⏸️ Modo Escucha Humana (Bot en Silencio)";
+      } else if (simIsNewCustomer) {
+        badge.className = "text-[10px] text-emerald-400 font-medium";
+        badge.innerText = "🟢 Cliente Nuevo (Esperando 1er mensaje)";
+      } else {
+        badge.className = "text-[10px] text-cyan-400 font-medium";
+        badge.innerText = "🤖 Cliente Ya Recibido (Recepcionista Activo)";
+      }
     }
 
     function testHookInSim(kw) {
-      const drawer = document.getElementById('simDrawer');
-      drawer.classList.remove('translate-x-full');
+      document.getElementById('simDrawer').classList.remove('translate-x-full');
+      simIsPaused = false;
+      updateSimBadge();
       document.getElementById('simInput').value = kw;
       sendSimMessage();
+    }
+
+    function normalizeStr(s) {
+      return (s || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
     }
 
     function sendSimMessage() {
@@ -594,7 +668,7 @@
 
       const chat = document.getElementById('chatMessages');
 
-      // Burbuja del usuario (lado derecho)
+      // Burbuja del cliente
       const userBubble = document.createElement('div');
       userBubble.className = "flex justify-end";
       userBubble.innerHTML = `<div class="bg-indigo-600 text-white p-2.5 rounded-2xl rounded-tr-sm max-w-[80%]">${escapeHtml(text)}</div>`;
@@ -603,44 +677,121 @@
       input.value = '';
       chat.scrollTop = chat.scrollHeight;
 
-      // Calcular respuesta del bot localmente según los ganchos
       setTimeout(() => {
-        let reply = activeConfig.fallbackResponse;
-        const clean = text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+        const clean = normalizeStr(text);
+        let reply = null;
+        let shouldPause = false;
+        let shouldUnpause = false;
 
         if (activeConfig.botActive === false) {
-          reply = "⏸️ [El bot se encuentra en PAUSA MANUAL por el asesor de TecnoTrade]";
-        } else {
-          const sorted = [...(activeConfig.hooks || [])].sort((a, b) => (b.priority || 0) - (a.priority || 0));
-          for (const hook of sorted) {
-            const matched = hook.keywords.some(k => {
-              const ck = k.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+          appendSystemNotice("⏸️ Bot apagado globalmente. No se envía respuesta.");
+          return;
+        }
+
+        // 1. Comando explícito Menú
+        if (clean === "menu" || clean === "activar bot" || clean === "/bot" || clean === "inicio") {
+          const wHook = (activeConfig.hooks || []).find(h => h.id === "hook_welcome");
+          if (wHook) reply = formatSimText(wHook.response);
+          shouldUnpause = true;
+        } 
+        // 2. Si el usuario está en Auto-Pausa (Modo Escucha Humana)
+        else if (simIsPaused) {
+          const allowedHooks = (activeConfig.hooks || []).filter(h => h.allowedWhenPaused);
+          for (const h of allowedHooks) {
+            const hasNeg = (h.negativeKeywords || []).some(n => normalizeStr(n) && clean.includes(normalizeStr(n)));
+            if (hasNeg) continue;
+            const matched = (h.keywords || []).some(k => {
+              const ck = normalizeStr(k);
               return ck.length <= 2 ? clean === ck : clean.includes(ck);
             });
             if (matched) {
-              reply = hook.response
-                .replace(/\{TIENDA_URL\}/g, activeConfig.settings?.tiendaUrl || '')
-                .replace(/\{MAPS_URL\}/g, activeConfig.settings?.mapsUrl || '')
-                .replace(/\{BUSINESS_NAME\}/g, activeConfig.settings?.businessName || '')
-                .replace(/\{(\s*https?:\/\/[^\}]+)\}/g, '$1');
+              reply = formatSimText(h.response);
               break;
+            }
+          }
+          if (!reply) {
+            appendSystemNotice("🤫 [Silencio Inteligente]: El cliente está respondiendo datos para el asesor. El bot NO interrumpe.");
+            return;
+          }
+        } 
+        // 3. Evaluación normal con prioridades y Negative Keywords
+        else {
+          const sorted = [...(activeConfig.hooks || [])].sort((a, b) => (b.priority || 0) - (a.priority || 0));
+          for (const h of sorted) {
+            const hasNeg = (h.negativeKeywords || []).some(n => normalizeStr(n) && clean.includes(normalizeStr(n)));
+            if (hasNeg) continue;
+
+            const matched = (h.keywords || []).some(k => {
+              const ck = normalizeStr(k);
+              if (!ck) return false;
+              return ck.length <= 2 ? clean === ck : clean.includes(ck);
+            });
+
+            if (matched) {
+              reply = formatSimText(h.response);
+              shouldPause = Boolean(h.autoPause || h.type === 'handoff');
+              shouldUnpause = Boolean(h.unpauseOnTrigger);
+              break;
+            }
+          }
+
+          if (!reply) {
+            if (simIsNewCustomer) {
+              const wHook = (activeConfig.hooks || []).find(h => h.id === "hook_welcome");
+              if (wHook) reply = formatSimText(wHook.response);
+            } else if (activeConfig.settings?.silentFallback !== false) {
+              appendSystemNotice("🤫 [Modo Recepcionista]: Mensaje conversacional no reconocido. El bot guarda silencio para no interrumpir.");
+              simIsNewCustomer = false;
+              updateSimBadge();
+              return;
+            } else {
+              reply = formatSimText(activeConfig.fallbackResponse);
             }
           }
         }
 
-        const botBubble = document.createElement('div');
-        botBubble.className = "flex gap-2";
-        botBubble.innerHTML = `
-          <div class="w-7 h-7 rounded-full ig-badge shrink-0 flex items-center justify-center text-[10px] text-white">TT</div>
-          <div class="bg-slate-800 text-slate-100 p-3 rounded-2xl rounded-tl-sm max-w-[80%] whitespace-pre-line leading-relaxed shadow-sm">${escapeHtml(reply)}</div>
-        `;
-        chat.appendChild(botBubble);
+        simIsNewCustomer = false;
+        if (shouldUnpause) simIsPaused = false;
+        if (shouldPause) simIsPaused = true;
+        updateSimBadge();
+
+        if (reply) {
+          const botBubble = document.createElement('div');
+          botBubble.className = "flex gap-2";
+          botBubble.innerHTML = `
+            <div class="w-7 h-7 rounded-full ig-badge shrink-0 flex items-center justify-center text-[10px] text-white">TT</div>
+            <div class="bg-slate-800 text-slate-100 p-3 rounded-2xl rounded-tl-sm max-w-[80%] whitespace-pre-line leading-relaxed shadow-sm">${escapeHtml(reply)}</div>
+          `;
+          chat.appendChild(botBubble);
+        }
+
+        if (shouldPause) {
+          appendSystemNotice("⏸️ Auto-Pausa activada para este cliente. Ahora el cliente puede responder los detalles de su equipo sin que el bot salte.");
+        }
+
         chat.scrollTop = chat.scrollHeight;
-      }, 400);
+      }, 300);
+    }
+
+    function appendSystemNotice(msg) {
+      const chat = document.getElementById('chatMessages');
+      const div = document.createElement('div');
+      div.className = "text-center text-[10px] py-1.5 px-3 rounded-lg bg-slate-900 border border-slate-800 text-amber-300/90 my-1";
+      div.innerText = msg;
+      chat.appendChild(div);
+      chat.scrollTop = chat.scrollHeight;
+    }
+
+    function formatSimText(raw) {
+      return (raw || '')
+        .replace(/\{TIENDA_URL\}/g, activeConfig.settings?.tiendaUrl || '')
+        .replace(/\{MAPS_URL\}/g, activeConfig.settings?.mapsUrl || '')
+        .replace(/\{BUSINESS_NAME\}/g, activeConfig.settings?.businessName || '')
+        .replace(/\{(\s*https?:\/\/[^\}]+)\}/g, '$1');
     }
 
     function escapeHtml(str) {
-      return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      return (str || '').replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
     }
   </script>
 </body>
