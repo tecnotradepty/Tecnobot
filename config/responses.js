@@ -10,7 +10,7 @@ const DEFAULT_CONFIG = {
   settings: {
     businessName: "TecnoTrade Panamá",
     tiendaUrl: "https://tecnotradepanama.com",
-    mapsUrl: "https://maps.google.com/?q=Tecnotrade+Panama",
+    mapsUrl: "https://maps.app.goo.gl/afVivm8pKRZtd5gF9",
     phone: "+507 6852-9324",
     pin: "047514"
   },

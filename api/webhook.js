@@ -28,9 +28,6 @@ module.exports = async function handler(req, res) {
   if (req.method === 'POST') {
     const body = req.body;
 
-    // Responder 200 OK inmediatamente a Meta
-    res.status(200).send('EVENT_RECEIVED');
-
     if (body && (body.object === 'instagram' || body.object === 'page')) {
       // Obtener configuración activa en tiempo real
       const activeConfig = await getConfig();
@@ -56,13 +53,15 @@ module.exports = async function handler(req, res) {
             // Resolver respuesta a través de los ganchos y reglas
             const replyText = resolveBotResponse(userMessage, activeConfig);
 
-            // Enviar respuesta a Instagram
+            // Enviar respuesta a Instagram y esperar a que termine antes de cerrar la función
             await sendInstagramMessage(igAccountId, senderId, replyText, PAGE_ACCESS_TOKEN);
           }
         }
       }
     }
-    return;
+
+    // Responder 200 OK a Meta una vez que todo el envío haya concluido
+    return res.status(200).send('EVENT_RECEIVED');
   }
 
   return res.status(405).send('Método no permitido');
