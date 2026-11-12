@@ -19,7 +19,9 @@ const DEFAULT_CONFIG = {
   },
 
   // ========================================================
-  // WORKFLOW EDITABLE DE PASOS Y RUTAS (MAPA CONCEPTUAL)
+  // WORKFLOW UNIFICADO DE NODOS, ENLACES Y GANCHOS (N8N / MANYCHAT)
+  // Cada paso contiene su posición (x,y), palabras clave, negativos,
+  // rutas salientes (enlaces) y mensaje de respuesta.
   // ========================================================
   workflow: {
     enabled: true,
@@ -30,6 +32,32 @@ const DEFAULT_CONFIG = {
         title: "Paso 0: Menú Principal",
         type: "menu",
         isRoot: true,
+        position: { x: 320, y: 280 },
+        priority: 1,
+        autoPause: false,
+        allowedWhenPaused: false,
+        unpauseOnTrigger: true,
+        keywords: [
+          "hola",
+          "buenas",
+          "buenos dias",
+          "buenas tardes",
+          "buenas noches",
+          "menu",
+          "inicio",
+          "start",
+          "info",
+          "opciones"
+        ],
+        negativeKeywords: [
+          "reparar",
+          "pantalla",
+          "bateria",
+          "vender",
+          "vendo",
+          "abono",
+          "garantia"
+        ],
         message: 
           "¡Hola! 👋 Bienvenido a *TecnoTrade Panamá*.\n\n" +
           "¿En qué te podemos ayudar hoy? Escribe el *número* o la *palabra* de tu opción:\n\n" +
@@ -47,13 +75,90 @@ const DEFAULT_CONFIG = {
           { key: "5", targetStepId: "step_location", label: "Ubicación de Tienda" },
           { key: "6", targetStepId: "step_advisor", label: "Hablar con un Asesor" }
         ],
-        invalidMessage: "⚠️ Opción no válida. Por favor responde únicamente con un número del *1 al 6* o escribe *Menú* para reiniciar.",
-        autoPause: false
+        invalidMessage: "⚠️ Opción no válida. Por favor responde únicamente con un número del *1 al 6* o escribe *Menú* para reiniciar."
       },
       {
         id: "step_catalog",
         title: "Paso 1: Catálogo y Precios",
         type: "response",
+        isRoot: false,
+        position: { x: 740, y: 30 },
+        priority: 5,
+        autoPause: false,
+        allowedWhenPaused: false,
+        unpauseOnTrigger: false,
+        keywords: [
+          "1",
+          "precio",
+          "precios",
+          "catalogo",
+          "cuanto cuesta",
+          "comprar",
+          "iphone",
+          "costo",
+          "celulares",
+          "disponibles",
+          "disponible",
+          "sigue disponible",
+          "esta disponible",
+          "tienen disponible",
+          "stock",
+          "modelos",
+          "tienen",
+          "que tienen"
+        ],
+        negativeKeywords: [
+          "reparar",
+          "reparacion",
+          "taller",
+          "pantalla",
+          "bateria",
+          "arreglo",
+          "arreglar",
+          "vidrio",
+          "camara",
+          "pin de carga",
+          "danado",
+          "roto",
+          "rota",
+          "vender",
+          "vendo",
+          "vender mi",
+          "trade",
+          "tradein",
+          "trade-in",
+          "abono",
+          "parte de pago",
+          "salud",
+          "esim",
+          "piezas",
+          "garantia",
+          "reclamo",
+          "pagan",
+          "cuanto pagan",
+          "pagarian",
+          "cuanto me pagarian",
+          "cuanto dan",
+          "cuanto me dan",
+          "dan por",
+          "me dan por",
+          "compran",
+          "reciben mi",
+          "toman mi",
+          "en cuanto me toman",
+          "en cuanto toman",
+          "en cuanto me reciben",
+          "en cuanto reciben",
+          "cuanto vale mi",
+          "cuanto por mi",
+          "tasar",
+          "tasacion",
+          "dar mi",
+          "entregar mi",
+          "aceptan",
+          "reciben",
+          "toman"
+        ],
         message: 
           "📦 *Catálogo y Precios de TecnoTrade*\n\n" +
           "Encuentra todos nuestros iPhones y equipos disponibles con fotos reales, estado de batería y precios actualizados en nuestra web:\n\n" +
@@ -61,13 +166,58 @@ const DEFAULT_CONFIG = {
           "💡 Si deseas consultar por un modelo en específico o apartarlo, escríbenos cuál buscas o marca *6* para hablar con un asesor.\n\n" +
           "(Escribe *Menú* para volver a ver las opciones)",
         routes: [],
-        invalidMessage: null,
-        autoPause: false
+        invalidMessage: null
       },
       {
         id: "step_repairs",
         title: "Paso 2: Taller y Reparaciones",
         type: "response",
+        isRoot: false,
+        position: { x: 740, y: 175 },
+        priority: 10,
+        autoPause: true,
+        allowedWhenPaused: false,
+        unpauseOnTrigger: false,
+        keywords: [
+          "2",
+          "reparar",
+          "reparacion",
+          "reparaciones",
+          "taller",
+          "pantalla",
+          "bateria",
+          "arreglo",
+          "arreglar",
+          "vidrio",
+          "camara",
+          "cambio de pantalla",
+          "cambio de bateria",
+          "pin de carga",
+          "centro de carga",
+          "danado",
+          "roto",
+          "rota",
+          "no prende",
+          "mojado",
+          "revisar"
+        ],
+        negativeKeywords: [
+          "vender mi",
+          "quiero vender",
+          "parte de pago",
+          "como abono",
+          "piezas cambiadas",
+          "cuanto pagan",
+          "pagan por",
+          "pagan",
+          "cuanto dan",
+          "cuanto me dan",
+          "compran",
+          "cuanto vale mi",
+          "aceptan",
+          "reciben",
+          "toman"
+        ],
         message: 
           "🔧 *Taller Especializado TecnoTrade*\n\n" +
           "Reparamos pantallas, baterías, cámaras, centros de carga y microelectrónica con repuestos certificados y garantía.\n\n" +
@@ -76,13 +226,140 @@ const DEFAULT_CONFIG = {
           "💬 Déjanos escrito aquí **qué modelo tienes y qué falla presenta** para que un técnico te dé presupuesto en breve.\n\n" +
           "(Escribe *Menú* para reiniciar el bot)",
         routes: [],
-        invalidMessage: null,
-        autoPause: true
+        invalidMessage: null
       },
       {
         id: "step_tradein",
         title: "Paso 3: Vender o Cotizar (Trade-In)",
         type: "response",
+        isRoot: false,
+        position: { x: 740, y: 320 },
+        priority: 9,
+        autoPause: true,
+        allowedWhenPaused: false,
+        unpauseOnTrigger: false,
+        keywords: [
+          "3",
+          "vender",
+          "vendo",
+          "vender mi",
+          "quiero vender",
+          "trade",
+          "tradein",
+          "trade-in",
+          "abono",
+          "parte de pago",
+          "cambio mi",
+          "aceptan",
+          "aceptan iphone",
+          "aceptan celulares",
+          "aceptan celular",
+          "aceptan telefono",
+          "aceptan telefonos",
+          "aceptan equipos",
+          "aceptan trade",
+          "aceptan tradein",
+          "aceptan trade-in",
+          "aceptan cambio",
+          "aceptan cambios",
+          "aceptan parte de pago",
+          "aceptan como parte",
+          "aceptan de parte",
+          "aceptan en parte",
+          "aceptan como abono",
+          "aceptan abono",
+          "aceptan mi",
+          "modelos aceptan",
+          "modelo aceptan",
+          "modelos de iphone aceptan",
+          "que modelos de iphone aceptan",
+          "que aceptan",
+          "cuales aceptan",
+          "que modelos aceptan",
+          "cuales modelos aceptan",
+          "que iphone aceptan",
+          "que celulares aceptan",
+          "que telefonos aceptan",
+          "que equipos aceptan",
+          "desde que modelo aceptan",
+          "hasta que modelo aceptan",
+          "reciben",
+          "reciben mi",
+          "reciben celular",
+          "reciben celulares",
+          "reciben iphone",
+          "reciben telefono",
+          "reciben telefonos",
+          "reciben equipos",
+          "que modelos reciben",
+          "cuales modelos reciben",
+          "que reciben",
+          "cuales reciben",
+          "toman mi",
+          "me toman",
+          "toman celular",
+          "toman celulares",
+          "toman iphone",
+          "toman telefono",
+          "toman telefonos",
+          "toman equipos",
+          "toman equipo",
+          "que modelos toman",
+          "cuales modelos toman",
+          "que toman",
+          "en cuanto me toman",
+          "en cuanto toman",
+          "en cuanto me reciben",
+          "en cuanto reciben",
+          "cotizar mi",
+          "cotizar",
+          "cotizacion",
+          "cuanto pagan",
+          "pagan por",
+          "pagan",
+          "cuanto dan",
+          "cuanto me dan",
+          "cuanto dan por",
+          "cuanto me dan por",
+          "cuanto me pagan",
+          "cuanto me pagarian",
+          "cuanto pagarian",
+          "cuanto vale mi",
+          "cuanto por mi",
+          "compran",
+          "compran celular",
+          "compran celulares",
+          "compran iphone",
+          "compran telefono",
+          "compran telefonos",
+          "compran equipos",
+          "dar mi celular",
+          "dar mi iphone",
+          "dar mi telefono",
+          "entregar mi celular",
+          "entregar mi iphone",
+          "tasar",
+          "tasacion"
+        ],
+        negativeKeywords: [
+          "reparar",
+          "arreglar",
+          "horario",
+          "ubicacion",
+          "tarjeta",
+          "tarjetas",
+          "yappy",
+          "efectivo",
+          "transferencia",
+          "ach",
+          "cuotas",
+          "visa",
+          "mastercard",
+          "credito",
+          "debito",
+          "financiamiento",
+          "pagar"
+        ],
         message: 
           "¿Me brindas estos detalles del equipo, por favor? 📱\n" +
           "🔹 Modelo del equipo:\n" +
@@ -94,13 +371,20 @@ const DEFAULT_CONFIG = {
           "Con eso podemos revisar mejor el equipo y darte una cotización. 🙌\n\n" +
           "(Escribe *Menú* para volver a ver las opciones)",
         routes: [],
-        invalidMessage: null,
-        autoPause: true
+        invalidMessage: null
       },
       {
         id: "step_hours",
         title: "Paso 4: Horarios de Atención",
         type: "response",
+        isRoot: false,
+        position: { x: 740, y: 465 },
+        priority: 4,
+        autoPause: false,
+        allowedWhenPaused: true,
+        unpauseOnTrigger: false,
+        keywords: ["4", "horario", "horarios", "hora abren", "a que hora", "abren", "abierto", "cierran"],
+        negativeKeywords: ["bateria", "pantalla", "salud", "garantia"],
         message: 
           "🕒 *Horario de Atención TecnoTrade*\n\n" +
           "• *Lunes a Viernes:* 9:00 AM - 6:00 PM\n" +
@@ -109,13 +393,20 @@ const DEFAULT_CONFIG = {
           "¡Te esperamos en tienda física o atendemos tus pedidos en línea!\n\n" +
           "(Escribe *Menú* para volver a ver las opciones)",
         routes: [],
-        invalidMessage: null,
-        autoPause: false
+        invalidMessage: null
       },
       {
         id: "step_location",
         title: "Paso 5: Ubicación de Tienda",
         type: "response",
+        isRoot: false,
+        position: { x: 740, y: 610 },
+        priority: 4,
+        autoPause: false,
+        allowedWhenPaused: true,
+        unpauseOnTrigger: false,
+        keywords: ["5", "ubicacion", "donde estan", "direccion", "como llegar", "tienda fisica", "mapa", "maps"],
+        negativeKeywords: ["bateria", "pantalla", "salud"],
         message: 
           "📍 *Nuestra Ubicación*\n\n" +
           "Estamos ubicados en Ciudad de Panamá.\n\n" +
@@ -124,417 +415,44 @@ const DEFAULT_CONFIG = {
           "Contamos con estacionamiento y seguridad para tu comodidad.\n\n" +
           "(Escribe *Menú* para volver a ver las opciones)",
         routes: [],
-        invalidMessage: null,
-        autoPause: false
+        invalidMessage: null
       },
       {
         id: "step_advisor",
         title: "Paso 6: Transferir a Asesor",
         type: "handoff",
+        isRoot: false,
+        position: { x: 740, y: 755 },
+        priority: 12,
+        autoPause: true,
+        allowedWhenPaused: false,
+        unpauseOnTrigger: false,
+        keywords: [
+          "6",
+          "asesor",
+          "humano",
+          "persona",
+          "agente",
+          "ayuda",
+          "soporte",
+          "vendedor",
+          "hablar con alguien",
+          "garantia",
+          "reclamo"
+        ],
+        negativeKeywords: [],
         message: 
           "👨‍💼 *Atención con un Asesor*\n\n" +
           "¡Entendido! Hemos notificado a nuestro equipo. Un asesor humano te responderá por este mismo chat en breve.\n\n" +
           "Por favor, déjanos tu consulta o detalle aquí abajo para atenderte más rápido. 👇",
         routes: [],
-        invalidMessage: null,
-        autoPause: true
+        invalidMessage: null
       }
     ]
   },
 
-  // Flujo de ganchos ordenados por PRIORIDAD ESTRICTA
-  hooks: [
-    // 1. ASESOR HUMANO & GARANTÍAS (Prioridad Crítica 12: Escape inmediato a humano)
-    {
-      id: "hook_advisor",
-      name: "Gancho 6: Asesor Humano y Garantías",
-      type: "handoff",
-      priority: 12,
-      autoPause: true,
-      keywords: [
-        "6",
-        "asesor",
-        "humano",
-        "persona",
-        "agente",
-        "ayuda",
-        "soporte",
-        "vendedor",
-        "hablar con alguien",
-        "garantia",
-        "reclamo"
-      ],
-      negativeKeywords: [],
-      title: "👨‍💼 Transferir a Asesor Humano",
-      response: 
-        "👨‍💼 *Atención con un Asesor*\n\n" +
-        "¡Entendido! Hemos notificado a nuestro equipo. Un asesor humano te responderá por este mismo chat en breve.\n\n" +
-        "Por favor, déjanos tu consulta o detalle aquí abajo para atenderte más rápido. 👇"
-    },
-
-    // 2. REPARACIONES & TALLER (Prioridad 10: Gana sobre "iphone" si mencionan falla o reparación)
-    {
-      id: "hook_repairs",
-      name: "Gancho 2: Taller y Reparaciones",
-      type: "branch",
-      priority: 10,
-      autoPause: true, // Se pausa tras enviar para que el cliente describa su falla sin disparar otros ganchos
-      keywords: [
-        "2",
-        "reparar",
-        "reparacion",
-        "reparaciones",
-        "taller",
-        "pantalla",
-        "bateria",
-        "arreglo",
-        "arreglar",
-        "vidrio",
-        "camara",
-        "cambio de pantalla",
-        "cambio de bateria",
-        "pin de carga",
-        "centro de carga",
-        "danado",
-        "roto",
-        "rota",
-        "no prende",
-        "mojado",
-        "revisar"
-      ],
-      negativeKeywords: [
-        "vender mi",
-        "quiero vender",
-        "parte de pago",
-        "como abono",
-        "piezas cambiadas",
-        "cuanto pagan",
-        "pagan por",
-        "pagan",
-        "cuanto dan",
-        "cuanto me dan",
-        "compran",
-        "cuanto vale mi",
-        "aceptan",
-        "reciben",
-        "toman"
-      ],
-      title: "🔧 Taller Especializado & Reparaciones",
-      response: 
-        "🔧 *Taller Especializado TecnoTrade*\n\n" +
-        "Reparamos pantallas, baterías, cámaras, centros de carga y microelectrónica con repuestos certificados y garantía.\n\n" +
-        "📋 Puedes consultar tarifas aproximadas en nuestro cotizador web:\n" +
-        "🔗 {TIENDA_URL}#taller\n\n" +
-        "💬 O déjanos escrito aquí **qué modelo tienes y qué falla presenta** para que un técnico te dé presupuesto en breve."
-    },
-
-    // 3. TRADE-IN / VENDER TELÉFONO (Prioridad 9: Pide los 6 datos y se auto-pausa)
-    {
-      id: "hook_tradein",
-      name: "Gancho 3: Trade-In / Vender",
-      type: "branch",
-      priority: 9,
-      autoPause: true, // CRÍTICO: Se pausa tras enviar el cuestionario para que al responder "pantalla" o "iPhone" el bot no interrumpa
-      keywords: [
-        "3",
-        "vender",
-        "vendo",
-        "vender mi",
-        "quiero vender",
-        "trade",
-        "tradein",
-        "trade-in",
-        "abono",
-        "parte de pago",
-        "cambio mi",
-        "aceptan",
-        "aceptan iphone",
-        "aceptan celulares",
-        "aceptan celular",
-        "aceptan telefono",
-        "aceptan telefonos",
-        "aceptan equipos",
-        "aceptan trade",
-        "aceptan tradein",
-        "aceptan trade-in",
-        "aceptan cambio",
-        "aceptan cambios",
-        "aceptan parte de pago",
-        "aceptan como parte",
-        "aceptan de parte",
-        "aceptan en parte",
-        "aceptan como abono",
-        "aceptan abono",
-        "aceptan mi",
-        "modelos aceptan",
-        "modelo aceptan",
-        "modelos de iphone aceptan",
-        "que modelos de iphone aceptan",
-        "que aceptan",
-        "cuales aceptan",
-        "que modelos aceptan",
-        "cuales modelos aceptan",
-        "que iphone aceptan",
-        "que celulares aceptan",
-        "que telefonos aceptan",
-        "que equipos aceptan",
-        "desde que modelo aceptan",
-        "hasta que modelo aceptan",
-        "reciben",
-        "reciben mi",
-        "reciben celular",
-        "reciben celulares",
-        "reciben iphone",
-        "reciben telefono",
-        "reciben telefonos",
-        "reciben equipos",
-        "que modelos reciben",
-        "cuales modelos reciben",
-        "que reciben",
-        "cuales reciben",
-        "toman mi",
-        "me toman",
-        "toman celular",
-        "toman celulares",
-        "toman iphone",
-        "toman telefono",
-        "toman telefonos",
-        "toman equipos",
-        "toman equipo",
-        "que modelos toman",
-        "cuales modelos toman",
-        "que toman",
-        "en cuanto me toman",
-        "en cuanto toman",
-        "en cuanto me reciben",
-        "en cuanto reciben",
-        "cotizar mi",
-        "cotizar",
-        "cotizacion",
-        "cuanto pagan",
-        "pagan por",
-        "pagan",
-        "cuanto dan",
-        "cuanto me dan",
-        "cuanto dan por",
-        "cuanto me dan por",
-        "cuanto me pagan",
-        "cuanto me pagarian",
-        "cuanto pagarian",
-        "cuanto vale mi",
-        "cuanto por mi",
-        "compran",
-        "compran celular",
-        "compran celulares",
-        "compran iphone",
-        "compran telefono",
-        "compran telefonos",
-        "compran equipos",
-        "dar mi celular",
-        "dar mi iphone",
-        "dar mi telefono",
-        "entregar mi celular",
-        "entregar mi iphone",
-        "tasar",
-        "tasacion"
-      ],
-      negativeKeywords: [
-        "reparar",
-        "arreglar",
-        "horario",
-        "ubicacion",
-        "tarjeta",
-        "tarjetas",
-        "yappy",
-        "efectivo",
-        "transferencia",
-        "ach",
-        "cuotas",
-        "visa",
-        "mastercard",
-        "credito",
-        "debito",
-        "financiamiento",
-        "pagar"
-      ],
-      title: "📲 Vender o Cambiar Equipo (Trade-In)",
-      response: 
-        "¿Me brindas estos detalles del equipo, por favor? 📱\n" +
-        "🔹 Modelo del equipo:\n" +
-        "🔹 Almacenamiento:\n" +
-        "🔹 Salud de batería:\n" +
-        "🔹 Piezas cambiadas:\n" +
-        "🔹 Detalles o daños:\n" +
-        "🔹 ¿Es eSIM o chip?:\n\n" +
-        "Con eso podemos revisar mejor el equipo y darte una cotización. 🙌"
-    },
-
-    // 4. CATÁLOGO Y PRECIOS DE VENTA (Prioridad 5: Protegido con Negative Keywords)
-    {
-      id: "hook_catalog",
-      name: "Gancho 1: Catálogo y Precios",
-      type: "branch",
-      priority: 5,
-      autoPause: false,
-      keywords: [
-        "1",
-        "precio",
-        "precios",
-        "catalogo",
-        "cuanto cuesta",
-        "comprar",
-        "iphone",
-        "costo",
-        "celulares",
-        "disponibles",
-        "disponible",
-        "sigue disponible",
-        "esta disponible",
-        "tienen disponible",
-        "stock",
-        "modelos",
-        "tienen",
-        "que tienen"
-      ],
-      negativeKeywords: [
-        "reparar",
-        "reparacion",
-        "taller",
-        "pantalla",
-        "bateria",
-        "arreglo",
-        "arreglar",
-        "vidrio",
-        "camara",
-        "pin de carga",
-        "danado",
-        "roto",
-        "rota",
-        "vender",
-        "vendo",
-        "vender mi",
-        "trade",
-        "tradein",
-        "trade-in",
-        "abono",
-        "parte de pago",
-        "salud",
-        "esim",
-        "piezas",
-        "garantia",
-        "reclamo",
-        "pagan",
-        "cuanto pagan",
-        "pagarian",
-        "cuanto me pagarian",
-        "cuanto dan",
-        "cuanto me dan",
-        "dan por",
-        "me dan por",
-        "compran",
-        "reciben mi",
-        "toman mi",
-        "en cuanto me toman",
-        "en cuanto toman",
-        "en cuanto me reciben",
-        "en cuanto reciben",
-        "cuanto vale mi",
-        "cuanto por mi",
-        "tasar",
-        "tasacion",
-        "dar mi",
-        "entregar mi",
-        "aceptan",
-        "reciben",
-        "toman"
-      ],
-      title: "📦 Catálogo de Productos",
-      response: 
-        "📦 *Catálogo y Precios de TecnoTrade*\n\n" +
-        "Encuentra todos nuestros iPhones y equipos disponibles con fotos reales, estado de batería y precios actualizados en nuestra web:\n\n" +
-        "🔗 {TIENDA_URL}\n\n" +
-        "💡 Si deseas consultar por un modelo en específico o apartarlo, escríbenos cuál buscas o marca *6* para hablar con un asesor."
-    },
-
-    // 5. HORARIOS DE ATENCIÓN (Permitido incluso si está esperando asesor)
-    {
-      id: "hook_hours",
-      name: "Gancho 4: Horarios de Atención",
-      type: "branch",
-      priority: 4,
-      autoPause: false,
-      allowedWhenPaused: true,
-      keywords: ["4", "horario", "horarios", "hora abren", "a que hora", "abren", "abierto", "cierran"],
-      negativeKeywords: ["bateria", "pantalla", "salud", "garantia"],
-      title: "🕒 Horario Comercial",
-      response: 
-        "🕒 *Horario de Atención TecnoTrade*\n\n" +
-        "• *Lunes a Viernes:* 9:00 AM - 6:00 PM\n" +
-        "• *Sábados:* 9:00 AM - 2:00 PM\n" +
-        "• *Domingos:* Cerrado\n\n" +
-        "¡Te esperamos en tienda física o atendemos tus pedidos en línea!"
-    },
-
-    // 6. UBICACIÓN Y MAPS (Permitido incluso si está esperando asesor)
-    {
-      id: "hook_location",
-      name: "Gancho 5: Ubicación de Tienda",
-      type: "branch",
-      priority: 4,
-      autoPause: false,
-      allowedWhenPaused: true,
-      keywords: ["5", "ubicacion", "donde estan", "direccion", "como llegar", "tienda fisica", "mapa", "maps"],
-      negativeKeywords: ["bateria", "pantalla", "salud"],
-      title: "📍 Ubicación y Mapa",
-      response: 
-        "📍 *Nuestra Ubicación*\n\n" +
-        "Estamos ubicados en Ciudad de Panamá.\n\n" +
-        "🗺️ Toca el enlace para abrir directamente en Google Maps:\n" +
-        "{MAPS_URL}\n\n" +
-        "Contamos con estacionamiento y seguridad para tu comodidad."
-    },
-
-    // 7. BIENVENIDA Y MENÚ GENERAL
-    {
-      id: "hook_welcome",
-      name: "Gancho: Bienvenida y Menú",
-      type: "trigger",
-      priority: 1,
-      autoPause: false,
-      unpauseOnTrigger: true,
-      keywords: [
-        "hola",
-        "buenas",
-        "buenos dias",
-        "buenas tardes",
-        "buenas noches",
-        "menu",
-        "inicio",
-        "start",
-        "info",
-        "opciones"
-      ],
-      negativeKeywords: [
-        "reparar",
-        "pantalla",
-        "bateria",
-        "vender",
-        "vendo",
-        "abono",
-        "garantia"
-      ],
-      title: "👋 Menú Principal",
-      response: 
-        "¡Hola! 👋 Bienvenido a *TecnoTrade Panamá*.\n\n" +
-        "¿En qué te podemos ayudar hoy? Escribe el *número* o la *palabra* de tu opción:\n\n" +
-        "1️⃣ *Catálogo de Equipos y Precios*\n" +
-        "2️⃣ *Taller de Reparaciones* 🔧\n" +
-        "3️⃣ *Vender o Cotizar mi Equipo (Trade-In)*\n" +
-        "4️⃣ *Horario de Atención*\n" +
-        "5️⃣ *Ubicación de Tienda*\n" +
-        "6️⃣ *Hablar con un Asesor*"
-    }
-  ],
+  // Arreglo legacy mantenido vacío por compatibilidad (las reglas viven unificadas en workflow.steps)
+  hooks: [],
 
   // Mensaje cuando ninguna regla coincide (usado solo si silentFallback es false)
   fallbackResponse: 
@@ -585,6 +503,38 @@ function looksLikeDeviceSpecs(cleanText) {
   return specPatterns.some(regex => regex.test(cleanText));
 }
 
+const LEGACY_HOOK_TO_STEP = {
+  hook_welcome: "step_welcome",
+  hook_catalog: "step_catalog",
+  hook_repairs: "step_repairs",
+  hook_tradein: "step_tradein",
+  hook_hours: "step_hours",
+  hook_location: "step_location",
+  hook_advisor: "step_advisor"
+};
+
+function hasNegativeMatch(node, clean) {
+  return (node.negativeKeywords || []).some(neg => {
+    const cleanNeg = normalizeText(neg);
+    return cleanNeg && clean.includes(cleanNeg);
+  });
+}
+
+function findMatchingNode(nodes, clean, options = {}) {
+  const { requireLongKeyword = false } = options;
+  for (const node of nodes) {
+    if (hasNegativeMatch(node, clean)) continue;
+    const matched = (node.keywords || []).some(kw => {
+      const cleanKw = normalizeText(kw);
+      if (!cleanKw) return false;
+      if (requireLongKeyword && cleanKw.length <= 2) return false;
+      return cleanKw.length <= 2 ? clean === cleanKw : clean.includes(cleanKw);
+    });
+    if (matched) return node;
+  }
+  return null;
+}
+
 /**
  * Motor Principal de Razonamiento, Pasos de Workflow y Resolución de Respuestas
  * @param {string} userText - Texto enviado por el usuario
@@ -599,18 +549,39 @@ function resolveBotResponse(userText, config = DEFAULT_CONFIG, context = {}) {
   }
 
   const clean = normalizeText(userText);
-  const workflowSteps = config.workflow?.steps || DEFAULT_CONFIG.workflow.steps;
+  const workflowSteps = Array.isArray(config.workflow?.steps) && config.workflow.steps.length > 0
+    ? config.workflow.steps
+    : DEFAULT_CONFIG.workflow.steps;
+  const initialStepId = config.workflow?.initialStepId
+    || (workflowSteps.find(s => s.isRoot) || workflowSteps[0])?.id
+    || "step_welcome";
+  const rootStep = workflowSteps.find(s => s.id === initialStepId)
+    || workflowSteps.find(s => s.isRoot)
+    || workflowSteps[0];
   const isStrictStepMode = config.settings?.strictStepMode !== false;
 
+  // Unifica workflow.steps + cualquier gancho legacy huérfano que pudiera existir en configs viejas
+  const existingStepIds = new Set(workflowSteps.map(s => s.id));
+  const legacyExtras = (config.hooks || [])
+    .filter(h => {
+      const mappedId = LEGACY_HOOK_TO_STEP[h.id] || h.id;
+      return !existingStepIds.has(mappedId);
+    })
+    .map(h => ({
+      ...h,
+      message: h.message || h.response || "",
+      nextStepId: LEGACY_HOOK_TO_STEP[h.id] || h.id
+    }));
+
+  const sortedNodes = [...workflowSteps, ...legacyExtras]
+    .sort((a, b) => (b.priority || 0) - (a.priority || 0));
+
   // 1. Comando explícito para pedir el menú o reactivar el bot
-  if (clean === "menu" || clean === "activar bot" || clean === "/bot" || clean === "inicio") {
-    const welcomeStep = workflowSteps.find(s => s.id === "step_welcome") || workflowSteps[0];
-    const welcomeHook = (config.hooks || []).find(h => h.id === "hook_welcome") || DEFAULT_CONFIG.hooks.find(h => h.id === "hook_welcome");
-    const responseText = welcomeStep ? welcomeStep.message : welcomeHook.response;
+  if ((clean === "menu" || clean === "activar bot" || clean === "/bot" || clean === "inicio") && rootStep) {
     return {
-      text: formatResponseText(responseText, config),
-      hookId: "hook_welcome",
-      nextStep: "step_welcome",
+      text: formatResponseText(rootStep.message, config),
+      hookId: rootStep.id,
+      nextStep: rootStep.id,
       shouldPause: false,
       shouldUnpause: true
     };
@@ -622,142 +593,111 @@ function resolveBotResponse(userText, config = DEFAULT_CONFIG, context = {}) {
       return { text: null, hookId: null, nextStep: currentStep, shouldPause: false, shouldUnpause: false };
     }
 
-    // Permitir únicamente ganchos marcados con allowedWhenPaused (Ubicación / Horario)
-    const pausedAllowedHooks = (config.hooks || []).filter(h => h.allowedWhenPaused);
-    for (const hook of pausedAllowedHooks) {
-      const hasNeg = (hook.negativeKeywords || []).some(neg => {
-        const cn = normalizeText(neg);
-        return cn && clean.includes(cn);
-      });
-      if (hasNeg) continue;
-
-      const matched = (hook.keywords || []).some(kw => {
-        const ck = normalizeText(kw);
-        if (!ck) return false;
-        return ck.length <= 2 ? clean === ck : clean.includes(ck);
-      });
-
-      if (matched) {
-        return {
-          text: formatResponseText(hook.response, config),
-          hookId: hook.id,
-          nextStep: currentStep,
-          shouldPause: false,
-          shouldUnpause: false
-        };
-      }
+    const pausedAllowedNodes = sortedNodes.filter(n => n.allowedWhenPaused);
+    const matchedPaused = findMatchingNode(pausedAllowedNodes, clean);
+    if (matchedPaused) {
+      return {
+        text: formatResponseText(matchedPaused.message, config),
+        hookId: matchedPaused.id,
+        nextStep: currentStep,
+        shouldPause: false,
+        shouldUnpause: false
+      };
     }
 
-    // Para todo lo demás mientras está en pausa: SILENCIO ABSOLUTO (no interrumpir)
     return { text: null, hookId: null, nextStep: currentStep, shouldPause: false, shouldUnpause: false };
   }
 
   // 3. Si el mensaje parece directamente una lista de especificaciones técnicas
   if (looksLikeDeviceSpecs(clean) && !clean.includes("vender") && !clean.includes("reparar")) {
+    const tradeinStepId = workflowSteps.some(s => s.id === "step_tradein") ? "step_tradein" : currentStep;
     return {
       text: null,
       hookId: "spec_detected_silent",
-      nextStep: "step_tradein",
-      shouldPause: true, // Pausar para que el asesor revise los datos
+      nextStep: tradeinStepId,
+      shouldPause: true,
       shouldUnpause: false
     };
   }
 
-  // 4. SI EL CLIENTE ESTÁ EN UN PASO DEL WORKFLOW (Ej: step_welcome)
-  // Evaluar primero las rutas exactas de ese paso
+  // 4. Si el cliente está posicionado en un paso con enlaces salientes, evaluar primero esos enlaces
   const activeStep = currentStep ? workflowSteps.find(s => s.id === currentStep) : null;
-  if (activeStep && activeStep.routes && activeStep.routes.length > 0) {
-    const matchedRoute = activeStep.routes.find(r => {
-      const cleanKey = normalizeText(r.key);
-      const cleanLabel = normalizeText(r.label);
-      if (clean === cleanKey) return true;
-      if (cleanKey && cleanKey.length <= 2 && clean === cleanKey) return true;
-      return cleanLabel && cleanLabel.length > 3 && clean.includes(cleanLabel);
-    });
+  const effectiveActiveStep = activeStep || (isStrictStepMode && !isNewCustomer ? rootStep : null);
 
-    if (matchedRoute) {
-      const targetStep = workflowSteps.find(s => s.id === matchedRoute.targetStepId);
-      if (targetStep) {
+  if (effectiveActiveStep && Array.isArray(effectiveActiveStep.routes) && effectiveActiveStep.routes.length > 0) {
+    for (const route of effectiveActiveStep.routes) {
+      const targetStep = workflowSteps.find(s => s.id === route.targetStepId);
+      if (!targetStep) continue;
+
+      const keyTokens = String(route.key || "")
+        .split(/[,|]/)
+        .map(k => normalizeText(k))
+        .filter(Boolean);
+      const keyMatch = keyTokens.some(tk => clean === tk);
+
+      const cleanLabel = normalizeText(route.label);
+      const labelMatch = !keyMatch
+        && cleanLabel
+        && cleanLabel.length > 3
+        && clean.includes(cleanLabel)
+        && !hasNegativeMatch(targetStep, clean);
+
+      if (keyMatch || labelMatch) {
         return {
           text: formatResponseText(targetStep.message, config),
           hookId: targetStep.id,
           nextStep: targetStep.id,
-          shouldPause: Boolean(targetStep.autoPause),
-          shouldUnpause: false
+          shouldPause: Boolean(targetStep.autoPause || targetStep.type === "handoff" || targetStep.id === "step_advisor"),
+          shouldUnpause: Boolean(targetStep.unpauseOnTrigger)
         };
       }
     }
   }
 
-  // 5. EVALUACIÓN DE GANCHOS POR PRIORIDAD (Protege intenciones directas de anuncios)
-  const sortedHooks = [...(config.hooks || [])].sort((a, b) => (b.priority || 0) - (a.priority || 0));
+  // 5. Evaluación global por prioridad y palabras clave (protege intenciones directas de Meta Ads)
+  const hasActiveRoutes = Boolean(
+    effectiveActiveStep && Array.isArray(effectiveActiveStep.routes) && effectiveActiveStep.routes.length > 0
+  );
+  const matchedNode = findMatchingNode(sortedNodes, clean, {
+    requireLongKeyword: isStrictStepMode && hasActiveRoutes
+  });
 
-  for (const hook of sortedHooks) {
-    const hasNegativeMatch = (hook.negativeKeywords || []).some(neg => {
-      const cleanNeg = normalizeText(neg);
-      if (!cleanNeg) return false;
-      return clean.includes(cleanNeg);
-    });
-
-    if (hasNegativeMatch) continue;
-
-    const hasPositiveMatch = (hook.keywords || []).some(keyword => {
-      const cleanKeyword = normalizeText(keyword);
-      if (!cleanKeyword) return false;
-      if (cleanKeyword.length <= 2) {
-        return clean === cleanKeyword;
-      }
-      return clean.includes(cleanKeyword);
-    });
-
-    if (hasPositiveMatch) {
-      const finalResponse = formatResponseText(hook.response, config);
-      const shouldPause = Boolean(hook.autoPause || hook.type === 'handoff' || hook.id === 'hook_advisor');
-
-      const stepMap = {
-        'hook_welcome': 'step_welcome',
-        'hook_catalog': 'step_catalog',
-        'hook_repairs': 'step_repairs',
-        'hook_tradein': 'step_tradein',
-        'hook_hours': 'step_hours',
-        'hook_location': 'step_location',
-        'hook_advisor': 'step_advisor'
-      };
-
-      return {
-        text: finalResponse,
-        hookId: hook.id,
-        nextStep: stepMap[hook.id] || hook.id,
-        shouldPause,
-        shouldUnpause: Boolean(hook.unpauseOnTrigger)
-      };
-    }
-  }
-
-  // 6. VALIDACIÓN ESTRICTA EN EL MENÚ (Si escribió una opción fuera del 1 al 6)
-  if (isStrictStepMode && (!currentStep || currentStep === "step_welcome") && !isNewCustomer) {
-    const welcomeStep = workflowSteps.find(s => s.id === "step_welcome");
-    if (welcomeStep && welcomeStep.invalidMessage) {
-      return {
-        text: formatResponseText(welcomeStep.invalidMessage, config),
-        hookId: "invalid_option_error",
-        nextStep: "step_welcome",
-        shouldPause: false,
-        shouldUnpause: false
-      };
-    }
-  }
-
-  // 7. Si ningún gancho ni ruta coincidió y es cliente nuevo:
-  if (isNewCustomer) {
-    const welcomeStep = workflowSteps.find(s => s.id === "step_welcome");
-    const welcomeHook = (config.hooks || []).find(h => h.id === "hook_welcome") || DEFAULT_CONFIG.hooks.find(h => h.id === "hook_welcome");
-    const welcomeText = welcomeStep ? welcomeStep.message : welcomeHook.response;
+  if (matchedNode) {
+    const targetStepId = matchedNode.nextStepId || matchedNode.id;
     return {
-      text: formatResponseText(welcomeText, config),
-      hookId: "hook_welcome_new_user",
-      nextStep: "step_welcome",
+      text: formatResponseText(matchedNode.message, config),
+      hookId: matchedNode.id,
+      nextStep: targetStepId,
+      shouldPause: Boolean(matchedNode.autoPause || matchedNode.type === "handoff" || targetStepId === "step_advisor"),
+      shouldUnpause: Boolean(matchedNode.unpauseOnTrigger)
+    };
+  }
+
+  // 6. Validación estricta en cualquier paso con enlaces salientes definidos
+  if (
+    isStrictStepMode
+    && !isNewCustomer
+    && effectiveActiveStep
+    && Array.isArray(effectiveActiveStep.routes)
+    && effectiveActiveStep.routes.length > 0
+    && effectiveActiveStep.invalidMessage
+  ) {
+    return {
+      text: formatResponseText(effectiveActiveStep.invalidMessage, config),
+      hookId: "invalid_option_error",
+      nextStep: effectiveActiveStep.id,
       shouldPause: false,
+      shouldUnpause: false
+    };
+  }
+
+  // 7. Si ningún nodo coincidió y es cliente nuevo: enviar paso inicial
+  if (isNewCustomer && rootStep) {
+    return {
+      text: formatResponseText(rootStep.message, config),
+      hookId: "hook_welcome_new_user",
+      nextStep: rootStep.id,
+      shouldPause: Boolean(rootStep.autoPause),
       shouldUnpause: false
     };
   }
@@ -780,5 +720,6 @@ function resolveBotResponse(userText, config = DEFAULT_CONFIG, context = {}) {
 module.exports = {
   DEFAULT_CONFIG,
   resolveBotResponse,
-  normalizeText
+  normalizeText,
+  formatResponseText
 };

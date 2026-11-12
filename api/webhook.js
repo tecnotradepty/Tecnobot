@@ -1,7 +1,7 @@
 // ========================================================
 // VERCEL SERVERLESS FUNCTION - INSTAGRAM WEBHOOK HANDLER
 // ========================================================
-const { resolveBotResponse } = require('../config/responses');
+const { resolveBotResponse, formatResponseText } = require('../config/responses');
 const { 
   getConfig, 
   upsertCustomer,
@@ -100,10 +100,17 @@ module.exports = async function handler(req, res) {
               { isPaused, isNewCustomer, currentStep }
             );
 
+            const matchedStep = (activeConfig.workflow?.steps || []).find(s => s.id === hookId);
             const matchedHook = (activeConfig.hooks || []).find(h => h.id === hookId);
-            const hookLabel = matchedHook
-              ? matchedHook.title
-              : (hookId === 'welcome_first_time' ? 'Menú Principal (Bienvenida)' : null);
+            const hookLabel = matchedStep?.title
+              || matchedHook?.title
+              || (hookId === 'hook_welcome_new_user' || hookId === 'welcome_first_time'
+                ? 'Menú Principal (Bienvenida)'
+                : hookId === 'invalid_option_error'
+                  ? 'Validación Estricta de Opción'
+                  : hookId === 'spec_detected_silent'
+                    ? 'Ficha Técnica Detectada'
+                    : null);
 
             // Registrar al cliente, su último mensaje y actualizar su paso en el flujo
             await upsertCustomer(
@@ -156,20 +163,25 @@ module.exports = async function handler(req, res) {
  */
 function isKnownBotResponse(echoText, config) {
   if (!echoText) return false;
-  const cleanEcho = echoText.slice(0, 40).toLowerCase();
+  const cleanEcho = echoText.trim().slice(0, 40).toLowerCase();
+  if (!cleanEcho) return false;
 
+  const candidates = [];
+  for (const step of config.workflow?.steps || []) {
+    if (step.message) candidates.push(formatResponseText(step.message, config));
+    if (step.invalidMessage) candidates.push(formatResponseText(step.invalidMessage, config));
+  }
   for (const hook of config.hooks || []) {
-    const cleanHook = (hook.response || '').slice(0, 40).toLowerCase();
-    if (cleanHook && cleanEcho === cleanHook) {
-      return true;
-    }
+    if (hook.response) candidates.push(formatResponseText(hook.response, config));
+  }
+  if (config.fallbackResponse) {
+    candidates.push(formatResponseText(config.fallbackResponse, config));
   }
 
-  if (config.fallbackResponse && cleanEcho === config.fallbackResponse.slice(0, 40).toLowerCase()) {
-    return true;
-  }
-
-  return false;
+  return candidates.some(raw => {
+    const cleanCandidate = String(raw || '').trim().slice(0, 40).toLowerCase();
+    return cleanCandidate && cleanEcho === cleanCandidate;
+  });
 }
 
 /**

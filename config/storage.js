@@ -4,7 +4,7 @@
 
 const { DEFAULT_CONFIG } = require('./responses');
 
-const CURRENT_SCHEMA_VERSION = 4;
+const CURRENT_SCHEMA_VERSION = 5;
 
 let inMemoryConfig = { ...DEFAULT_CONFIG, schemaVersion: CURRENT_SCHEMA_VERSION };
 let inMemoryCustomers = {};
@@ -72,6 +72,41 @@ async function executeRedis(commandArray) {
   }
 }
 
+const STEP_TO_HOOK_ID = {
+  step_welcome: 'hook_welcome',
+  step_catalog: 'hook_catalog',
+  step_repairs: 'hook_repairs',
+  step_tradein: 'hook_tradein',
+  step_hours: 'hook_hours',
+  step_location: 'hook_location',
+  step_advisor: 'hook_advisor'
+};
+
+function normalizeWorkflowStep(step, index = 0, fallbackStep = null) {
+  const defaultPos = fallbackStep?.position || {
+    x: 340 + (index % 3) * 340,
+    y: 40 + Math.floor(index / 3) * 160
+  };
+  return {
+    id: step.id || fallbackStep?.id || `step_${Date.now()}_${index}`,
+    title: step.title || fallbackStep?.title || 'Paso Nuevo',
+    type: step.type || fallbackStep?.type || 'response',
+    isRoot: Boolean(step.isRoot),
+    position: (step.position && typeof step.position.x === 'number' && typeof step.position.y === 'number')
+      ? { x: step.position.x, y: step.position.y }
+      : defaultPos,
+    priority: step.priority !== undefined ? Number(step.priority) : (fallbackStep?.priority ?? 5),
+    autoPause: step.autoPause !== undefined ? Boolean(step.autoPause) : Boolean(fallbackStep?.autoPause),
+    allowedWhenPaused: step.allowedWhenPaused !== undefined ? Boolean(step.allowedWhenPaused) : Boolean(fallbackStep?.allowedWhenPaused),
+    unpauseOnTrigger: step.unpauseOnTrigger !== undefined ? Boolean(step.unpauseOnTrigger) : Boolean(fallbackStep?.unpauseOnTrigger),
+    keywords: Array.isArray(step.keywords) ? step.keywords : (fallbackStep?.keywords || []),
+    negativeKeywords: Array.isArray(step.negativeKeywords) ? step.negativeKeywords : (fallbackStep?.negativeKeywords || []),
+    message: step.message !== undefined ? step.message : (fallbackStep?.message || ''),
+    routes: Array.isArray(step.routes) ? step.routes : (fallbackStep?.routes || []),
+    invalidMessage: step.invalidMessage !== undefined ? step.invalidMessage : (fallbackStep?.invalidMessage ?? null)
+  };
+}
+
 /**
  * Sincroniza e hidrata configuraciones guardadas en versiones anteriores
  */
@@ -83,64 +118,114 @@ function upgradeAndMergeConfig(saved) {
   const mergedSettings = {
     ...DEFAULT_CONFIG.settings,
     ...(saved.settings || {}),
-    silentFallback: saved.settings?.silentFallback !== undefined ? saved.settings.silentFallback : true
+    silentFallback: saved.settings?.silentFallback !== undefined ? saved.settings.silentFallback : true,
+    strictStepMode: saved.settings?.strictStepMode !== undefined ? saved.settings.strictStepMode : true
   };
 
-  const savedHooks = Array.isArray(saved.hooks) ? saved.hooks : DEFAULT_CONFIG.hooks;
-
-  // Fusionar inteligentemente los hooks por defecto con lo guardado en Redis
-  const mergedHooks = DEFAULT_CONFIG.hooks.map(defaultHook => {
-    const savedMatch = savedHooks.find(s => s.id === defaultHook.id);
-    if (!savedMatch) return defaultHook;
-
-    const userKws = Array.isArray(savedMatch.keywords) ? savedMatch.keywords : [];
-    const defaultKws = Array.isArray(defaultHook.keywords) ? defaultHook.keywords : [];
-    const combinedKeywords = Array.from(new Set([...defaultKws, ...userKws]));
-
-    const userNegs = Array.isArray(savedMatch.negativeKeywords) ? savedMatch.negativeKeywords : [];
-    const defaultNegs = Array.isArray(defaultHook.negativeKeywords) ? defaultHook.negativeKeywords : [];
-    const combinedNegatives = Array.from(new Set([...defaultNegs, ...userNegs]));
-
-    return {
-      ...defaultHook,
-      ...savedMatch,
-      response: savedMatch.response || defaultHook.response,
-      keywords: combinedKeywords,
-      negativeKeywords: combinedNegatives,
-      autoPause: savedMatch.autoPause !== undefined ? savedMatch.autoPause : defaultHook.autoPause,
-      priority: savedMatch.priority !== undefined ? savedMatch.priority : defaultHook.priority,
-      allowedWhenPaused: savedMatch.allowedWhenPaused !== undefined ? savedMatch.allowedWhenPaused : defaultHook.allowedWhenPaused,
-      unpauseOnTrigger: savedMatch.unpauseOnTrigger !== undefined ? savedMatch.unpauseOnTrigger : defaultHook.unpauseOnTrigger
-    };
-  });
-
-  // Conservar ganchos personalizados creados por el usuario que no estén en DEFAULT_CONFIG
-  const extraUserHooks = savedHooks.filter(s => !DEFAULT_CONFIG.hooks.some(d => d.id === s.id));
-  const finalHooks = [...mergedHooks, ...extraUserHooks];
-
-  // Fusionar e inicializar el Workflow de Pasos (Mapa Conceptual)
+  const savedVersion = Number(saved.schemaVersion || 1);
   const defaultWorkflow = DEFAULT_CONFIG.workflow;
   const savedWorkflow = saved.workflow || {};
   const savedSteps = Array.isArray(savedWorkflow.steps) ? savedWorkflow.steps : [];
+  const savedHooks = Array.isArray(saved.hooks) ? saved.hooks : [];
 
-  const mergedSteps = defaultWorkflow.steps.map(defaultStep => {
-    const savedMatch = savedSteps.find(s => s.id === defaultStep.id);
-    if (!savedMatch) return defaultStep;
-    return {
-      ...defaultStep,
-      ...savedMatch,
-      message: savedMatch.message || defaultStep.message,
-      routes: Array.isArray(savedMatch.routes) && savedMatch.routes.length > 0 ? savedMatch.routes : defaultStep.routes,
-      invalidMessage: savedMatch.invalidMessage !== undefined ? savedMatch.invalidMessage : defaultStep.invalidMessage,
-      autoPause: savedMatch.autoPause !== undefined ? savedMatch.autoPause : defaultStep.autoPause
-    };
-  });
+  let finalSteps;
+  if (savedVersion >= CURRENT_SCHEMA_VERSION && savedSteps.length > 0) {
+    // En v5+, respetar exactamente los pasos, enlaces (incluso routes=[]) y keywords editados en el mapa
+    finalSteps = savedSteps.map((s, idx) => {
+      const def = defaultWorkflow.steps.find(d => d.id === s.id) || null;
+      return normalizeWorkflowStep(s, idx, def);
+    });
+  } else {
+    // Migración desde v1-v4: fusionar defaults de workflow + hooks legacy sin perder ediciones ni reglas de anuncios
+    const mergedSteps = defaultWorkflow.steps.map((defaultStep, idx) => {
+      const savedMatch = savedSteps.find(s => s.id === defaultStep.id);
+      const legacyHookId = STEP_TO_HOOK_ID[defaultStep.id];
+      const legacyHook = legacyHookId ? savedHooks.find(h => h.id === legacyHookId) : null;
 
-  const extraUserSteps = savedSteps.filter(s => !defaultWorkflow.steps.some(d => d.id === s.id));
+      const combinedKeywords = Array.from(new Set([
+        ...(Array.isArray(defaultStep.keywords) ? defaultStep.keywords : []),
+        ...(Array.isArray(savedMatch?.keywords) ? savedMatch.keywords : []),
+        ...(Array.isArray(legacyHook?.keywords) ? legacyHook.keywords : [])
+      ]));
+
+      const combinedNegatives = Array.from(new Set([
+        ...(Array.isArray(defaultStep.negativeKeywords) ? defaultStep.negativeKeywords : []),
+        ...(Array.isArray(savedMatch?.negativeKeywords) ? savedMatch.negativeKeywords : []),
+        ...(Array.isArray(legacyHook?.negativeKeywords) ? legacyHook.negativeKeywords : [])
+      ]));
+
+      const resolvedMessage = savedMatch?.message
+        || (savedVersion < 4 && legacyHook?.response ? legacyHook.response : null)
+        || defaultStep.message;
+
+      const resolvedRoutes = (Array.isArray(savedMatch?.routes) && savedMatch.routes.length > 0)
+        ? savedMatch.routes
+        : defaultStep.routes;
+
+      return normalizeWorkflowStep({
+        ...defaultStep,
+        ...savedMatch,
+        message: resolvedMessage,
+        keywords: combinedKeywords,
+        negativeKeywords: combinedNegatives,
+        routes: resolvedRoutes,
+        invalidMessage: savedMatch?.invalidMessage !== undefined ? savedMatch.invalidMessage : defaultStep.invalidMessage,
+        autoPause: savedMatch?.autoPause !== undefined
+          ? savedMatch.autoPause
+          : (legacyHook?.autoPause !== undefined ? legacyHook.autoPause : defaultStep.autoPause),
+        priority: savedMatch?.priority !== undefined
+          ? savedMatch.priority
+          : (legacyHook?.priority !== undefined ? legacyHook.priority : defaultStep.priority),
+        allowedWhenPaused: savedMatch?.allowedWhenPaused !== undefined
+          ? savedMatch.allowedWhenPaused
+          : (legacyHook?.allowedWhenPaused !== undefined ? legacyHook.allowedWhenPaused : defaultStep.allowedWhenPaused),
+        unpauseOnTrigger: savedMatch?.unpauseOnTrigger !== undefined
+          ? savedMatch.unpauseOnTrigger
+          : (legacyHook?.unpauseOnTrigger !== undefined ? legacyHook.unpauseOnTrigger : defaultStep.unpauseOnTrigger)
+      }, idx, defaultStep);
+    });
+
+    const extraUserSteps = savedSteps
+      .filter(s => !defaultWorkflow.steps.some(d => d.id === s.id))
+      .map((s, idx) => normalizeWorkflowStep(s, mergedSteps.length + idx, {
+        position: { x: 1080, y: 60 + idx * 155 }
+      }));
+
+    const existingStepIds = new Set([...mergedSteps, ...extraUserSteps].map(s => s.id));
+    const knownLegacyHookIds = new Set(Object.values(STEP_TO_HOOK_ID));
+    const convertedHooks = savedHooks
+      .filter(h => !knownLegacyHookIds.has(h.id) && !existingStepIds.has(h.id))
+      .map((h, idx) => normalizeWorkflowStep({
+        id: h.id,
+        title: h.title || h.name || 'Paso Personalizado',
+        type: h.type === 'handoff' ? 'handoff' : 'response',
+        isRoot: false,
+        position: { x: 1080, y: 60 + (extraUserSteps.length + idx) * 155 },
+        priority: h.priority ?? 5,
+        autoPause: Boolean(h.autoPause),
+        allowedWhenPaused: Boolean(h.allowedWhenPaused),
+        unpauseOnTrigger: Boolean(h.unpauseOnTrigger),
+        keywords: Array.isArray(h.keywords) ? h.keywords : [],
+        negativeKeywords: Array.isArray(h.negativeKeywords) ? h.negativeKeywords : [],
+        message: h.response || h.message || '',
+        routes: [],
+        invalidMessage: null
+      }, mergedSteps.length + extraUserSteps.length + idx));
+
+    finalSteps = [...mergedSteps, ...extraUserSteps, ...convertedHooks];
+  }
+
+  const rootStep = finalSteps.find(s => s.id === savedWorkflow.initialStepId)
+    || finalSteps.find(s => s.isRoot)
+    || finalSteps[0];
+
   const finalWorkflow = {
     enabled: savedWorkflow.enabled !== undefined ? savedWorkflow.enabled : true,
-    initialStepId: savedWorkflow.initialStepId || "step_welcome",
-    steps: [...mergedSteps, ...extraUserSteps]
+    initialStepId: rootStep ? rootStep.id : 'step_welcome',
+    triggerPosition: (savedWorkflow.triggerPosition && typeof savedWorkflow.triggerPosition.x === 'number')
+      ? { x: savedWorkflow.triggerPosition.x, y: savedWorkflow.triggerPosition.y }
+      : { x: 40, y: 295 },
+    steps: finalSteps
   };
 
   return {
@@ -148,7 +233,7 @@ function upgradeAndMergeConfig(saved) {
     ...saved,
     botActive: saved.botActive !== undefined ? saved.botActive : true,
     settings: mergedSettings,
-    hooks: finalHooks,
+    hooks: [],
     workflow: finalWorkflow,
     schemaVersion: CURRENT_SCHEMA_VERSION
   };
