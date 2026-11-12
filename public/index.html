@@ -890,6 +890,17 @@
     // =========================================================
     // 3. LIENZO N8N / MANYCHAT (NODOS FLOTANTES & CABLES SVG)
     // =========================================================
+    function isWildcardRouteUI(route) {
+      if (!route) return false;
+      if (route.matchAny === true) return true;
+      const rawParts = String(route.key || '').split(/[,|]/).map(s => s.trim()).filter(Boolean);
+      return rawParts.some(p => {
+        if (p === '*' || p === '✱') return true;
+        const norm = normalizeStr(p);
+        return norm === 'any' || norm === 'cualquier' || norm === 'cualquiera' || norm === 'cualquier respuesta' || norm === 'libre';
+      });
+    }
+
     function syncCanvasBackground() {
       const viewport = document.getElementById('canvasViewport');
       if (!viewport) return;
@@ -1136,14 +1147,29 @@
             <!-- Lista de Opciones / Enlaces Salientes -->
             <div class="space-y-1">
               <div class="flex items-center justify-between text-[9.5px] text-zinc-400 font-medium px-0.5">
-                <span>Opciones / Siguientes pasos (${(step.routes || []).length})</span>
-                <button type="button"
-                        onpointerdown="event.stopPropagation()"
-                        onclick="addInlineOptionAndLink(event, '${escapeJsSingleQuote(step.id)}')"
-                        class="text-blue-600 hover:text-blue-800 font-semibold flex items-center gap-0.5">
-                  <span>+ Añadir opción y enlazar</span>
-                </button>
+                <span>Siguientes (${(step.routes || []).length})</span>
+                <div class="flex items-center gap-2">
+                  <button type="button"
+                          onpointerdown="event.stopPropagation()"
+                          onclick="addInlineAnyOptionAndLink(event, '${escapeJsSingleQuote(step.id)}')"
+                          class="text-violet-600 hover:text-violet-800 font-semibold flex items-center gap-0.5"
+                          title="Crear enlace automático tras cualquier respuesta variable del cliente (sin keywords)">
+                    <span>+ Resp. libre</span>
+                  </button>
+                  <button type="button"
+                          onpointerdown="event.stopPropagation()"
+                          onclick="addInlineOptionAndLink(event, '${escapeJsSingleQuote(step.id)}')"
+                          class="text-blue-600 hover:text-blue-800 font-semibold flex items-center gap-0.5"
+                          title="Crear opción numerada o con palabra clave fija (ej: 1, 2)">
+                    <span>+ Opción</span>
+                  </button>
+                </div>
               </div>
+              ${hasWildcardOut && step.autoPause ? `
+                <div class="text-[9.5px] bg-amber-50 border border-amber-200 text-amber-800 rounded-lg px-2 py-1 leading-snug">
+                  ⚠️ <b>Pausa 12h activa:</b> apágala abajo para esperar la respuesta libre del cliente.
+                </div>
+              ` : ''}
               ${routesHtml ? `<div class="space-y-1">${routesHtml}</div>` : `
                 <div class="text-[10px] text-zinc-400 italic bg-zinc-50/50 border border-dashed border-zinc-200 rounded-lg px-2.5 py-1.5 text-center">
                   Sin conexiones salientes (paso final)
@@ -1263,9 +1289,14 @@
           const p2 = getPortCanvasPos(inEl, targetStep.position.x, targetStep.position.y + 22);
           const { d, mx, my } = buildBezierData(p1.x, p1.y, p2.x - 4, p2.y);
 
-          const strokeColor = isStepSelected ? '#111827' : '#94A3B8';
-          const marker = isStepSelected ? 'url(#arrowHeadActive)' : 'url(#arrowHead)';
-          const strokeWidth = isStepSelected ? '2.25' : '1.75';
+          const isWildcard = isWildcardRouteUI(route);
+          const strokeColor = isWildcard
+            ? (isStepSelected ? '#5B21B6' : '#7C3AED')
+            : (isStepSelected ? '#111827' : '#94A3B8');
+          const marker = isWildcard
+            ? 'url(#arrowHeadWildcard)'
+            : (isStepSelected ? 'url(#arrowHeadActive)' : 'url(#arrowHead)');
+          const strokeWidth = isStepSelected || isWildcard ? '2.25' : '1.75';
 
           svgHtml += `
             <path d="${d}" fill="none" stroke="transparent" stroke-width="14"
@@ -1276,13 +1307,13 @@
           `;
 
           const pillParts = String(route.key || '?').split(/[,|]/).map(s => s.trim()).filter(Boolean);
-          const pillKeyLabel = pillParts.slice(0, 2).join(', ');
+          const pillKeyLabel = isWildcard ? '✱ Libre' : pillParts.slice(0, 2).join(', ');
           pillsHtml += `
             <button type="button"
                     onclick="startLinkingOption(event, '${escapeJsSingleQuote(step.id)}', ${rIdx})"
                     style="left:${mx}px; top:${my}px; transform:translate(-50%,-50%)"
-                    class="absolute pointer-events-auto px-2 py-0.5 rounded-full bg-white hover:bg-blue-600 hover:text-white hover:border-blue-600 border ${isStepSelected ? 'border-zinc-900 text-zinc-900' : 'border-zinc-300 text-zinc-700'} text-[9.5px] font-medium shadow-xs flex items-center gap-1 transition-colors whitespace-nowrap"
-                    title="Clic para desprender este enlace con el mouse y conectarlo a otra ventana">
+                    class="absolute pointer-events-auto px-2 py-0.5 rounded-full bg-white hover:bg-blue-600 hover:text-white hover:border-blue-600 border ${isWildcard ? 'border-violet-300 text-violet-800' : (isStepSelected ? 'border-zinc-900 text-zinc-900' : 'border-zinc-300 text-zinc-700')} text-[9.5px] font-medium shadow-xs flex items-center gap-1 transition-colors whitespace-nowrap"
+                    title="Clic para desprender este enlace o cambiar tecla / respuesta libre">
               <span class="font-mono font-bold">[${escapeHtml(pillKeyLabel || '?')}]</span>
               ${route.label ? `<span class="max-w-[100px] truncate">${escapeHtml(route.label)}</span>` : ''}
             </button>
@@ -1367,7 +1398,8 @@
       linkingRouteState = { sourceStepId, routeIdx };
       selectedNodeId = sourceStepId;
 
-      const shortKey = String(route.key || '?').split(/[,|]/)[0].trim();
+      const isWild = isWildcardRouteUI(route);
+      const shortKey = isWild ? '✱ Libre' : String(route.key || '?').split(/[,|]/)[0].trim();
       document.getElementById('connectBannerText').innerText =
         `Enlazando opción [${shortKey}] "${route.label || 'Opción'}" de "${src.title}" → Mueve el mouse y haz clic en la ventana de respuesta destino.`;
       document.getElementById('connectBanner').classList.remove('hidden');
@@ -1391,7 +1423,7 @@
       const target = activeConfig.workflow.steps.find(s => s.id === targetStepId);
       if (src && src.routes && src.routes[routeIdx] && target) {
         src.routes[routeIdx].targetStepId = targetStepId;
-        if (!src.routes[routeIdx].label || /^Opci[oó]n\s+\d+$/i.test(src.routes[routeIdx].label)) {
+        if (!src.routes[routeIdx].label || /^(Opci[oó]n\s+\d+|Cualquier respuesta)$/i.test(src.routes[routeIdx].label)) {
           src.routes[routeIdx].label = (target.title || '').replace(/^Paso \d+:\s*/i, '') || target.title;
         }
       }
@@ -1434,11 +1466,57 @@
       startLinkingOption(event, stepId, newIdx);
     }
 
+    function addInlineAnyOptionAndLink(event, stepId) {
+      if (event) event.stopPropagation();
+      const step = activeConfig.workflow.steps.find(s => s.id === stepId);
+      if (!step) return;
+      if (!Array.isArray(step.routes)) step.routes = [];
+      if (step.autoPause) step.autoPause = false;
+      step.routes.push({
+        key: '*',
+        matchAny: true,
+        label: 'Cualquier respuesta',
+        targetStepId: ''
+      });
+      const newIdx = step.routes.length - 1;
+      updateKPIs();
+      startLinkingOption(event, stepId, newIdx);
+    }
+
+    function toggleRouteWildcard(stepId, routeIdx) {
+      const step = activeConfig.workflow.steps.find(s => s.id === stepId);
+      const route = step?.routes?.[routeIdx];
+      if (!route) return;
+
+      const currentlyWild = isWildcardRouteUI(route);
+      if (currentlyWild) {
+        route.matchAny = false;
+        const fallbackKey = String(routeIdx + 1);
+        route.key = (route._prevKey && !isWildcardRouteUI({ key: route._prevKey })) ? route._prevKey : fallbackKey;
+      } else {
+        if (!isWildcardRouteUI(route) && route.key) route._prevKey = route.key;
+        route.matchAny = true;
+        route.key = '*';
+        if (step.autoPause) step.autoPause = false;
+      }
+      renderWorkflowCanvas();
+      lucide.createIcons();
+    }
+
     function updateInlineRouteKey(stepId, routeIdx, newShortKey) {
       const step = activeConfig.workflow.steps.find(s => s.id === stepId);
       const route = step?.routes?.[routeIdx];
       if (!route) return;
       const cleanVal = newShortKey.trim() || String(routeIdx + 1);
+      if (isWildcardRouteUI({ key: cleanVal })) {
+        route.matchAny = true;
+        route.key = '*';
+        if (step.autoPause) step.autoPause = false;
+        renderWorkflowCanvas();
+        lucide.createIcons();
+        return;
+      }
+      route.matchAny = false;
       const parts = String(route.key || '').split(/[,|]/).map(s => s.trim()).filter(Boolean);
       if (parts.length > 1) {
         parts[0] = cleanVal;
@@ -1682,6 +1760,19 @@
     // =========================================================
     // 5. MODAL DE ENLACE RÁPIDO (CREAR / EDITAR CABLE)
     // =========================================================
+    function toggleRouteModalMatchAny(checked) {
+      const keyInput = document.getElementById('routeModalKey');
+      if (!keyInput) return;
+      if (checked) {
+        if (!isWildcardRouteUI({ key: keyInput.value })) keyInput.dataset.prevKey = keyInput.value;
+        keyInput.value = '*';
+        keyInput.disabled = true;
+      } else {
+        keyInput.disabled = false;
+        keyInput.value = keyInput.dataset.prevKey || '1';
+      }
+    }
+
     function openNewRouteModal(sourceStepId, preTargetId) {
       const src = activeConfig.workflow.steps.find(s => s.id === sourceStepId);
       const nextNum = String((src?.routes?.length || 0) + 1);
@@ -1691,7 +1782,10 @@
       document.getElementById('routeModalTitle').innerText = `Nuevo Enlace desde "${src?.title || sourceStepId}"`;
       document.getElementById('routeModalDeleteBtn').classList.add('hidden');
       populateRouteTargetSelect(sourceStepId, preTargetId);
+      document.getElementById('routeModalKey').dataset.prevKey = nextNum;
       document.getElementById('routeModalKey').value = nextNum;
+      document.getElementById('routeModalKey').disabled = false;
+      document.getElementById('routeModalMatchAny').checked = false;
       document.getElementById('routeModalLabel').value = (target?.title || '').replace(/^Paso \d+:\s*/i, '');
 
       const modal = document.getElementById('routeEditorModal');
@@ -1708,7 +1802,12 @@
       document.getElementById('routeModalTitle').innerText = `Editar Enlace de "${src.title}"`;
       document.getElementById('routeModalDeleteBtn').classList.remove('hidden');
       populateRouteTargetSelect(sourceStepId, route.targetStepId);
-      document.getElementById('routeModalKey').value = route.key || '';
+      const isWild = isWildcardRouteUI(route);
+      const keyInput = document.getElementById('routeModalKey');
+      keyInput.dataset.prevKey = isWild ? (route._prevKey || String(routeIdx + 1)) : (route.key || '');
+      keyInput.value = isWild ? '*' : (route.key || '');
+      keyInput.disabled = isWild;
+      document.getElementById('routeModalMatchAny').checked = isWild;
       document.getElementById('routeModalLabel').value = route.label || '';
 
       const modal = document.getElementById('routeEditorModal');
@@ -1738,9 +1837,15 @@
       if (!src) return;
       if (!Array.isArray(src.routes)) src.routes = [];
 
+      const matchAnyChecked = document.getElementById('routeModalMatchAny').checked;
+      const rawKey = document.getElementById('routeModalKey').value.trim();
+      const isWild = matchAnyChecked || isWildcardRouteUI({ key: rawKey });
+      if (isWild && src.autoPause) src.autoPause = false;
+
       const newRoute = {
-        key: document.getElementById('routeModalKey').value.trim() || '1',
-        label: document.getElementById('routeModalLabel').value.trim() || 'Opción',
+        key: isWild ? '*' : (rawKey || '1'),
+        ...(isWild ? { matchAny: true } : {}),
+        label: document.getElementById('routeModalLabel').value.trim() || (isWild ? 'Cualquier respuesta' : 'Opción'),
         targetStepId: document.getElementById('routeModalTarget').value
       };
 
@@ -1831,13 +1936,22 @@
         </span>
       `).join('');
 
-      const routeRows = (step.routes || []).map((route, rIdx) => `
-        <div class="flex flex-wrap sm:flex-nowrap items-center gap-1.5 bg-zinc-50 border border-zinc-200 rounded-lg p-2">
-          <input type="text" value="${escapeHtml(route.key)}"
+      const routeRows = (step.routes || []).map((route, rIdx) => {
+        const isWild = isWildcardRouteUI(route);
+        return `
+        <div class="flex flex-wrap sm:flex-nowrap items-center gap-1.5 ${isWild ? 'bg-violet-50/70 border-violet-200' : 'bg-zinc-50 border-zinc-200'} border rounded-lg p-2">
+          <button type="button"
+                  onclick="toggleRouteWildcard('${escapeJsSingleQuote(step.id)}', ${rIdx}); renderNodeInspectorBody('${escapeJsSingleQuote(step.id)}'); lucide.createIcons();"
+                  class="px-2 py-1 text-[10px] font-semibold rounded border shrink-0 ${isWild ? 'bg-violet-600 text-white border-violet-600' : 'bg-white text-zinc-500 border-zinc-200 hover:border-violet-300 hover:text-violet-700'}"
+                  title="Alternar entre 'Cualquier respuesta (*)' y tecla fija">
+            ${isWild ? '✱ Libre' : '✱'}
+          </button>
+          <input type="text" value="${escapeHtml(isWild ? '*' : route.key)}"
+                 ${isWild ? 'disabled' : ''}
                  onchange="updateStepRouteField('${escapeJsSingleQuote(step.id)}', ${rIdx}, 'key', this.value)"
                  placeholder="1"
-                 class="w-16 px-2 py-1 text-[11px] font-mono font-semibold text-center bg-white border border-zinc-200 rounded focus:outline-none focus:border-zinc-900"
-                 title="Número o palabra que envía el usuario" />
+                 class="w-16 px-2 py-1 text-[11px] font-mono font-semibold text-center bg-white border border-zinc-200 rounded focus:outline-none focus:border-zinc-900 disabled:opacity-60"
+                 title="Número o palabra que envía el usuario (o * para cualquiera)" />
           <input type="text" value="${escapeHtml(route.label)}"
                  onchange="updateStepRouteField('${escapeJsSingleQuote(step.id)}', ${rIdx}, 'label', this.value)"
                  placeholder="Etiqueta..."
@@ -1853,7 +1967,7 @@
             <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
           </button>
         </div>
-      `).join('');
+      `;}).join('');
 
       document.getElementById('nodeInspectorBody').innerHTML = `
         <!-- 1. Identidad & Comportamiento -->
@@ -2030,7 +2144,17 @@
     function updateStepRouteField(stepId, routeIdx, field, val) {
       const step = activeConfig.workflow.steps.find(s => s.id === stepId);
       if (step && step.routes && step.routes[routeIdx]) {
-        step.routes[routeIdx][field] = val;
+        const route = step.routes[routeIdx];
+        route[field] = val;
+        if (field === 'key') {
+          const isWild = isWildcardRouteUI({ key: val });
+          route.matchAny = isWild;
+          if (isWild) {
+            route.key = '*';
+            if (step.autoPause) step.autoPause = false;
+          }
+          if (inspectingNodeId === stepId) renderNodeInspectorBody(stepId);
+        }
         renderWorkflowCanvas();
         lucide.createIcons();
       }
@@ -2583,22 +2707,25 @@
             appendSystemNotice("Silencio: En pausa humana.");
             return;
           }
-        } else if (looksLikeSpecsSim(clean) && !clean.includes("vender") && !clean.includes("reparar")) {
-          nextStep = workflowSteps.some(s => s.id === 'step_tradein') ? 'step_tradein' : simCurrentStep;
-          shouldPause = true;
-          simIsPaused = true;
-          simIsNewCustomer = false;
-          simCurrentStep = nextStep;
-          updateSimBadge();
-          appendSystemNotice("Ficha técnica detectada -> Auto-Pausa (12h) para asesor.");
-          return;
         } else {
           const activeStep = simCurrentStep ? workflowSteps.find(s => s.id === simCurrentStep) : null;
           const effectiveActive = activeStep || (isStrict && !simIsNewCustomer ? rootStep : null);
+          const activeRoutes = (effectiveActive && Array.isArray(effectiveActive.routes)) ? effectiveActive.routes : [];
+          const specificRoutes = activeRoutes.filter(r => !isWildcardRouteUI(r));
+          const wildcardRoutes = activeRoutes.filter(r => isWildcardRouteUI(r));
           let matchedRoute = null;
 
-          if (effectiveActive && Array.isArray(effectiveActive.routes) && effectiveActive.routes.length > 0) {
-            for (const r of effectiveActive.routes) {
+          const applySimRoute = (r, target) => {
+            matchedRoute = r;
+            reply = formatSimText(target.message);
+            nextStep = target.id;
+            shouldPause = Boolean(target.autoPause || target.type === 'handoff' || target.id === 'step_advisor');
+            shouldUnpause = Boolean(target.unpauseOnTrigger);
+          };
+
+          // 3. Opciones específicas del paso activo
+          if (specificRoutes.length > 0) {
+            for (const r of specificRoutes) {
               const target = workflowSteps.find(s => s.id === r.targetStepId);
               if (!target) continue;
               const tokens = String(r.key || '').split(/[,|]/).map(t => normalizeStr(t)).filter(Boolean);
@@ -2607,19 +2734,38 @@
               const cl = normalizeStr(r.label);
               const labelMatch = !keyMatch && cl && cl.length > 3 && clean.includes(cl) && !simHasNegative(target, clean);
               if (keyMatch || labelMatch) {
-                matchedRoute = r;
-                reply = formatSimText(target.message);
-                nextStep = target.id;
-                shouldPause = Boolean(target.autoPause || target.type === 'handoff' || target.id === 'step_advisor');
-                shouldUnpause = Boolean(target.unpauseOnTrigger);
+                applySimRoute(r, target);
                 break;
               }
             }
           }
 
+          // 4. Siguiente paso automático con "Cualquier respuesta (*)" en paso posterior
+          if (!matchedRoute && activeStep && !simIsNewCustomer && activeStep.id !== initialStepId && wildcardRoutes.length > 0) {
+            for (const r of wildcardRoutes) {
+              const target = workflowSteps.find(s => s.id === r.targetStepId);
+              if (target) {
+                applySimRoute(r, target);
+                break;
+              }
+            }
+          }
+
+          // 5. Detección silenciosa de ficha técnica suelta (cuando no hay paso libre conectado)
+          if (!matchedRoute && looksLikeSpecsSim(clean) && !clean.includes("vender") && !clean.includes("reparar")) {
+            nextStep = workflowSteps.some(s => s.id === 'step_tradein') ? 'step_tradein' : simCurrentStep;
+            shouldPause = true;
+            simIsPaused = true;
+            simIsNewCustomer = false;
+            simCurrentStep = nextStep;
+            updateSimBadge();
+            appendSystemNotice("Ficha técnica detectada -> Auto-Pausa (12h) para asesor.");
+            return;
+          }
+
+          // 6. Keywords globales por prioridad
           if (!matchedRoute) {
-            const hasActiveRoutes = Boolean(effectiveActive && Array.isArray(effectiveActive.routes) && effectiveActive.routes.length > 0);
-            const matchedNode = simFindMatchingNode(sortedNodes, clean, isStrict && hasActiveRoutes);
+            const matchedNode = simFindMatchingNode(sortedNodes, clean, isStrict && specificRoutes.length > 0);
             if (matchedNode) {
               reply = formatSimText(matchedNode.message);
               nextStep = matchedNode.id;
@@ -2628,7 +2774,18 @@
             }
           }
 
-          if (!reply && isStrict && !simIsNewCustomer && effectiveActive && effectiveActive.routes?.length > 0 && effectiveActive.invalidMessage) {
+          // 7. Respaldo por enlace "Cualquier respuesta (*)" en menú raíz
+          if (!reply && !simIsNewCustomer && wildcardRoutes.length > 0) {
+            for (const r of wildcardRoutes) {
+              const target = workflowSteps.find(s => s.id === r.targetStepId);
+              if (target) {
+                applySimRoute(r, target);
+                break;
+              }
+            }
+          }
+
+          if (!reply && isStrict && !simIsNewCustomer && effectiveActive && specificRoutes.length > 0 && effectiveActive.invalidMessage) {
             reply = formatSimText(effectiveActive.invalidMessage);
             nextStep = effectiveActive.id;
           }
