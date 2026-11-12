@@ -4,7 +4,7 @@
 
 const { DEFAULT_CONFIG } = require('./responses');
 
-const CURRENT_SCHEMA_VERSION = 3;
+const CURRENT_SCHEMA_VERSION = 4;
 
 let inMemoryConfig = { ...DEFAULT_CONFIG, schemaVersion: CURRENT_SCHEMA_VERSION };
 let inMemoryCustomers = {};
@@ -118,12 +118,38 @@ function upgradeAndMergeConfig(saved) {
   const extraUserHooks = savedHooks.filter(s => !DEFAULT_CONFIG.hooks.some(d => d.id === s.id));
   const finalHooks = [...mergedHooks, ...extraUserHooks];
 
+  // Fusionar e inicializar el Workflow de Pasos (Mapa Conceptual)
+  const defaultWorkflow = DEFAULT_CONFIG.workflow;
+  const savedWorkflow = saved.workflow || {};
+  const savedSteps = Array.isArray(savedWorkflow.steps) ? savedWorkflow.steps : [];
+
+  const mergedSteps = defaultWorkflow.steps.map(defaultStep => {
+    const savedMatch = savedSteps.find(s => s.id === defaultStep.id);
+    if (!savedMatch) return defaultStep;
+    return {
+      ...defaultStep,
+      ...savedMatch,
+      message: savedMatch.message || defaultStep.message,
+      routes: Array.isArray(savedMatch.routes) && savedMatch.routes.length > 0 ? savedMatch.routes : defaultStep.routes,
+      invalidMessage: savedMatch.invalidMessage !== undefined ? savedMatch.invalidMessage : defaultStep.invalidMessage,
+      autoPause: savedMatch.autoPause !== undefined ? savedMatch.autoPause : defaultStep.autoPause
+    };
+  });
+
+  const extraUserSteps = savedSteps.filter(s => !defaultWorkflow.steps.some(d => d.id === s.id));
+  const finalWorkflow = {
+    enabled: savedWorkflow.enabled !== undefined ? savedWorkflow.enabled : true,
+    initialStepId: savedWorkflow.initialStepId || "step_welcome",
+    steps: [...mergedSteps, ...extraUserSteps]
+  };
+
   return {
     ...DEFAULT_CONFIG,
     ...saved,
     botActive: saved.botActive !== undefined ? saved.botActive : true,
     settings: mergedSettings,
     hooks: finalHooks,
+    workflow: finalWorkflow,
     schemaVersion: CURRENT_SCHEMA_VERSION
   };
 }
@@ -505,12 +531,19 @@ async function isFirstTimeUser(userId) {
   return false;
 }
 
+async function getCustomerStep(userId) {
+  if (!userId) return null;
+  const map = await getCustomersMap();
+  return map[userId]?.currentStep || null;
+}
+
 module.exports = {
   getRedisCredentials,
   getConfig,
   saveConfig,
   upgradeAndMergeConfig,
   getCustomersList,
+  getCustomerStep,
   upsertCustomer,
   deleteCustomer,
   isUserPaused,

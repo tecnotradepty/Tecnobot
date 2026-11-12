@@ -14,7 +14,132 @@ const DEFAULT_CONFIG = {
     phone: "+507 6852-9324",
     pin: "047514",
     advisorPauseHours: 12, // Horas que el bot se silencia al pasar a modo humano
-    silentFallback: true   // true = No interrumpir con "No entendí" si el cliente escribe algo fuera de los ganchos
+    silentFallback: true,  // true = No interrumpir con "No entendí" si el cliente escribe algo fuera de los ganchos
+    strictStepMode: true   // true = Modo Workflow Estricto (obliga a marcar opciones o salta error)
+  },
+
+  // ========================================================
+  // WORKFLOW EDITABLE DE PASOS Y RUTAS (MAPA CONCEPTUAL)
+  // ========================================================
+  workflow: {
+    enabled: true,
+    initialStepId: "step_welcome",
+    steps: [
+      {
+        id: "step_welcome",
+        title: "Paso 0: Menú Principal",
+        type: "menu",
+        isRoot: true,
+        message: 
+          "¡Hola! 👋 Bienvenido a *TecnoTrade Panamá*.\n\n" +
+          "¿En qué te podemos ayudar hoy? Escribe el *número* o la *palabra* de tu opción:\n\n" +
+          "1️⃣ *Catálogo de Equipos y Precios*\n" +
+          "2️⃣ *Taller de Reparaciones* 🔧\n" +
+          "3️⃣ *Vender o Cotizar mi Equipo (Trade-In)*\n" +
+          "4️⃣ *Horario de Atención*\n" +
+          "5️⃣ *Ubicación de Tienda*\n" +
+          "6️⃣ *Hablar con un Asesor*",
+        routes: [
+          { key: "1", targetStepId: "step_catalog", label: "Catálogo y Precios" },
+          { key: "2", targetStepId: "step_repairs", label: "Taller de Reparaciones" },
+          { key: "3", targetStepId: "step_tradein", label: "Trade-In / Vender" },
+          { key: "4", targetStepId: "step_hours", label: "Horarios de Atención" },
+          { key: "5", targetStepId: "step_location", label: "Ubicación de Tienda" },
+          { key: "6", targetStepId: "step_advisor", label: "Hablar con un Asesor" }
+        ],
+        invalidMessage: "⚠️ Opción no válida. Por favor responde únicamente con un número del *1 al 6* o escribe *Menú* para reiniciar.",
+        autoPause: false
+      },
+      {
+        id: "step_catalog",
+        title: "Paso 1: Catálogo y Precios",
+        type: "response",
+        message: 
+          "📦 *Catálogo y Precios de TecnoTrade*\n\n" +
+          "Encuentra todos nuestros iPhones y equipos disponibles con fotos reales, estado de batería y precios actualizados en nuestra web:\n\n" +
+          "🔗 {TIENDA_URL}\n\n" +
+          "💡 Si deseas consultar por un modelo en específico o apartarlo, escríbenos cuál buscas o marca *6* para hablar con un asesor.\n\n" +
+          "(Escribe *Menú* para volver a ver las opciones)",
+        routes: [],
+        invalidMessage: null,
+        autoPause: false
+      },
+      {
+        id: "step_repairs",
+        title: "Paso 2: Taller y Reparaciones",
+        type: "response",
+        message: 
+          "🔧 *Taller Especializado TecnoTrade*\n\n" +
+          "Reparamos pantallas, baterías, cámaras, centros de carga y microelectrónica con repuestos certificados y garantía.\n\n" +
+          "📋 Puedes consultar tarifas aproximadas en nuestro cotizador web:\n" +
+          "🔗 {TIENDA_URL}#taller\n\n" +
+          "💬 Déjanos escrito aquí **qué modelo tienes y qué falla presenta** para que un técnico te dé presupuesto en breve.\n\n" +
+          "(Escribe *Menú* para reiniciar el bot)",
+        routes: [],
+        invalidMessage: null,
+        autoPause: true
+      },
+      {
+        id: "step_tradein",
+        title: "Paso 3: Vender o Cotizar (Trade-In)",
+        type: "response",
+        message: 
+          "¿Me brindas estos detalles del equipo, por favor? 📱\n" +
+          "🔹 Modelo del equipo:\n" +
+          "🔹 Almacenamiento:\n" +
+          "🔹 Salud de batería:\n" +
+          "🔹 Piezas cambiadas:\n" +
+          "🔹 Detalles o daños:\n" +
+          "🔹 ¿Es eSIM o chip?:\n\n" +
+          "Con eso podemos revisar mejor el equipo y darte una cotización. 🙌\n\n" +
+          "(Escribe *Menú* para volver a ver las opciones)",
+        routes: [],
+        invalidMessage: null,
+        autoPause: true
+      },
+      {
+        id: "step_hours",
+        title: "Paso 4: Horarios de Atención",
+        type: "response",
+        message: 
+          "🕒 *Horario de Atención TecnoTrade*\n\n" +
+          "• *Lunes a Viernes:* 9:00 AM - 6:00 PM\n" +
+          "• *Sábados:* 9:00 AM - 2:00 PM\n" +
+          "• *Domingos:* Cerrado\n\n" +
+          "¡Te esperamos en tienda física o atendemos tus pedidos en línea!\n\n" +
+          "(Escribe *Menú* para volver a ver las opciones)",
+        routes: [],
+        invalidMessage: null,
+        autoPause: false
+      },
+      {
+        id: "step_location",
+        title: "Paso 5: Ubicación de Tienda",
+        type: "response",
+        message: 
+          "📍 *Nuestra Ubicación*\n\n" +
+          "Estamos ubicados en Ciudad de Panamá.\n\n" +
+          "🗺️ Toca el enlace para abrir directamente en Google Maps:\n" +
+          "{MAPS_URL}\n\n" +
+          "Contamos con estacionamiento y seguridad para tu comodidad.\n\n" +
+          "(Escribe *Menú* para volver a ver las opciones)",
+        routes: [],
+        invalidMessage: null,
+        autoPause: false
+      },
+      {
+        id: "step_advisor",
+        title: "Paso 6: Transferir a Asesor",
+        type: "handoff",
+        message: 
+          "👨‍💼 *Atención con un Asesor*\n\n" +
+          "¡Entendido! Hemos notificado a nuestro equipo. Un asesor humano te responderá por este mismo chat en breve.\n\n" +
+          "Por favor, déjanos tu consulta o detalle aquí abajo para atenderte más rápido. 👇",
+        routes: [],
+        invalidMessage: null,
+        autoPause: true
+      }
+    ]
   },
 
   // Flujo de ganchos ordenados por PRIORIDAD ESTRICTA
@@ -461,41 +586,43 @@ function looksLikeDeviceSpecs(cleanText) {
 }
 
 /**
- * Motor Principal de Razonamiento y Resolución de Respuestas
+ * Motor Principal de Razonamiento, Pasos de Workflow y Resolución de Respuestas
  * @param {string} userText - Texto enviado por el usuario
  * @param {object} config - Configuración activa
- * @param {object} context - { isPaused: boolean, isNewCustomer: boolean }
+ * @param {object} context - { isPaused: boolean, isNewCustomer: boolean, currentStep: string }
  */
 function resolveBotResponse(userText, config = DEFAULT_CONFIG, context = {}) {
-  const { isPaused = false, isNewCustomer = false } = context;
+  const { isPaused = false, isNewCustomer = false, currentStep = null } = context;
 
   if (!userText || !userText.trim()) {
-    return { text: null, hookId: null, shouldPause: false, shouldUnpause: false };
+    return { text: null, hookId: null, nextStep: currentStep, shouldPause: false, shouldUnpause: false };
   }
 
   const clean = normalizeText(userText);
+  const workflowSteps = config.workflow?.steps || DEFAULT_CONFIG.workflow.steps;
+  const isStrictStepMode = config.settings?.strictStepMode !== false;
 
   // 1. Comando explícito para pedir el menú o reactivar el bot
   if (clean === "menu" || clean === "activar bot" || clean === "/bot" || clean === "inicio") {
+    const welcomeStep = workflowSteps.find(s => s.id === "step_welcome") || workflowSteps[0];
     const welcomeHook = (config.hooks || []).find(h => h.id === "hook_welcome") || DEFAULT_CONFIG.hooks.find(h => h.id === "hook_welcome");
+    const responseText = welcomeStep ? welcomeStep.message : welcomeHook.response;
     return {
-      text: formatResponseText(welcomeHook.response, config),
+      text: formatResponseText(responseText, config),
       hookId: "hook_welcome",
+      nextStep: "step_welcome",
       shouldPause: false,
       shouldUnpause: true
     };
   }
 
   // 2. Si el usuario está en PAUSA (ya pidió Trade-In, Taller, Asesor o un humano le habló):
-  // Ignorar cualquier respuesta conversacional (como "pantalla", "iPhone 13", "85%", etc.)
-  // Solo permitir consultas directas de Ubicación u Horario si no son especificaciones de un teléfono
   if (isPaused) {
     if (looksLikeDeviceSpecs(clean)) {
-      return { text: null, hookId: null, shouldPause: false, shouldUnpause: false };
+      return { text: null, hookId: null, nextStep: currentStep, shouldPause: false, shouldUnpause: false };
     }
 
     // Permitir únicamente ganchos marcados con allowedWhenPaused (Ubicación / Horario)
-    // siempre y cuando no contengan palabras negativas
     const pausedAllowedHooks = (config.hooks || []).filter(h => h.allowedWhenPaused);
     for (const hook of pausedAllowedHooks) {
       const hasNeg = (hook.negativeKeywords || []).some(neg => {
@@ -514,6 +641,7 @@ function resolveBotResponse(userText, config = DEFAULT_CONFIG, context = {}) {
         return {
           text: formatResponseText(hook.response, config),
           hookId: hook.id,
+          nextStep: currentStep,
           shouldPause: false,
           shouldUnpause: false
         };
@@ -521,40 +649,61 @@ function resolveBotResponse(userText, config = DEFAULT_CONFIG, context = {}) {
     }
 
     // Para todo lo demás mientras está en pausa: SILENCIO ABSOLUTO (no interrumpir)
-    return { text: null, hookId: null, shouldPause: false, shouldUnpause: false };
+    return { text: null, hookId: null, nextStep: currentStep, shouldPause: false, shouldUnpause: false };
   }
 
-  // 3. Si el mensaje parece directamente una lista de especificaciones técnicas (ej. el cliente mandó los datos de su celular de una vez)
+  // 3. Si el mensaje parece directamente una lista de especificaciones técnicas
   if (looksLikeDeviceSpecs(clean) && !clean.includes("vender") && !clean.includes("reparar")) {
     return {
       text: null,
       hookId: "spec_detected_silent",
+      nextStep: "step_tradein",
       shouldPause: true, // Pausar para que el asesor revise los datos
       shouldUnpause: false
     };
   }
 
-  // 4. Evaluar ganchos por orden de prioridad estricta
+  // 4. SI EL CLIENTE ESTÁ EN UN PASO DEL WORKFLOW (Ej: step_welcome)
+  // Evaluar primero las rutas exactas de ese paso
+  const activeStep = currentStep ? workflowSteps.find(s => s.id === currentStep) : null;
+  if (activeStep && activeStep.routes && activeStep.routes.length > 0) {
+    const matchedRoute = activeStep.routes.find(r => {
+      const cleanKey = normalizeText(r.key);
+      const cleanLabel = normalizeText(r.label);
+      if (clean === cleanKey) return true;
+      if (cleanKey && cleanKey.length <= 2 && clean === cleanKey) return true;
+      return cleanLabel && cleanLabel.length > 3 && clean.includes(cleanLabel);
+    });
+
+    if (matchedRoute) {
+      const targetStep = workflowSteps.find(s => s.id === matchedRoute.targetStepId);
+      if (targetStep) {
+        return {
+          text: formatResponseText(targetStep.message, config),
+          hookId: targetStep.id,
+          nextStep: targetStep.id,
+          shouldPause: Boolean(targetStep.autoPause),
+          shouldUnpause: false
+        };
+      }
+    }
+  }
+
+  // 5. EVALUACIÓN DE GANCHOS POR PRIORIDAD (Protege intenciones directas de anuncios)
   const sortedHooks = [...(config.hooks || [])].sort((a, b) => (b.priority || 0) - (a.priority || 0));
 
   for (const hook of sortedHooks) {
-    // A. Verificar primero las PALABRAS CLAVE NEGATIVAS (Exclusiones)
     const hasNegativeMatch = (hook.negativeKeywords || []).some(neg => {
       const cleanNeg = normalizeText(neg);
       if (!cleanNeg) return false;
       return clean.includes(cleanNeg);
     });
 
-    if (hasNegativeMatch) {
-      // Este gancho queda descartado porque contiene una palabra negativa prohibida
-      continue;
-    }
+    if (hasNegativeMatch) continue;
 
-    // B. Verificar palabras clave positivas
     const hasPositiveMatch = (hook.keywords || []).some(keyword => {
       const cleanKeyword = normalizeText(keyword);
       if (!cleanKeyword) return false;
-      // Números de 1 o 2 dígitos requieren coincidencia exacta del mensaje completo
       if (cleanKeyword.length <= 2) {
         return clean === cleanKeyword;
       }
@@ -565,39 +714,64 @@ function resolveBotResponse(userText, config = DEFAULT_CONFIG, context = {}) {
       const finalResponse = formatResponseText(hook.response, config);
       const shouldPause = Boolean(hook.autoPause || hook.type === 'handoff' || hook.id === 'hook_advisor');
 
+      const stepMap = {
+        'hook_welcome': 'step_welcome',
+        'hook_catalog': 'step_catalog',
+        'hook_repairs': 'step_repairs',
+        'hook_tradein': 'step_tradein',
+        'hook_hours': 'step_hours',
+        'hook_location': 'step_location',
+        'hook_advisor': 'step_advisor'
+      };
+
       return {
         text: finalResponse,
         hookId: hook.id,
+        nextStep: stepMap[hook.id] || hook.id,
         shouldPause,
         shouldUnpause: Boolean(hook.unpauseOnTrigger)
       };
     }
   }
 
-  // 5. Si ningún gancho coincidió:
-  // Si es el PRIMER mensaje de un cliente nuevo, recibirlo con el Menú Principal
-  if (isNewCustomer) {
-    const welcomeHook = (config.hooks || []).find(h => h.id === "hook_welcome") || DEFAULT_CONFIG.hooks.find(h => h.id === "hook_welcome");
-    if (welcomeHook) {
+  // 6. VALIDACIÓN ESTRICTA EN EL MENÚ (Si escribió una opción fuera del 1 al 6)
+  if (isStrictStepMode && (!currentStep || currentStep === "step_welcome") && !isNewCustomer) {
+    const welcomeStep = workflowSteps.find(s => s.id === "step_welcome");
+    if (welcomeStep && welcomeStep.invalidMessage) {
       return {
-        text: formatResponseText(welcomeHook.response, config),
-        hookId: "hook_welcome_new_user",
+        text: formatResponseText(welcomeStep.invalidMessage, config),
+        hookId: "invalid_option_error",
+        nextStep: "step_welcome",
         shouldPause: false,
         shouldUnpause: false
       };
     }
   }
 
-  // Si NO es cliente nuevo y está activo el Modo Recepcionista (silentFallback = true):
-  // No interrumpir el flujo normal de conversación
+  // 7. Si ningún gancho ni ruta coincidió y es cliente nuevo:
+  if (isNewCustomer) {
+    const welcomeStep = workflowSteps.find(s => s.id === "step_welcome");
+    const welcomeHook = (config.hooks || []).find(h => h.id === "hook_welcome") || DEFAULT_CONFIG.hooks.find(h => h.id === "hook_welcome");
+    const welcomeText = welcomeStep ? welcomeStep.message : welcomeHook.response;
+    return {
+      text: formatResponseText(welcomeText, config),
+      hookId: "hook_welcome_new_user",
+      nextStep: "step_welcome",
+      shouldPause: false,
+      shouldUnpause: false
+    };
+  }
+
+  // 8. Modo Recepcionista (silentFallback):
   const silentFallback = config.settings?.silentFallback !== false;
   if (silentFallback) {
-    return { text: null, hookId: null, shouldPause: false, shouldUnpause: false };
+    return { text: null, hookId: null, nextStep: currentStep, shouldPause: false, shouldUnpause: false };
   }
 
   return {
     text: formatResponseText(config.fallbackResponse, config),
     hookId: null,
+    nextStep: currentStep,
     shouldPause: false,
     shouldUnpause: false
   };

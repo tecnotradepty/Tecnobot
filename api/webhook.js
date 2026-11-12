@@ -8,7 +8,8 @@ const {
   isUserPaused, 
   pauseUser, 
   unpauseUser, 
-  isFirstTimeUser 
+  isFirstTimeUser,
+  getCustomerStep
 } = require('../config/storage');
 
 module.exports = async function handler(req, res) {
@@ -82,20 +83,21 @@ module.exports = async function handler(req, res) {
             }
 
             // =================================================================
-            // 3. CONSULTAR ESTADO DEL CLIENTE EN REDIS (PAUSA Y NUEVO USUARIO)
+            // 3. CONSULTAR ESTADO DEL CLIENTE EN REDIS (PAUSA, PASO Y HISTORIAL)
             // =================================================================
             const isPaused = await isUserPaused(senderId);
             const isNewCustomer = await isFirstTimeUser(senderId);
+            const currentStep = await getCustomerStep(senderId);
 
-            console.log(`[DM Recibido] De: ${senderId} | Nuevo: ${isNewCustomer} | EnPausa: ${isPaused} -> "${userMessage}"`);
+            console.log(`[DM Recibido] De: ${senderId} | Nuevo: ${isNewCustomer} | Paso: ${currentStep} | EnPausa: ${isPaused} -> "${userMessage}"`);
 
             // =================================================================
-            // 4. RESOLVER CON MOTOR DE RAZONAMIENTO Y NEGATIVE KEYWORDS
+            // 4. RESOLVER CON MOTOR DE PASOS (WORKFLOW) Y REGLAS
             // =================================================================
-            const { text: replyText, hookId, shouldPause, shouldUnpause } = resolveBotResponse(
+            const { text: replyText, hookId, nextStep, shouldPause, shouldUnpause } = resolveBotResponse(
               userMessage,
               activeConfig,
-              { isPaused, isNewCustomer }
+              { isPaused, isNewCustomer, currentStep }
             );
 
             const matchedHook = (activeConfig.hooks || []).find(h => h.id === hookId);
@@ -103,11 +105,12 @@ module.exports = async function handler(req, res) {
               ? matchedHook.title
               : (hookId === 'welcome_first_time' ? 'Menú Principal (Bienvenida)' : null);
 
-            // Registrar al cliente y su último mensaje en la lista visual
+            // Registrar al cliente, su último mensaje y actualizar su paso en el flujo
             await upsertCustomer(
               senderId,
               {
                 lastMessage: userMessage,
+                ...(nextStep ? { currentStep: nextStep } : {}),
                 ...(hookId ? { lastHookId: hookId } : {}),
                 ...(hookLabel ? { lastHookTitle: hookLabel } : {}),
                 incrementCount: true

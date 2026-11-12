@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Tecnobot Studio — Automatización de Instagram</title>
+  <title>Tecnobot Studio — Workflow & Automatización de Instagram</title>
   
   <!-- Google Fonts: Inter -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -44,6 +44,10 @@
     .studio-card:hover {
       border-color: #D1D5DB;
     }
+    .node-selected {
+      border-color: #111827 !important;
+      box-shadow: 0 0 0 2px rgba(17, 24, 39, 0.1) !important;
+    }
     .tabular-nums {
       font-variant-numeric: tabular-nums;
     }
@@ -56,7 +60,7 @@
 <body class="min-h-full flex flex-col font-sans selection:bg-zinc-900 selection:text-white overflow-x-hidden">
 
   <!-- ========================================================= -->
-  <!-- MODAL DE ACCESO POR PIN (MINIMALISTA)                      -->
+  <!-- MODAL DE ACCESO POR PIN                                   -->
   <!-- ========================================================= -->
   <div id="pinModal" class="fixed inset-0 z-50 bg-black/20 flex items-center justify-center p-4">
     <div class="bg-white border border-zinc-200 rounded-2xl p-7 max-w-xs w-full shadow-lg text-center">
@@ -102,7 +106,7 @@
   </div>
 
   <!-- ========================================================= -->
-  <!-- BARRA DE NAVEGACIÓN SUPERIOR (PLANA Y LIMPIA)              -->
+  <!-- BARRA DE NAVEGACIÓN SUPERIOR                              -->
   <!-- ========================================================= -->
   <header class="bg-white border-b border-zinc-200 sticky top-0 z-40">
     <div class="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-3">
@@ -115,7 +119,7 @@
         <div>
           <div class="flex items-center gap-1.5 leading-none">
             <span class="text-xs font-semibold text-zinc-900 tracking-tight">Tecnobot</span>
-            <span class="text-[10px] font-mono px-1.5 py-0.2 rounded bg-zinc-100 text-zinc-500">v2.3</span>
+            <span class="text-[10px] font-mono px-1.5 py-0.2 rounded bg-zinc-100 text-zinc-500">v2.4 Flow</span>
           </div>
           <p class="text-[10px] text-zinc-400 flex items-center gap-1 mt-0.5 leading-none">
             <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
@@ -126,10 +130,15 @@
         </div>
       </div>
 
-      <!-- Selector de Vista -->
+      <!-- Selector de Vista (Tabs) -->
       <div class="hidden sm:flex items-center p-0.5 rounded-lg bg-zinc-100 text-[11px]">
         <button onclick="setViewMode('all')" id="tabAll" class="px-2.5 py-1 rounded-md font-medium transition-all bg-white text-zinc-900 shadow-xs">
           General
+        </button>
+        <button onclick="setViewMode('workflow')" id="tabWorkflow" class="px-2.5 py-1 rounded-md font-medium transition-all text-zinc-500 hover:text-zinc-900 flex items-center gap-1">
+          <i data-lucide="git-branch" class="w-3 h-3"></i>
+          <span>Mapa de Pasos</span>
+          <span id="navStepsCount" class="text-[10px] px-1 py-0.2 rounded bg-zinc-200 text-zinc-700 font-mono">7</span>
         </button>
         <button onclick="setViewMode('hooks')" id="tabHooks" class="px-2.5 py-1 rounded-md font-medium transition-all text-zinc-500 hover:text-zinc-900">
           Ganchos <span id="navHooksCount" class="ml-0.5 text-[10px] text-zinc-400">0</span>
@@ -184,18 +193,18 @@
   <!-- ========================================================= -->
   <main class="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 py-5 space-y-6">
 
-    <!-- KPI ROW (MINIMALISTA Y COMPACTA) -->
+    <!-- KPI ROW -->
     <section class="grid grid-cols-2 md:grid-cols-4 gap-2.5">
-      <div class="studio-card rounded-xl p-3">
-        <p class="text-[10px] font-medium text-zinc-400 uppercase tracking-wider">Modo</p>
-        <p id="kpiModeText" class="text-xs font-semibold text-zinc-900 mt-0.5">Recepcionista</p>
-        <p class="text-[10px] text-zinc-400 mt-0.5">Silencio en dudas libres</p>
+      <div class="studio-card rounded-xl p-3 cursor-pointer" onclick="setViewMode('workflow')">
+        <p class="text-[10px] font-medium text-zinc-400 uppercase tracking-wider">Flujo de Pasos</p>
+        <p id="kpiWorkflowMode" class="text-xs font-semibold text-zinc-900 mt-0.5">Modo Estricto Activo</p>
+        <p class="text-[10px] text-zinc-400 mt-0.5">Navegación guiada 1-6</p>
       </div>
 
-      <div class="studio-card rounded-xl p-3 cursor-pointer" onclick="setViewMode('hooks')">
-        <p class="text-[10px] font-medium text-zinc-400 uppercase tracking-wider">Ganchos</p>
-        <p id="kpiHooksCount" class="text-base font-semibold text-zinc-900 mt-0.5 tabular-nums">7</p>
-        <p class="text-[10px] text-zinc-400 mt-0.5">Reglas con exclusiones</p>
+      <div class="studio-card rounded-xl p-3 cursor-pointer" onclick="setViewMode('workflow')">
+        <p class="text-[10px] font-medium text-zinc-400 uppercase tracking-wider">Pasos en Mapa</p>
+        <p id="kpiStepsCount" class="text-base font-semibold text-zinc-900 mt-0.5 tabular-nums">7</p>
+        <p class="text-[10px] text-zinc-400 mt-0.5">Rutas configurables</p>
       </div>
 
       <div class="studio-card rounded-xl p-3 cursor-pointer" onclick="setViewMode('customers')">
@@ -212,13 +221,60 @@
     </section>
 
     <!-- ========================================================= -->
-    <!-- SECCIÓN: CLIENTES Y CONTADOR DE PAUSA                     -->
+    <!-- SECCIÓN 1: MAPA CONCEPTUAL DEL WORKFLOW (DIAGRAMA)        -->
+    <!-- ========================================================= -->
+    <section id="sectionWorkflow" class="space-y-4">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-zinc-200 pb-3">
+        <div>
+          <div class="flex items-center gap-2">
+            <h2 class="text-xs font-semibold uppercase tracking-wider text-zinc-700">Mapa Conceptual del Workflow</h2>
+            <span id="workflowModeBadge" class="text-[10px] px-2 py-0.5 rounded-full font-medium bg-emerald-50 text-emerald-800 border border-emerald-200">
+              Modo Estricto Activo
+            </span>
+          </div>
+          <p class="text-[11px] text-zinc-400 mt-0.5">
+            Estructura visual de pasos y bifurcaciones. Haz clic en cualquier paso para editarlo al instante.
+          </p>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <!-- Toggle Modo Estricto -->
+          <label class="inline-flex items-center gap-2 cursor-pointer select-none studio-card rounded-lg px-2.5 py-1">
+            <input type="checkbox" id="strictModeToggle" class="sr-only peer" checked onchange="toggleStrictStepMode(this.checked)">
+            <div class="w-7 h-4 bg-zinc-200 rounded-full peer peer-checked:after:translate-x-3 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all relative peer-checked:bg-zinc-900"></div>
+            <span class="text-[11px] font-medium text-zinc-700">Modo Estricto (1-6)</span>
+          </label>
+
+          <button 
+            onclick="addNewStep()" 
+            class="px-2.5 py-1 bg-zinc-900 hover:bg-zinc-800 text-white text-[11px] font-medium rounded-lg flex items-center gap-1 transition-colors shrink-0">
+            <i data-lucide="plus" class="w-3 h-3"></i>
+            <span>Nuevo Paso</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- MAPA VISUAL (DIAGRAMA CONCEPTUAL) -->
+      <div class="studio-card rounded-2xl p-4 sm:p-6 bg-[#FCFCFD]">
+        <div id="flowMapContainer" class="space-y-6">
+          <!-- Inyectado dinámicamente con diagrama visual -->
+        </div>
+      </div>
+
+      <!-- INSPECTOR DE EDICIÓN DEL PASO SELECCIONADO -->
+      <div id="stepEditorCard" class="studio-card rounded-xl p-4 space-y-3.5 hidden">
+        <!-- Inyectado dinámicamente al seleccionar un paso -->
+      </div>
+    </section>
+
+    <!-- ========================================================= -->
+    <!-- SECCIÓN 2: CLIENTES REGISTRADOS Y PAUSAS                  -->
     <!-- ========================================================= -->
     <section id="sectionCustomers" class="space-y-3">
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-zinc-200 pb-2">
         <div>
           <h2 class="text-xs font-semibold uppercase tracking-wider text-zinc-600">Clientes & Pausas en Vivo</h2>
-          <p class="text-[11px] text-zinc-400">Tiempo restante de silencio por cada cliente en atención humana.</p>
+          <p class="text-[11px] text-zinc-400">Paso actual y tiempo restante de silencio cuando tú atiendes manualmente.</p>
         </div>
 
         <div class="flex items-center gap-1.5">
@@ -250,13 +306,13 @@
     </section>
 
     <!-- ========================================================= -->
-    <!-- SECCIÓN: GANCHOS DE RESPUESTA                             -->
+    <!-- SECCIÓN 3: GANCHOS Y PALABRAS CLAVE (MODO LIBRE)           -->
     <!-- ========================================================= -->
     <section id="sectionHooks" class="space-y-3">
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-zinc-200 pb-2">
         <div>
-          <h2 class="text-xs font-semibold uppercase tracking-wider text-zinc-600">Reglas y Ganchos de Respuesta</h2>
-          <p class="text-[11px] text-zinc-400">Edita palabras activadoras y exclusiones negativas para cada flujo.</p>
+          <h2 class="text-xs font-semibold uppercase tracking-wider text-zinc-600">Ganchos Directos & Anuncios</h2>
+          <p class="text-[11px] text-zinc-400">Palabras activadoras para clientes que entran con consultas libres o de anuncios.</p>
         </div>
 
         <div class="flex items-center gap-1.5">
@@ -357,7 +413,7 @@
   </div>
 
   <!-- ========================================================= -->
-  <!-- DRAWER: SIMULADOR DE CHAT                                 -->
+  <!-- DRAWER: SIMULADOR DE CHAT INTERACTIVO                     -->
   <!-- ========================================================= -->
   <div id="simDrawer" class="fixed right-0 top-0 bottom-0 w-full sm:w-[380px] bg-white border-l border-zinc-200 shadow-xl z-50 transform translate-x-full transition-transform duration-200 flex flex-col">
     <!-- Cabecera -->
@@ -368,7 +424,7 @@
         </div>
         <div>
           <h4 class="text-xs font-semibold text-zinc-900">Simulador @tecnotradepty</h4>
-          <p id="simStateBadge" class="text-[10px] text-emerald-600 font-medium">Cliente Nuevo (Activo)</p>
+          <p id="simStateBadge" class="text-[10px] text-emerald-600 font-medium">Cliente Nuevo • Menú</p>
         </div>
       </div>
       <div class="flex items-center gap-1">
@@ -389,7 +445,7 @@
       <input 
         type="text" 
         id="simInput" 
-        placeholder="Escribe un mensaje..." 
+        placeholder="Escribe 1, 2, 3 o tu consulta..." 
         onkeydown="if(event.key === 'Enter') sendSimMessage()"
         class="flex-1 px-3 py-1.5 bg-zinc-50 border border-zinc-200 rounded-lg text-xs text-zinc-800 placeholder:text-zinc-400 focus:outline-none focus:bg-white focus:border-zinc-900"
       />
@@ -402,7 +458,7 @@
   </div>
 
   <!-- ========================================================= -->
-  <!-- JAVASCRIPT DEL CLIENTE (LIVIANO Y OPTIMIZADO)              -->
+  <!-- JAVASCRIPT DEL CLIENTE (WORKFLOW ENGINE & STUDIO)          -->
   <!-- ========================================================= -->
   <script>
     let activeConfig = null;
@@ -411,10 +467,12 @@
     let currentPinAttempt = '';
     let countdownInterval = null;
     let currentViewMode = 'all';
+    let selectedStepId = 'step_welcome';
 
     // Estado del simulador
     let simIsPaused = false;
     let simIsNewCustomer = true;
+    let simCurrentStep = 'step_welcome';
 
     // Inicialización
     document.addEventListener('DOMContentLoaded', async () => {
@@ -510,6 +568,11 @@
 
       updateMasterButtonUI(activeConfig.botActive);
 
+      const isStrict = activeConfig.settings?.strictStepMode !== false;
+      const strictToggle = document.getElementById('strictModeToggle');
+      if (strictToggle) strictToggle.checked = isStrict;
+      updateStrictModeUI(isStrict);
+
       const isSilent = activeConfig.settings?.silentFallback !== false;
       document.getElementById('silentFallbackToggle').checked = isSilent;
       toggleSilentFallback(isSilent);
@@ -525,6 +588,7 @@
         txt.className = "text-amber-600 font-medium";
       }
 
+      renderFlowMap();
       renderCustomers();
       renderHooks();
       updateKPIs();
@@ -534,38 +598,51 @@
 
     function setViewMode(mode) {
       currentViewMode = mode;
+      const secWorkflow = document.getElementById('sectionWorkflow');
       const secCust = document.getElementById('sectionCustomers');
       const secHooks = document.getElementById('sectionHooks');
 
       const tabAll = document.getElementById('tabAll');
+      const tabWorkflow = document.getElementById('tabWorkflow');
       const tabHooks = document.getElementById('tabHooks');
       const tabCustomers = document.getElementById('tabCustomers');
 
-      const activeClass = "px-2.5 py-1 rounded-md font-medium transition-all bg-white text-zinc-900 shadow-xs";
-      const inactiveClass = "px-2.5 py-1 rounded-md font-medium transition-all text-zinc-500 hover:text-zinc-900";
+      const activeClass = "px-2.5 py-1 rounded-md font-medium transition-all bg-white text-zinc-900 shadow-xs flex items-center gap-1";
+      const inactiveClass = "px-2.5 py-1 rounded-md font-medium transition-all text-zinc-500 hover:text-zinc-900 flex items-center gap-1";
 
       tabAll.className = mode === 'all' ? activeClass : inactiveClass;
+      tabWorkflow.className = mode === 'workflow' ? activeClass : inactiveClass;
       tabHooks.className = mode === 'hooks' ? activeClass : inactiveClass;
       tabCustomers.className = mode === 'customers' ? activeClass : inactiveClass;
 
       if (mode === 'all') {
+        secWorkflow.classList.remove('hidden');
         secCust.classList.remove('hidden');
         secHooks.classList.remove('hidden');
+      } else if (mode === 'workflow') {
+        secWorkflow.classList.remove('hidden');
+        secCust.classList.add('hidden');
+        secHooks.classList.add('hidden');
       } else if (mode === 'hooks') {
+        secWorkflow.classList.add('hidden');
         secCust.classList.add('hidden');
         secHooks.classList.remove('hidden');
       } else if (mode === 'customers') {
+        secWorkflow.classList.add('hidden');
         secCust.classList.remove('hidden');
         secHooks.classList.add('hidden');
       }
     }
 
     function updateKPIs() {
+      const stepsCount = (activeConfig?.workflow?.steps || []).length;
       const hooksCount = (activeConfig?.hooks || []).length;
       const totalCust = customersList.length;
       const now = Date.now();
       const pausedCust = customersList.filter(c => c.pausedUntil && Number(c.pausedUntil) > now).length;
 
+      document.getElementById('kpiStepsCount').innerText = stepsCount;
+      document.getElementById('navStepsCount').innerText = stepsCount;
       document.getElementById('kpiHooksCount').innerText = hooksCount;
       document.getElementById('navHooksCount').innerText = hooksCount;
       document.getElementById('kpiCustomersTotal').innerText = totalCust;
@@ -573,7 +650,434 @@
       document.getElementById('navCustomersCount').innerText = pausedCust;
     }
 
-    // 3. RENDERIZADO DE CLIENTES
+    function toggleStrictStepMode(checked) {
+      if (activeConfig && activeConfig.settings) {
+        activeConfig.settings.strictStepMode = checked;
+      }
+      updateStrictModeUI(checked);
+    }
+
+    function updateStrictModeUI(isStrict) {
+      const badge = document.getElementById('workflowModeBadge');
+      const kpi = document.getElementById('kpiWorkflowMode');
+      if (isStrict) {
+        if (badge) {
+          badge.innerText = "Modo Estricto Activo";
+          badge.className = "text-[10px] px-2 py-0.5 rounded-full font-medium bg-emerald-50 text-emerald-800 border border-emerald-200";
+        }
+        if (kpi) kpi.innerText = "Modo Estricto Activo";
+      } else {
+        if (badge) {
+          badge.innerText = "Modo Flexible (Libre)";
+          badge.className = "text-[10px] px-2 py-0.5 rounded-full font-medium bg-zinc-100 text-zinc-700 border border-zinc-200";
+        }
+        if (kpi) kpi.innerText = "Modo Flexible Activo";
+      }
+    }
+
+    // =========================================================
+    // 3. MAPA CONCEPTUAL DEL WORKFLOW (DIAGRAMA VISUAL)
+    // =========================================================
+    function renderFlowMap() {
+      const container = document.getElementById('flowMapContainer');
+      const workflow = activeConfig?.workflow || { steps: [] };
+      const steps = workflow.steps || [];
+      const rootStep = steps.find(s => s.isRoot || s.id === 'step_welcome') || steps[0];
+
+      if (!rootStep) {
+        container.innerHTML = `<p class="text-xs text-zinc-400 text-center py-4">No hay pasos configurados en el flujo.</p>`;
+        return;
+      }
+
+      const childSteps = steps.filter(s => s.id !== rootStep.id);
+
+      let childCardsHtml = '';
+      childSteps.forEach((step, idx) => {
+        const isSelected = selectedStepId === step.id;
+        // Buscar qué tecla conduce a este paso desde el menú raíz
+        const routeFromRoot = (rootStep.routes || []).find(r => r.targetStepId === step.id);
+        const routeKeyBadge = routeFromRoot 
+          ? `<span class="px-1.5 py-0.5 rounded bg-zinc-900 text-white font-mono text-[10px] font-bold">[${routeFromRoot.key}]</span>`
+          : `<span class="px-1.5 py-0.5 rounded bg-zinc-100 text-zinc-500 font-mono text-[10px]">•</span>`;
+
+        childCardsHtml += `
+          <div 
+            id="mapCard_${step.id}" 
+            onclick="selectStepForEditing('${step.id}')"
+            class="studio-card rounded-xl p-3.5 cursor-pointer transition-all ${isSelected ? 'node-selected bg-zinc-50/50' : 'bg-white hover:border-zinc-300'}">
+            
+            <div class="flex items-center justify-between gap-1.5 mb-2">
+              <div class="flex items-center gap-1.5">
+                ${routeKeyBadge}
+                <h4 class="text-xs font-semibold text-zinc-900 truncate">${escapeHtml(step.title)}</h4>
+              </div>
+
+              ${step.autoPause ? `
+                <span class="text-[9px] px-1.5 py-0.2 rounded bg-amber-50 text-amber-800 border border-amber-200 font-medium">⏸️ Auto-Pausa</span>
+              ` : `
+                <span class="text-[9px] px-1.5 py-0.2 rounded bg-emerald-50 text-emerald-700 font-medium">Directo</span>
+              `}
+            </div>
+
+            <p class="text-[11px] text-zinc-500 line-clamp-2 leading-relaxed">
+              "${escapeHtml(step.message || 'Sin mensaje')}"
+            </p>
+
+            <div class="mt-2.5 pt-2 border-t border-zinc-100 flex items-center justify-between text-[10px]">
+              <span class="text-zinc-400 font-mono">${step.id}</span>
+              <button 
+                onclick="event.stopPropagation(); testStepInSim('${step.id}')"
+                class="px-2 py-0.5 rounded bg-zinc-100 hover:bg-zinc-900 hover:text-white text-zinc-700 font-medium transition-colors">
+                Probar
+              </button>
+            </div>
+          </div>
+        `;
+      });
+
+      const isRootSelected = selectedStepId === rootStep.id;
+
+      container.innerHTML = `
+        <!-- NODO RAÍZ (INICIO / MENÚ PRINCIPAL) -->
+        <div class="flex flex-col items-center">
+          <div 
+            id="mapCard_${rootStep.id}" 
+            onclick="selectStepForEditing('${rootStep.id}')"
+            class="w-full max-w-lg studio-card rounded-xl p-4 bg-white cursor-pointer transition-all ${isRootSelected ? 'node-selected' : 'hover:border-zinc-300'}">
+            
+            <div class="flex items-center justify-between gap-2 mb-1.5">
+              <div class="flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                <span class="text-[10px] font-mono px-2 py-0.2 rounded bg-zinc-900 text-white font-semibold uppercase">Punto de Entrada</span>
+              </div>
+              <span class="text-[10px] font-mono text-zinc-400">${rootStep.id}</span>
+            </div>
+
+            <h3 class="text-xs font-bold text-zinc-900 flex items-center gap-1.5">
+              <span>${escapeHtml(rootStep.title)}</span>
+            </h3>
+
+            <p class="text-[11px] text-zinc-500 mt-1 line-clamp-2 leading-relaxed">
+              "${escapeHtml(rootStep.message)}"
+            </p>
+
+            <div class="mt-3 pt-2.5 border-t border-zinc-100 flex items-center justify-between">
+              <div class="flex items-center gap-1.5 flex-wrap">
+                ${(rootStep.routes || []).map(r => `
+                  <span class="text-[10px] font-mono px-1.5 py-0.2 rounded bg-zinc-100 text-zinc-700 border border-zinc-200">
+                    <b>${r.key}</b> ➔ ${escapeHtml(r.label || r.targetStepId)}
+                  </span>
+                `).join('')}
+              </div>
+              <button 
+                onclick="event.stopPropagation(); selectStepForEditing('${rootStep.id}')" 
+                class="px-2 py-0.5 rounded bg-zinc-100 hover:bg-zinc-200 text-zinc-800 text-[10px] font-medium transition-colors shrink-0">
+                Editar
+              </button>
+            </div>
+          </div>
+
+          <!-- CONECTORES VISUALES HACIA LAS RAMAS -->
+          <div class="w-0.5 h-5 bg-zinc-300 my-0.5"></div>
+          <div class="text-[10px] font-mono bg-zinc-100 text-zinc-600 px-3 py-0.5 rounded-full border border-zinc-200 flex items-center gap-1">
+            <i data-lucide="split" class="w-3 h-3 text-zinc-500"></i>
+            <span>Bifurcaciones de respuesta estricta</span>
+          </div>
+          <div class="w-0.5 h-5 bg-zinc-300 my-0.5"></div>
+        </div>
+
+        <!-- GRID DE RAMAS HIJAS -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          ${childCardsHtml}
+        </div>
+
+        <!-- REGLAS DE RETORNO Y ERROR (PIE DEL MAPA) -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-2 border-t border-zinc-200/80">
+          <div class="bg-amber-50/60 border border-amber-200/60 rounded-lg p-2.5 flex items-start gap-2 text-[11px] text-amber-800">
+            <i data-lucide="alert-circle" class="w-3.5 h-3.5 shrink-0 mt-0.5 text-amber-600"></i>
+            <div>
+              <span class="font-semibold block">Si escribe una opción no válida:</span>
+              <span class="text-zinc-600">El bot envía el mensaje de error configurado y repite el menú.</span>
+            </div>
+          </div>
+
+          <div class="bg-zinc-50 border border-zinc-200 rounded-lg p-2.5 flex items-start gap-2 text-[11px] text-zinc-700">
+            <i data-lucide="rotate-ccw" class="w-3.5 h-3.5 shrink-0 mt-0.5 text-zinc-500"></i>
+            <div>
+              <span class="font-semibold block">Regla de Escape Universal:</span>
+              <span class="text-zinc-500">Escribir <b>"Menú"</b> reinicia el bot en cualquier momento y vuelve al Paso 0.</span>
+            </div>
+          </div>
+        </div>
+      `;
+
+      lucide.createIcons();
+      renderStepEditor(selectedStepId);
+    }
+
+    // =========================================================
+    // 4. INSPECTOR / EDITOR DEL PASO SELECCIONADO
+    // =========================================================
+    function selectStepForEditing(stepId) {
+      selectedStepId = stepId;
+      document.querySelectorAll('#flowMapContainer [id^="mapCard_"]').forEach(el => {
+        el.classList.remove('node-selected');
+      });
+      const targetCard = document.getElementById(`mapCard_${stepId}`);
+      if (targetCard) targetCard.classList.add('node-selected');
+      renderStepEditor(stepId);
+    }
+
+    function renderStepEditor(stepId) {
+      const editor = document.getElementById('stepEditorCard');
+      const workflow = activeConfig?.workflow || { steps: [] };
+      const step = (workflow.steps || []).find(s => s.id === stepId);
+
+      if (!step) {
+        editor.classList.add('hidden');
+        return;
+      }
+
+      editor.classList.remove('hidden');
+
+      const allSteps = workflow.steps || [];
+      const hasRoutes = Array.isArray(step.routes) && step.routes.length > 0;
+
+      const routesHtml = (step.routes || []).map((route, rIdx) => `
+        <div class="flex items-center gap-1.5 p-2 rounded-lg bg-zinc-50 border border-zinc-200">
+          <input 
+            type="text" 
+            value="${escapeHtml(route.key)}" 
+            onchange="updateStepRouteField('${step.id}', ${rIdx}, 'key', this.value)"
+            class="w-12 px-2 py-1 bg-white border border-zinc-200 rounded text-xs font-mono font-bold text-center focus:outline-none focus:border-zinc-900"
+            placeholder="1"
+            title="Opción o número que escribe el cliente"
+          />
+          <span class="text-zinc-400 text-xs font-mono">➔</span>
+          <select 
+            onchange="updateStepRouteField('${step.id}', ${rIdx}, 'targetStepId', this.value)"
+            class="flex-1 px-2 py-1 bg-white border border-zinc-200 rounded text-xs text-zinc-800 focus:outline-none focus:border-zinc-900">
+            ${allSteps.map(s => `
+              <option value="${s.id}" ${s.id === route.targetStepId ? 'selected' : ''}>
+                ${escapeHtml(s.title)} (${s.id})
+              </option>
+            `).join('')}
+          </select>
+          <input 
+            type="text" 
+            value="${escapeHtml(route.label || '')}" 
+            onchange="updateStepRouteField('${step.id}', ${rIdx}, 'label', this.value)"
+            class="flex-1 px-2 py-1 bg-white border border-zinc-200 rounded text-xs text-zinc-700 placeholder:text-zinc-400 focus:outline-none focus:border-zinc-900"
+            placeholder="Etiqueta..."
+          />
+          <button 
+            type="button" 
+            onclick="removeRouteFromStep('${step.id}', ${rIdx})" 
+            class="p-1 rounded text-zinc-400 hover:text-rose-600">
+            <i data-lucide="x" class="w-3.5 h-3.5"></i>
+          </button>
+        </div>
+      `).join('');
+
+      editor.innerHTML = `
+        <div class="flex items-center justify-between pb-2 border-b border-zinc-100">
+          <div class="flex items-center gap-2">
+            <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-zinc-900 text-white font-medium">Editando Paso</span>
+            <h3 class="text-xs font-semibold text-zinc-900">${escapeHtml(step.title)}</h3>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <button 
+              type="button" 
+              onclick="testStepInSim('${step.id}')"
+              class="px-2.5 py-1 bg-zinc-100 hover:bg-zinc-200 text-zinc-800 text-[11px] font-medium rounded-lg flex items-center gap-1 transition-colors">
+              <i data-lucide="play" class="w-3 h-3"></i>
+              <span>Probar en Chat</span>
+            </button>
+            ${!step.isRoot ? `
+              <button 
+                type="button" 
+                onclick="deleteStep('${step.id}')"
+                class="p-1 rounded text-zinc-400 hover:text-rose-600 transition-colors" title="Eliminar este paso">
+                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+              </button>
+            ` : ''}
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+          <!-- Título del paso -->
+          <div>
+            <label class="block text-[11px] font-medium text-zinc-600 mb-1">Nombre del Paso:</label>
+            <input 
+              type="text" 
+              value="${escapeHtml(step.title)}" 
+              onchange="updateStepField('${step.id}', 'title', this.value)"
+              class="w-full px-2.5 py-1.5 bg-zinc-50 border border-zinc-200 rounded-lg text-zinc-900 focus:outline-none focus:bg-white focus:border-zinc-900"
+            />
+          </div>
+
+          <!-- Configuración de Pausa -->
+          <div class="flex items-end">
+            <label class="inline-flex items-center gap-2 cursor-pointer select-none studio-card rounded-lg px-3 py-1.5 w-full">
+              <input 
+                type="checkbox" 
+                ${step.autoPause ? 'checked' : ''} 
+                onchange="updateStepField('${step.id}', 'autoPause', this.checked); renderFlowMap();"
+                class="sr-only peer"
+              />
+              <div class="w-7 h-4 bg-zinc-200 rounded-full peer peer-checked:after:translate-x-3 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all relative peer-checked:bg-amber-500"></div>
+              <span class="text-[11px] font-medium text-zinc-700">Pausar bot tras responder (12 horas de silencio humano)</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Mensaje del Bot -->
+        <div>
+          <div class="flex items-center justify-between mb-1">
+            <label class="text-[11px] font-medium text-zinc-600">Mensaje que enviará el Bot:</label>
+            <div class="flex items-center gap-1">
+              <button type="button" onclick="insertVariableInStep('${step.id}', '{TIENDA_URL}')" class="text-[9px] font-mono px-1 py-0.2 rounded bg-zinc-100 hover:bg-zinc-200 text-zinc-600">+Tienda</button>
+              <button type="button" onclick="insertVariableInStep('${step.id}', '{MAPS_URL}')" class="text-[9px] font-mono px-1 py-0.2 rounded bg-zinc-100 hover:bg-zinc-200 text-zinc-600">+Maps</button>
+            </div>
+          </div>
+          <textarea 
+            id="stepTextarea_${step.id}" 
+            rows="5" 
+            onchange="updateStepField('${step.id}', 'message', this.value)"
+            class="w-full text-xs p-2.5 bg-zinc-50 border border-zinc-200 rounded-lg text-zinc-900 focus:outline-none focus:bg-white focus:border-zinc-900 leading-relaxed resize-y">${escapeHtml(step.message || '')}</textarea>
+        </div>
+
+        <!-- Rutas y Opciones de Salida -->
+        <div class="space-y-1.5">
+          <div class="flex items-center justify-between">
+            <label class="text-[11px] font-medium text-zinc-600">Rutas / Opciones que acepta este paso:</label>
+            <button 
+              type="button" 
+              onclick="addRouteToStep('${step.id}')" 
+              class="text-[10px] text-zinc-700 font-semibold hover:underline flex items-center gap-1">
+              <i data-lucide="plus" class="w-3 h-3"></i>
+              <span>Agregar Opción</span>
+            </button>
+          </div>
+          
+          <div class="space-y-1.5">
+            ${routesHtml || '<p class="text-[11px] text-zinc-400 italic py-1">Este paso no tiene opciones secundarias (el cliente puede escribir "Menú" para volver).</p>'}
+          </div>
+        </div>
+
+        <!-- Mensaje de Error (Si tiene opciones) -->
+        ${hasRoutes ? `
+          <div>
+            <label class="block text-[11px] font-medium text-rose-700 mb-1">Mensaje de error si escribe una opción inválida:</label>
+            <input 
+              type="text" 
+              value="${escapeHtml(step.invalidMessage || '')}" 
+              onchange="updateStepField('${step.id}', 'invalidMessage', this.value)"
+              class="w-full px-2.5 py-1.5 bg-rose-50/40 border border-rose-200 rounded-lg text-rose-900 text-xs focus:outline-none focus:bg-white focus:border-rose-400"
+              placeholder="⚠️ Opción no válida..."
+            />
+          </div>
+        ` : ''}
+      `;
+
+      lucide.createIcons();
+    }
+
+    function updateStepField(stepId, field, val) {
+      const step = (activeConfig.workflow.steps || []).find(s => s.id === stepId);
+      if (step) {
+        step[field] = val;
+      }
+      renderFlowMap();
+    }
+
+    function updateStepRouteField(stepId, routeIdx, field, val) {
+      const step = (activeConfig.workflow.steps || []).find(s => s.id === stepId);
+      if (step && step.routes && step.routes[routeIdx]) {
+        step.routes[routeIdx][field] = val;
+      }
+      renderFlowMap();
+    }
+
+    function addRouteToStep(stepId) {
+      const step = (activeConfig.workflow.steps || []).find(s => s.id === stepId);
+      if (!step) return;
+      if (!Array.isArray(step.routes)) step.routes = [];
+      const newKey = String(step.routes.length + 1);
+      step.routes.push({
+        key: newKey,
+        targetStepId: 'step_catalog',
+        label: `Opción ${newKey}`
+      });
+      renderFlowMap();
+      renderStepEditor(stepId);
+    }
+
+    function removeRouteFromStep(stepId, routeIdx) {
+      const step = (activeConfig.workflow.steps || []).find(s => s.id === stepId);
+      if (step && step.routes) {
+        step.routes.splice(routeIdx, 1);
+        renderFlowMap();
+        renderStepEditor(stepId);
+      }
+    }
+
+    function insertVariableInStep(stepId, varStr) {
+      const textarea = document.getElementById(`stepTextarea_${stepId}`);
+      if (!textarea) return;
+      const start = textarea.selectionStart || textarea.value.length;
+      const end = textarea.selectionEnd || textarea.value.length;
+      const val = textarea.value;
+      textarea.value = val.slice(0, start) + varStr + val.slice(end);
+      updateStepField(stepId, 'message', textarea.value);
+      textarea.focus();
+    }
+
+    function addNewStep() {
+      const newId = 'step_' + Date.now();
+      const workflow = activeConfig.workflow;
+      if (!Array.isArray(workflow.steps)) workflow.steps = [];
+      workflow.steps.push({
+        id: newId,
+        title: "Nuevo Paso",
+        type: "response",
+        message: "Escribe aquí la respuesta de este paso.",
+        routes: [],
+        invalidMessage: null,
+        autoPause: false
+      });
+      selectedStepId = newId;
+      renderFlowMap();
+      updateKPIs();
+      selectStepForEditing(newId);
+    }
+
+    function deleteStep(stepId) {
+      if (confirm('¿Eliminar este paso del workflow?')) {
+        const workflow = activeConfig.workflow;
+        workflow.steps = (workflow.steps || []).filter(s => s.id !== stepId);
+        selectedStepId = 'step_welcome';
+        renderFlowMap();
+        updateKPIs();
+      }
+    }
+
+    function testStepInSim(stepId) {
+      toggleSimulator();
+      const step = (activeConfig.workflow.steps || []).find(s => s.id === stepId);
+      if (step) {
+        // Enviar el trigger equivalente
+        const rootStep = activeConfig.workflow.steps.find(s => s.id === 'step_welcome');
+        const route = (rootStep?.routes || []).find(r => r.targetStepId === stepId);
+        const trigger = route ? route.key : 'menu';
+        document.getElementById('simInput').value = trigger;
+        sendSimMessage();
+      }
+    }
+
+    // =========================================================
+    // 5. RENDERIZADO DE CLIENTES
+    // =========================================================
     function renderCustomers() {
       const container = document.getElementById('customersContainer');
       container.innerHTML = '';
@@ -659,12 +1163,12 @@
             <p class="text-[10px] text-zinc-400 truncate mt-1">${escapeHtml(cust.pauseReason || (isPaused ? 'Atención humana' : 'Listo para responder'))}</p>
           </div>
 
-          <!-- Último Mensaje -->
+          <!-- Último Mensaje y Paso -->
           <div class="text-[11px] bg-zinc-50 border border-zinc-100 rounded-lg px-2.5 py-1.5 flex items-center justify-between gap-1.5">
             <p class="text-zinc-700 truncate font-normal">"${escapeHtml(cust.lastMessage || 'Sin texto')}"</p>
-            ${cust.lastHookTitle ? `
-              <span class="shrink-0 text-[9px] px-1.5 py-0.2 rounded bg-white border border-zinc-200 text-zinc-500">
-                ${escapeHtml(cust.lastHookTitle)}
+            ${cust.currentStep ? `
+              <span class="shrink-0 text-[9px] font-mono px-1.5 py-0.2 rounded bg-white border border-zinc-200 text-zinc-600">
+                Paso: ${escapeHtml(cust.currentStep)}
               </span>
             ` : ''}
           </div>
@@ -818,7 +1322,9 @@
       }
     }
 
-    // 4. RENDERIZADO DE GANCHOS
+    // =========================================================
+    // 6. RENDERIZADO DE GANCHOS (KEYWORDS)
+    // =========================================================
     function renderHooks() {
       const container = document.getElementById('hooksContainer');
       const query = (document.getElementById('hookSearchInput')?.value || '').toLowerCase().trim();
@@ -865,7 +1371,6 @@
         card.className = "studio-card rounded-xl p-3.5 flex flex-col justify-between gap-3";
 
         card.innerHTML = `
-          <!-- Cabecera -->
           <div>
             <div class="flex items-center justify-between gap-1.5 mb-2">
               <div class="flex items-center gap-1.5">
@@ -899,7 +1404,6 @@
             />
           </div>
 
-          <!-- Palabras Clave -->
           <div class="space-y-1">
             <label class="text-[10px] font-medium text-zinc-500 block">Palabras Activadoras:</label>
             <div class="p-1.5 rounded-lg bg-zinc-50 border border-zinc-200 flex flex-wrap items-center gap-1 min-h-[32px]">
@@ -914,7 +1418,6 @@
             </div>
           </div>
 
-          <!-- Palabras Negativas -->
           <div class="space-y-1">
             <label class="text-[10px] font-medium text-rose-600 block">Exclusiones Negativas:</label>
             <div class="p-1.5 rounded-lg bg-rose-50/40 border border-rose-200 flex flex-wrap items-center gap-1 min-h-[32px]">
@@ -929,7 +1432,6 @@
             </div>
           </div>
 
-          <!-- Respuesta -->
           <div class="space-y-1">
             <div class="flex items-center justify-between">
               <label class="text-[10px] font-medium text-zinc-500">Respuesta:</label>
@@ -945,7 +1447,6 @@
               class="w-full text-[11px] p-2 bg-zinc-50 border border-zinc-200 rounded-lg text-zinc-800 focus:outline-none focus:bg-white focus:border-zinc-900 leading-relaxed resize-y">${escapeHtml(hook.response)}</textarea>
           </div>
 
-          <!-- Pie del Gancho -->
           <div class="pt-2 border-t border-zinc-100 flex items-center justify-between">
             <label class="inline-flex items-center gap-1.5 cursor-pointer select-none">
               <input 
@@ -1046,7 +1547,9 @@
       }
     }
 
-    // 5. CONTROL MAESTRO Y GUARDADO
+    // =========================================================
+    // 7. CONTROL MAESTRO Y GUARDADO
+    // =========================================================
     function toggleSilentFallback(checked) {
       if (activeConfig && activeConfig.settings) {
         activeConfig.settings.silentFallback = checked;
@@ -1162,7 +1665,9 @@
       saveCurrentConfig();
     }
 
-    // 6. SIMULADOR DE CHAT
+    // =========================================================
+    // 8. SIMULADOR DE CHAT INTERACTIVO (CON PASOS)
+    // =========================================================
     function toggleSimulator() {
       document.getElementById('simDrawer').classList.toggle('translate-x-full');
     }
@@ -1170,27 +1675,29 @@
     function resetSimulatorChat() {
       simIsPaused = false;
       simIsNewCustomer = true;
+      simCurrentStep = 'step_welcome';
       updateSimBadge();
       const chat = document.getElementById('chatMessages');
       chat.innerHTML = `
         <div class="text-center text-[10px] text-zinc-400 my-1">Simulación reiniciada</div>
         <div class="bg-white border border-zinc-200 rounded-lg p-2.5 text-[11px] text-zinc-600 leading-relaxed">
-          💡 <b>Prueba rápida:</b> Escribe <b>"¿Cuánto pagan por mi iPhone?"</b> o <b>"Precios"</b> para verificar los ganchos.
+          💡 <b>Prueba del Flujo:</b> Escribe <b>"1"</b>, <b>"2"</b> o <b>"3"</b> para navegar entre pasos. Escribe <b>"7"</b> para probar el error de opción inválida, o <b>"Menú"</b> para reiniciar.
         </div>
       `;
     }
 
     function updateSimBadge() {
       const badge = document.getElementById('simStateBadge');
+      const stepName = simCurrentStep ? simCurrentStep.replace('step_', '') : 'menú';
       if (simIsPaused) {
         badge.className = "text-[10px] text-amber-600 font-semibold";
-        badge.innerText = "Pausado (Atención Humana)";
+        badge.innerText = `Pausado (12h) • Paso: ${stepName}`;
       } else if (simIsNewCustomer) {
         badge.className = "text-[10px] text-emerald-600 font-medium";
-        badge.innerText = "Cliente Nuevo (Activo)";
+        badge.innerText = `Cliente Nuevo • Paso: ${stepName}`;
       } else {
-        badge.className = "text-[10px] text-zinc-500 font-medium";
-        badge.innerText = "Cliente Registrado";
+        badge.className = "text-[10px] text-zinc-600 font-medium";
+        badge.innerText = `Activo • Paso: ${stepName}`;
       }
     }
 
@@ -1232,70 +1739,100 @@
         let reply = null;
         let shouldPause = false;
         let shouldUnpause = false;
+        let nextStep = simCurrentStep;
 
         if (activeConfig.botActive === false) {
           appendSystemNotice("Bot pausado globalmente.");
           return;
         }
 
+        const workflowSteps = activeConfig.workflow?.steps || [];
+        const isStrict = activeConfig.settings?.strictStepMode !== false;
+
+        // 1. Comando Menu
         if (clean === "menu" || clean === "activar bot" || clean === "/bot" || clean === "inicio") {
-          const wHook = (activeConfig.hooks || []).find(h => h.id === "hook_welcome");
-          if (wHook) reply = formatSimText(wHook.response);
+          const wStep = workflowSteps.find(s => s.id === 'step_welcome');
+          if (wStep) reply = formatSimText(wStep.message);
+          nextStep = 'step_welcome';
           shouldUnpause = true;
         } else if (simIsPaused) {
-          const allowedHooks = (activeConfig.hooks || []).filter(h => h.allowedWhenPaused);
-          for (const h of allowedHooks) {
-            const hasNeg = (h.negativeKeywords || []).some(n => normalizeStr(n) && clean.includes(normalizeStr(n)));
-            if (hasNeg) continue;
-            const matched = (h.keywords || []).some(k => {
-              const ck = normalizeStr(k);
-              return ck.length <= 2 ? clean === ck : clean.includes(ck);
-            });
-            if (matched) {
-              reply = formatSimText(h.response);
-              break;
-            }
-          }
-          if (!reply) {
-            appendSystemNotice("Silencio: El cliente envía datos para el asesor.");
-            return;
-          }
+          // Usuario en pausa
+          appendSystemNotice("Silencio: El cliente envía datos para el asesor humano.");
+          return;
         } else {
-          const sorted = [...(activeConfig.hooks || [])].sort((a, b) => (b.priority || 0) - (a.priority || 0));
-          for (const h of sorted) {
-            const hasNeg = (h.negativeKeywords || []).some(n => normalizeStr(n) && clean.includes(normalizeStr(n)));
-            if (hasNeg) continue;
+          // 2. Evaluar Paso Activo del Workflow
+          const currentStepObj = workflowSteps.find(s => s.id === simCurrentStep);
+          let matchedRoute = null;
 
-            const matched = (h.keywords || []).some(k => {
-              const ck = normalizeStr(k);
-              if (!ck) return false;
-              return ck.length <= 2 ? clean === ck : clean.includes(ck);
+          if (currentStepObj && currentStepObj.routes && currentStepObj.routes.length > 0) {
+            matchedRoute = currentStepObj.routes.find(r => {
+              const ck = normalizeStr(r.key);
+              const cl = normalizeStr(r.label);
+              if (clean === ck) return true;
+              if (ck && ck.length <= 2 && clean === ck) return true;
+              return cl && cl.length > 3 && clean.includes(cl);
             });
 
-            if (matched) {
-              reply = formatSimText(h.response);
-              shouldPause = Boolean(h.autoPause || h.type === 'handoff');
-              shouldUnpause = Boolean(h.unpauseOnTrigger);
-              break;
+            if (matchedRoute) {
+              const target = workflowSteps.find(s => s.id === matchedRoute.targetStepId);
+              if (target) {
+                reply = formatSimText(target.message);
+                nextStep = target.id;
+                shouldPause = Boolean(target.autoPause);
+              }
             }
           }
 
-          if (!reply) {
-            if (simIsNewCustomer) {
-              const wHook = (activeConfig.hooks || []).find(h => h.id === "hook_welcome");
-              if (wHook) reply = formatSimText(wHook.response);
-            } else if (activeConfig.settings?.silentFallback !== false) {
-              appendSystemNotice("Recepcionista: Mensaje no reconocido, guardando silencio.");
-              simIsNewCustomer = false;
-              updateSimBadge();
-              return;
-            } else {
-              reply = formatSimText(activeConfig.fallbackResponse);
+          // 3. Evaluar Ganchos de Anuncios si no hubo ruta de número
+          if (!matchedRoute) {
+            const sortedHooks = [...(activeConfig.hooks || [])].sort((a, b) => (b.priority || 0) - (a.priority || 0));
+            for (const h of sortedHooks) {
+              const hasNeg = (h.negativeKeywords || []).some(n => normalizeStr(n) && clean.includes(normalizeStr(n)));
+              if (hasNeg) continue;
+
+              const matched = (h.keywords || []).some(k => {
+                const ck = normalizeStr(k);
+                if (!ck) return false;
+                return ck.length <= 2 ? clean === ck : clean.includes(ck);
+              });
+
+              if (matched) {
+                reply = formatSimText(h.response);
+                shouldPause = Boolean(h.autoPause || h.type === 'handoff');
+                shouldUnpause = Boolean(h.unpauseOnTrigger);
+                nextStep = h.id.replace('hook_', 'step_');
+                break;
+              }
             }
+          }
+
+          // 4. Si estaba en el Menú y no coincidió: Opción inválida bajo Modo Estricto
+          if (!reply && isStrict && (!simCurrentStep || simCurrentStep === 'step_welcome') && !simIsNewCustomer) {
+            const wStep = workflowSteps.find(s => s.id === 'step_welcome');
+            if (wStep && wStep.invalidMessage) {
+              reply = formatSimText(wStep.invalidMessage);
+              nextStep = 'step_welcome';
+            }
+          }
+
+          // 5. Cliente Nuevo
+          if (!reply && simIsNewCustomer) {
+            const wStep = workflowSteps.find(s => s.id === 'step_welcome');
+            if (wStep) reply = formatSimText(wStep.message);
+            nextStep = 'step_welcome';
+          }
+
+          // 6. Modo Recepcionista
+          if (!reply && activeConfig.settings?.silentFallback !== false) {
+            appendSystemNotice("Recepcionista: Mensaje no reconocido, guardando silencio.");
+            simIsNewCustomer = false;
+            updateSimBadge();
+            return;
           }
         }
 
         simIsNewCustomer = false;
+        simCurrentStep = nextStep;
         if (shouldUnpause) simIsPaused = false;
         if (shouldPause) simIsPaused = true;
         updateSimBadge();
