@@ -1,17 +1,20 @@
 <!DOCTYPE html>
-<html lang="es" class="h-full bg-[#F5F7FC] text-[#0D1017]">
+<html lang="es" class="h-full bg-[#FAFAFA] text-[#111827]">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Tecnobot Studio — Automatización de Instagram</title>
-  <!-- Google Fonts: Inter & JetBrains Mono -->
+  
+  <!-- Google Fonts: Inter -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
+
   <script>
     tailwind.config = {
       theme: {
@@ -19,170 +22,156 @@
           fontFamily: {
             sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
             mono: ['JetBrains Mono', 'monospace']
-          },
-          colors: {
-            canvas: '#F5F7FC',
-            ink: '#0D1017',
-            muted: '#6B7280'
           }
         }
       }
     }
   </script>
+
   <style>
     body {
-      background-color: #F5F7FC;
-      background-image: radial-gradient(ellipse 80% 50% at 50% -20%, rgba(16, 185, 129, 0.07), transparent);
-      color: #0D1017;
-    }
-    .ig-gradient {
-      background: linear-gradient(135deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
-    }
-    .glass-nav {
-      background: rgba(255, 255, 255, 0.82);
-      backdrop-filter: blur(20px) saturate(180%);
-      -webkit-backdrop-filter: blur(20px) saturate(180%);
-      border-bottom: 1px solid rgba(13, 16, 23, 0.06);
+      background-color: #FAFAFA;
+      color: #111827;
+      text-rendering: optimizeLegibility;
+      -webkit-font-smoothing: antialiased;
     }
     .studio-card {
       background: #FFFFFF;
-      border: 1px solid rgba(13, 16, 23, 0.06);
-      box-shadow: 0 2px 10px rgba(13, 16, 23, 0.02), 0 1px 2px rgba(13, 16, 23, 0.03);
-      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      border: 1px solid #E5E7EB;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+      transition: border-color 0.15s ease;
     }
     .studio-card:hover {
-      border-color: rgba(13, 16, 23, 0.11);
-      box-shadow: 0 12px 32px rgba(13, 16, 23, 0.05), 0 2px 6px rgba(13, 16, 23, 0.03);
+      border-color: #D1D5DB;
     }
     .tabular-nums {
       font-variant-numeric: tabular-nums;
     }
-    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
     ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: rgba(13, 16, 23, 0.15); border-radius: 9999px; }
-    ::-webkit-scrollbar-thumb:hover { background: rgba(13, 16, 23, 0.28); }
+    ::-webkit-scrollbar-thumb { background: #D1D5DB; border-radius: 9999px; }
+    ::-webkit-scrollbar-thumb:hover { background: #9CA3AF; }
   </style>
 </head>
-<body class="min-h-full flex flex-col font-sans antialiased selection:bg-zinc-900 selection:text-white overflow-x-hidden">
+<body class="min-h-full flex flex-col font-sans selection:bg-zinc-900 selection:text-white overflow-x-hidden">
 
   <!-- ========================================================= -->
-  <!-- MODAL DE ACCESO POR PIN (ESTÉTICA EDITORIAL / APPLE)      -->
+  <!-- MODAL DE ACCESO POR PIN (MINIMALISTA)                      -->
   <!-- ========================================================= -->
-  <div id="pinModal" class="fixed inset-0 z-50 bg-[#F5F7FC]/95 backdrop-blur-xl flex items-center justify-center p-4">
-    <div class="bg-white border border-black/[0.06] rounded-[2rem] p-8 sm:p-10 max-w-sm w-full shadow-[0_24px_60px_rgba(0,0,0,0.07)] text-center">
-      <div class="w-14 h-14 rounded-2xl bg-zinc-900 mx-auto flex items-center justify-center text-white shadow-md mb-5">
-        <i data-lucide="sparkles" class="w-6 h-6"></i>
+  <div id="pinModal" class="fixed inset-0 z-50 bg-black/20 flex items-center justify-center p-4">
+    <div class="bg-white border border-zinc-200 rounded-2xl p-7 max-w-xs w-full shadow-lg text-center">
+      <div class="w-10 h-10 rounded-xl bg-zinc-900 mx-auto flex items-center justify-center text-white mb-3">
+        <i data-lucide="shield" class="w-4 h-4"></i>
       </div>
-      <h2 class="text-xl font-bold tracking-tight text-zinc-900">Tecnobot Studio</h2>
-      <p class="text-xs text-zinc-500 mt-1 mb-6">Ingresa tu código de seguridad para gestionar el bot</p>
+      <h2 class="text-sm font-semibold tracking-tight text-zinc-900">Tecnobot Studio</h2>
+      <p class="text-[11px] text-zinc-500 mt-0.5 mb-5">Ingresa tu PIN de administrador</p>
       
       <!-- Indicadores de 6 dígitos -->
-      <div id="pinDots" class="flex justify-center gap-2.5 mb-5">
-        <div class="w-3 h-3 rounded-full bg-zinc-200 transition-all duration-150"></div>
-        <div class="w-3 h-3 rounded-full bg-zinc-200 transition-all duration-150"></div>
-        <div class="w-3 h-3 rounded-full bg-zinc-200 transition-all duration-150"></div>
-        <div class="w-3 h-3 rounded-full bg-zinc-200 transition-all duration-150"></div>
-        <div class="w-3 h-3 rounded-full bg-zinc-200 transition-all duration-150"></div>
-        <div class="w-3 h-3 rounded-full bg-zinc-200 transition-all duration-150"></div>
+      <div id="pinDots" class="flex justify-center gap-2 mb-4">
+        <div class="w-2.5 h-2.5 rounded-full bg-zinc-200 transition-colors duration-150"></div>
+        <div class="w-2.5 h-2.5 rounded-full bg-zinc-200 transition-colors duration-150"></div>
+        <div class="w-2.5 h-2.5 rounded-full bg-zinc-200 transition-colors duration-150"></div>
+        <div class="w-2.5 h-2.5 rounded-full bg-zinc-200 transition-colors duration-150"></div>
+        <div class="w-2.5 h-2.5 rounded-full bg-zinc-200 transition-colors duration-150"></div>
+        <div class="w-2.5 h-2.5 rounded-full bg-zinc-200 transition-colors duration-150"></div>
       </div>
 
       <input type="password" id="pinInput" maxlength="8" class="sr-only" />
-      <p id="pinError" class="text-xs text-rose-600 font-medium mb-4 hidden">Código incorrecto. Intenta nuevamente.</p>
+      <p id="pinError" class="text-[11px] text-rose-600 font-medium mb-3 hidden">PIN incorrecto. Intenta de nuevo.</p>
 
-      <!-- Teclado numérico táctil -->
-      <div class="grid grid-cols-3 gap-2.5 mb-4">
-        <button onclick="appendPinDigit('1')" class="h-12 rounded-2xl bg-zinc-50 hover:bg-zinc-100 active:scale-95 text-base font-semibold text-zinc-900 transition-all border border-black/[0.04]">1</button>
-        <button onclick="appendPinDigit('2')" class="h-12 rounded-2xl bg-zinc-50 hover:bg-zinc-100 active:scale-95 text-base font-semibold text-zinc-900 transition-all border border-black/[0.04]">2</button>
-        <button onclick="appendPinDigit('3')" class="h-12 rounded-2xl bg-zinc-50 hover:bg-zinc-100 active:scale-95 text-base font-semibold text-zinc-900 transition-all border border-black/[0.04]">3</button>
-        <button onclick="appendPinDigit('4')" class="h-12 rounded-2xl bg-zinc-50 hover:bg-zinc-100 active:scale-95 text-base font-semibold text-zinc-900 transition-all border border-black/[0.04]">4</button>
-        <button onclick="appendPinDigit('5')" class="h-12 rounded-2xl bg-zinc-50 hover:bg-zinc-100 active:scale-95 text-base font-semibold text-zinc-900 transition-all border border-black/[0.04]">5</button>
-        <button onclick="appendPinDigit('6')" class="h-12 rounded-2xl bg-zinc-50 hover:bg-zinc-100 active:scale-95 text-base font-semibold text-zinc-900 transition-all border border-black/[0.04]">6</button>
-        <button onclick="appendPinDigit('7')" class="h-12 rounded-2xl bg-zinc-50 hover:bg-zinc-100 active:scale-95 text-base font-semibold text-zinc-900 transition-all border border-black/[0.04]">7</button>
-        <button onclick="appendPinDigit('8')" class="h-12 rounded-2xl bg-zinc-50 hover:bg-zinc-100 active:scale-95 text-base font-semibold text-zinc-900 transition-all border border-black/[0.04]">8</button>
-        <button onclick="appendPinDigit('9')" class="h-12 rounded-2xl bg-zinc-50 hover:bg-zinc-100 active:scale-95 text-base font-semibold text-zinc-900 transition-all border border-black/[0.04]">9</button>
-        <button onclick="clearPinDigits()" class="h-12 rounded-2xl bg-zinc-50 hover:bg-rose-50 hover:text-rose-600 active:scale-95 text-xs font-semibold text-zinc-400 transition-all border border-black/[0.04]">Borrar</button>
-        <button onclick="appendPinDigit('0')" class="h-12 rounded-2xl bg-zinc-50 hover:bg-zinc-100 active:scale-95 text-base font-semibold text-zinc-900 transition-all border border-black/[0.04]">0</button>
-        <button onclick="verifyPin()" class="h-12 rounded-2xl bg-zinc-900 hover:bg-zinc-800 active:scale-95 text-xs font-semibold text-white transition-all shadow-sm flex items-center justify-center">
-          <i data-lucide="arrow-right" class="w-4 h-4"></i>
+      <!-- Teclado táctil -->
+      <div class="grid grid-cols-3 gap-1.5 mb-3">
+        <button onclick="appendPinDigit('1')" class="h-10 rounded-xl bg-zinc-50 hover:bg-zinc-100 text-sm font-semibold text-zinc-800 border border-zinc-100">1</button>
+        <button onclick="appendPinDigit('2')" class="h-10 rounded-xl bg-zinc-50 hover:bg-zinc-100 text-sm font-semibold text-zinc-800 border border-zinc-100">2</button>
+        <button onclick="appendPinDigit('3')" class="h-10 rounded-xl bg-zinc-50 hover:bg-zinc-100 text-sm font-semibold text-zinc-800 border border-zinc-100">3</button>
+        <button onclick="appendPinDigit('4')" class="h-10 rounded-xl bg-zinc-50 hover:bg-zinc-100 text-sm font-semibold text-zinc-800 border border-zinc-100">4</button>
+        <button onclick="appendPinDigit('5')" class="h-10 rounded-xl bg-zinc-50 hover:bg-zinc-100 text-sm font-semibold text-zinc-800 border border-zinc-100">5</button>
+        <button onclick="appendPinDigit('6')" class="h-10 rounded-xl bg-zinc-50 hover:bg-zinc-100 text-sm font-semibold text-zinc-800 border border-zinc-100">6</button>
+        <button onclick="appendPinDigit('7')" class="h-10 rounded-xl bg-zinc-50 hover:bg-zinc-100 text-sm font-semibold text-zinc-800 border border-zinc-100">7</button>
+        <button onclick="appendPinDigit('8')" class="h-10 rounded-xl bg-zinc-50 hover:bg-zinc-100 text-sm font-semibold text-zinc-800 border border-zinc-100">8</button>
+        <button onclick="appendPinDigit('9')" class="h-10 rounded-xl bg-zinc-50 hover:bg-zinc-100 text-sm font-semibold text-zinc-800 border border-zinc-100">9</button>
+        <button onclick="clearPinDigits()" class="h-10 rounded-xl bg-zinc-50 hover:bg-zinc-100 text-[11px] font-medium text-zinc-400 hover:text-rose-600 border border-zinc-100">Borrar</button>
+        <button onclick="appendPinDigit('0')" class="h-10 rounded-xl bg-zinc-50 hover:bg-zinc-100 text-sm font-semibold text-zinc-800 border border-zinc-100">0</button>
+        <button onclick="verifyPin()" class="h-10 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white flex items-center justify-center">
+          <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
         </button>
       </div>
 
-      <p class="text-[11px] text-zinc-400">También puedes escribir con tu teclado</p>
+      <p class="text-[10px] text-zinc-400">Puedes escribir con tu teclado físico</p>
     </div>
   </div>
 
   <!-- ========================================================= -->
-  <!-- BARRA DE NAVEGACIÓN SUPERIOR (LIQUID GLASS)               -->
+  <!-- BARRA DE NAVEGACIÓN SUPERIOR (PLANA Y LIMPIA)              -->
   <!-- ========================================================= -->
-  <header class="glass-nav sticky top-0 z-40">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-3">
+  <header class="bg-white border-b border-zinc-200 sticky top-0 z-40">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-3">
       
       <!-- Identidad -->
-      <div class="flex items-center gap-3">
-        <div class="w-9 h-9 rounded-xl bg-zinc-900 flex items-center justify-center text-white shadow-sm shrink-0">
-          <i data-lucide="bot" class="w-4 h-4"></i>
+      <div class="flex items-center gap-2.5">
+        <div class="w-7 h-7 rounded-lg bg-zinc-900 flex items-center justify-center text-white shrink-0">
+          <i data-lucide="bot" class="w-3.5 h-3.5"></i>
         </div>
         <div>
-          <div class="flex items-center gap-2">
-            <h1 class="text-sm font-bold tracking-tight text-zinc-900">Tecnobot Studio</h1>
-            <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-600 border border-black/[0.05]">v2.2</span>
+          <div class="flex items-center gap-1.5 leading-none">
+            <span class="text-xs font-semibold text-zinc-900 tracking-tight">Tecnobot</span>
+            <span class="text-[10px] font-mono px-1.5 py-0.2 rounded bg-zinc-100 text-zinc-500">v2.3</span>
           </div>
-          <p class="text-[11px] text-zinc-500 flex items-center gap-1.5">
+          <p class="text-[10px] text-zinc-400 flex items-center gap-1 mt-0.5 leading-none">
             <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
             <span>@tecnotradepty</span>
-            <span class="text-zinc-300">•</span>
-            <span id="storageText" class="text-zinc-400">Conectando...</span>
+            <span>•</span>
+            <span id="storageText">Conectando...</span>
           </p>
         </div>
       </div>
 
-      <!-- Selector de Vista (Segmented Control) -->
-      <div class="hidden md:flex items-center p-1 rounded-full bg-zinc-100/90 border border-black/[0.05]">
-        <button onclick="setViewMode('all')" id="tabAll" class="px-3.5 py-1 rounded-full text-xs font-semibold transition-all bg-white text-zinc-900 shadow-sm">
-          Vista General
+      <!-- Selector de Vista -->
+      <div class="hidden sm:flex items-center p-0.5 rounded-lg bg-zinc-100 text-[11px]">
+        <button onclick="setViewMode('all')" id="tabAll" class="px-2.5 py-1 rounded-md font-medium transition-all bg-white text-zinc-900 shadow-xs">
+          General
         </button>
-        <button onclick="setViewMode('hooks')" id="tabHooks" class="px-3.5 py-1 rounded-full text-xs font-medium transition-all text-zinc-500 hover:text-zinc-900">
-          Ganchos <span id="navHooksCount" class="ml-1 text-[10px] px-1.5 py-0.2 rounded-full bg-zinc-200/70 text-zinc-700">0</span>
+        <button onclick="setViewMode('hooks')" id="tabHooks" class="px-2.5 py-1 rounded-md font-medium transition-all text-zinc-500 hover:text-zinc-900">
+          Ganchos <span id="navHooksCount" class="ml-0.5 text-[10px] text-zinc-400">0</span>
         </button>
-        <button onclick="setViewMode('customers')" id="tabCustomers" class="px-3.5 py-1 rounded-full text-xs font-medium transition-all text-zinc-500 hover:text-zinc-900 flex items-center gap-1.5">
-          <span>Clientes y Pausas</span>
-          <span id="navCustomersCount" class="text-[10px] px-1.5 py-0.2 rounded-full bg-amber-100 text-amber-800 font-semibold">0</span>
+        <button onclick="setViewMode('customers')" id="tabCustomers" class="px-2.5 py-1 rounded-md font-medium transition-all text-zinc-500 hover:text-zinc-900">
+          Clientes <span id="navCustomersCount" class="ml-0.5 text-[10px] font-semibold text-amber-700">0</span>
         </button>
       </div>
 
-      <!-- Acciones Rápidas -->
-      <div class="flex items-center gap-2">
-        <!-- Estado Maestro -->
+      <!-- Acciones de Cabecera -->
+      <div class="flex items-center gap-1.5">
+        <!-- Switch Maestro -->
         <button 
           id="btnMasterToggle" 
           onclick="toggleBotStatus()" 
-          class="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all active:scale-95 bg-emerald-50/80 border-emerald-200 text-emerald-800 hover:bg-emerald-100/70">
-          <span id="statusIndicatorDot" class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-          <span id="statusIndicatorText" class="hidden sm:inline">Bot Activo</span>
+          class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium border transition-colors bg-emerald-50 border-emerald-200 text-emerald-800 hover:bg-emerald-100/70">
+          <span id="statusIndicatorDot" class="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
+          <span id="statusIndicatorText">Activo</span>
         </button>
 
         <!-- Simulador -->
         <button 
           onclick="toggleSimulator()" 
-          class="px-3 py-1.5 bg-white hover:bg-zinc-50 text-zinc-700 text-xs font-semibold rounded-full border border-black/[0.08] shadow-2xs flex items-center gap-1.5 transition-all active:scale-95">
-          <i data-lucide="smartphone" class="w-3.5 h-3.5 text-pink-600"></i>
-          <span class="hidden sm:inline">Probar Chat</span>
+          class="px-2.5 py-1 bg-white hover:bg-zinc-50 text-zinc-700 text-[11px] font-medium rounded-lg border border-zinc-200 flex items-center gap-1.5 transition-colors">
+          <i data-lucide="message-square" class="w-3 h-3 text-zinc-500"></i>
+          <span class="hidden sm:inline">Simulador</span>
         </button>
 
         <!-- Ajustes -->
         <button 
           onclick="openSettingsModal()" 
-          class="p-2 bg-white hover:bg-zinc-50 text-zinc-600 hover:text-zinc-900 rounded-full border border-black/[0.08] transition-all"
-          title="Ajustes del Negocio">
-          <i data-lucide="sliders-horizontal" class="w-3.5 h-3.5"></i>
+          class="p-1.5 bg-white hover:bg-zinc-50 text-zinc-500 hover:text-zinc-800 rounded-lg border border-zinc-200 transition-colors"
+          title="Variables del Negocio">
+          <i data-lucide="settings-2" class="w-3.5 h-3.5"></i>
         </button>
 
-        <!-- Guardar Cambios -->
+        <!-- Guardar -->
         <button 
           id="btnSaveAll" 
           onclick="saveCurrentConfig()" 
-          class="px-4 py-1.5 bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-semibold rounded-full shadow-sm flex items-center gap-1.5 transition-all active:scale-95">
-          <i data-lucide="check" class="w-3.5 h-3.5"></i>
+          class="px-3 py-1 bg-zinc-900 hover:bg-zinc-800 text-white text-[11px] font-medium rounded-lg flex items-center gap-1 transition-colors">
+          <i data-lucide="check" class="w-3 h-3"></i>
           <span>Guardar</span>
         </button>
       </div>
@@ -193,308 +182,264 @@
   <!-- ========================================================= -->
   <!-- CONTENIDO PRINCIPAL                                       -->
   <!-- ========================================================= -->
-  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-8">
+  <main class="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 py-5 space-y-6">
 
-    <!-- TARJETAS DE RESUMEN (KPIs) -->
-    <section class="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
-      <div class="studio-card rounded-2xl p-4 flex items-center justify-between">
-        <div>
-          <p class="text-[11px] font-medium text-zinc-400 uppercase tracking-wider">Modo Operativo</p>
-          <p id="kpiModeText" class="text-sm font-bold text-zinc-900 mt-1">Recepcionista</p>
-          <p class="text-[11px] text-zinc-500 mt-0.5">Silencio en dudas libres</p>
-        </div>
-        <div class="w-9 h-9 rounded-xl bg-emerald-50 border border-emerald-100 text-emerald-600 flex items-center justify-center">
-          <i data-lucide="shield-check" class="w-4 h-4"></i>
-        </div>
+    <!-- KPI ROW (MINIMALISTA Y COMPACTA) -->
+    <section class="grid grid-cols-2 md:grid-cols-4 gap-2.5">
+      <div class="studio-card rounded-xl p-3">
+        <p class="text-[10px] font-medium text-zinc-400 uppercase tracking-wider">Modo</p>
+        <p id="kpiModeText" class="text-xs font-semibold text-zinc-900 mt-0.5">Recepcionista</p>
+        <p class="text-[10px] text-zinc-400 mt-0.5">Silencio en dudas libres</p>
       </div>
 
-      <div class="studio-card rounded-2xl p-4 flex items-center justify-between cursor-pointer" onclick="setViewMode('hooks')">
-        <div>
-          <p class="text-[11px] font-medium text-zinc-400 uppercase tracking-wider">Ganchos Activos</p>
-          <p id="kpiHooksCount" class="text-xl font-bold text-zinc-900 mt-0.5 tabular-nums">7</p>
-          <p class="text-[11px] text-zinc-500 mt-0.5">Con filtro negativo</p>
-        </div>
-        <div class="w-9 h-9 rounded-xl bg-zinc-100 border border-zinc-200/60 text-zinc-700 flex items-center justify-center">
-          <i data-lucide="layers" class="w-4 h-4"></i>
-        </div>
+      <div class="studio-card rounded-xl p-3 cursor-pointer" onclick="setViewMode('hooks')">
+        <p class="text-[10px] font-medium text-zinc-400 uppercase tracking-wider">Ganchos</p>
+        <p id="kpiHooksCount" class="text-base font-semibold text-zinc-900 mt-0.5 tabular-nums">7</p>
+        <p class="text-[10px] text-zinc-400 mt-0.5">Reglas con exclusiones</p>
       </div>
 
-      <div class="studio-card rounded-2xl p-4 flex items-center justify-between cursor-pointer" onclick="setViewMode('customers')">
-        <div>
-          <p class="text-[11px] font-medium text-zinc-400 uppercase tracking-wider">Clientes Registrados</p>
-          <p id="kpiCustomersTotal" class="text-xl font-bold text-zinc-900 mt-0.5 tabular-nums">0</p>
-          <p class="text-[11px] text-zinc-500 mt-0.5">En base de datos Redis</p>
-        </div>
-        <div class="w-9 h-9 rounded-xl bg-blue-50 border border-blue-100 text-blue-600 flex items-center justify-center">
-          <i data-lucide="users" class="w-4 h-4"></i>
-        </div>
+      <div class="studio-card rounded-xl p-3 cursor-pointer" onclick="setViewMode('customers')">
+        <p class="text-[10px] font-medium text-zinc-400 uppercase tracking-wider">Clientes</p>
+        <p id="kpiCustomersTotal" class="text-base font-semibold text-zinc-900 mt-0.5 tabular-nums">0</p>
+        <p class="text-[10px] text-zinc-400 mt-0.5">En base de datos</p>
       </div>
 
-      <div class="studio-card rounded-2xl p-4 flex items-center justify-between cursor-pointer" onclick="setViewMode('customers')">
-        <div>
-          <p class="text-[11px] font-medium text-zinc-400 uppercase tracking-wider">En Pausa Humana</p>
-          <p id="kpiPausedTotal" class="text-xl font-bold text-amber-600 mt-0.5 tabular-nums">0</p>
-          <p class="text-[11px] text-zinc-500 mt-0.5">Con contador activo</p>
-        </div>
-        <div class="w-9 h-9 rounded-xl bg-amber-50 border border-amber-100 text-amber-600 flex items-center justify-center">
-          <i data-lucide="timer" class="w-4 h-4"></i>
-        </div>
+      <div class="studio-card rounded-xl p-3 cursor-pointer" onclick="setViewMode('customers')">
+        <p class="text-[10px] font-medium text-zinc-400 uppercase tracking-wider">En Pausa Humana</p>
+        <p id="kpiPausedTotal" class="text-base font-semibold text-amber-700 mt-0.5 tabular-nums">0</p>
+        <p class="text-[10px] text-zinc-400 mt-0.5">Silencio activo de 12h</p>
       </div>
     </section>
 
     <!-- ========================================================= -->
-    <!-- SECCIÓN 1: CLIENTES REGISTRADOS Y CONTADOR DE PAUSA       -->
+    <!-- SECCIÓN: CLIENTES Y CONTADOR DE PAUSA                     -->
     <!-- ========================================================= -->
-    <section id="sectionCustomers" class="space-y-4">
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+    <section id="sectionCustomers" class="space-y-3">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-zinc-200 pb-2">
         <div>
-          <div class="flex items-center gap-2">
-            <h2 class="text-base font-bold tracking-tight text-zinc-900">Clientes Registrados y Contador de Pausa</h2>
-            <span id="liveTickBadge" class="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200/60">
-              <span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping"></span>
-              Tiempo real
-            </span>
-          </div>
-          <p class="text-xs text-zinc-500 mt-0.5">
-            Monitorea las horas restantes de silencio por cliente cuando tú hablas con ellos o cuando responden un cuestionario.
-          </p>
+          <h2 class="text-xs font-semibold uppercase tracking-wider text-zinc-600">Clientes & Pausas en Vivo</h2>
+          <p class="text-[11px] text-zinc-400">Tiempo restante de silencio por cada cliente en atención humana.</p>
         </div>
 
-        <!-- Barra de herramientas de clientes -->
-        <div class="flex items-center gap-2 flex-wrap">
-          <div class="flex items-center bg-white border border-black/[0.08] rounded-full p-0.5 pl-3 shadow-2xs">
-            <input 
-              type="text" 
-              id="manualCustomerIdInput" 
-              placeholder="ID cliente IG..." 
-              class="text-xs bg-transparent text-zinc-800 placeholder:text-zinc-400 focus:outline-none w-32 sm:w-36 font-mono"
-            />
-            <button 
-              onclick="pauseManualCustomer()" 
-              class="px-2.5 py-1 rounded-full bg-zinc-900 hover:bg-zinc-800 text-white text-[11px] font-medium transition-all">
-              + Pausar 12h
-            </button>
-          </div>
-
+        <div class="flex items-center gap-1.5">
+          <input 
+            type="text" 
+            id="manualCustomerIdInput" 
+            placeholder="ID de Instagram..." 
+            class="text-[11px] bg-white border border-zinc-200 rounded-lg px-2.5 py-1 text-zinc-800 placeholder:text-zinc-400 focus:outline-none focus:border-zinc-900 w-32 font-mono"
+          />
+          <button 
+            onclick="pauseManualCustomer()" 
+            class="px-2.5 py-1 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-white text-[11px] font-medium transition-colors">
+            + Pausar 12h
+          </button>
           <button 
             onclick="refreshCustomers()" 
             id="btnRefreshCustomers"
-            class="px-3 py-1.5 bg-white hover:bg-zinc-50 text-zinc-700 text-xs font-medium rounded-full border border-black/[0.08] flex items-center gap-1.5 transition-all active:scale-95">
-            <i data-lucide="refresh-cw" class="w-3.5 h-3.5 text-zinc-500"></i>
-            <span>Sincronizar</span>
+            class="p-1 rounded-lg bg-white hover:bg-zinc-50 border border-zinc-200 text-zinc-500 hover:text-zinc-800 transition-colors"
+            title="Sincronizar">
+            <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
           </button>
         </div>
       </div>
 
-      <!-- Contenedor de tarjetas/filas de clientes -->
-      <div id="customersContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <!-- Grid de clientes -->
+      <div id="customersContainer" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         <!-- Inyectado dinámicamente -->
       </div>
     </section>
 
     <!-- ========================================================= -->
-    <!-- SECCIÓN 2: GANCHOS DE RESPUESTA Y PALABRAS CLAVE          -->
+    <!-- SECCIÓN: GANCHOS DE RESPUESTA                             -->
     <!-- ========================================================= -->
-    <section id="sectionHooks" class="space-y-4">
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">
+    <section id="sectionHooks" class="space-y-3">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-zinc-200 pb-2">
         <div>
-          <h2 class="text-base font-bold tracking-tight text-zinc-900">Ganchos de Respuesta e Intenciones</h2>
-          <p class="text-xs text-zinc-500 mt-0.5">
-            Agrega o quita palabras clave con un clic. Las <span class="text-rose-600 font-medium">palabras negativas</span> impiden que un gancho salte por error.
-          </p>
+          <h2 class="text-xs font-semibold uppercase tracking-wider text-zinc-600">Reglas y Ganchos de Respuesta</h2>
+          <p class="text-[11px] text-zinc-400">Edita palabras activadoras y exclusiones negativas para cada flujo.</p>
         </div>
 
-        <div class="flex items-center gap-2">
-          <!-- Filtro rápido de ganchos -->
-          <div class="relative">
-            <i data-lucide="search" class="w-3.5 h-3.5 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2"></i>
-            <input 
-              type="text" 
-              id="hookSearchInput" 
-              oninput="renderHooks()"
-              placeholder="Buscar gancho o keyword..." 
-              class="pl-8 pr-3 py-1.5 bg-white border border-black/[0.08] rounded-full text-xs text-zinc-800 placeholder:text-zinc-400 focus:outline-none focus:border-zinc-900 w-44 sm:w-56"
-            />
-          </div>
-
+        <div class="flex items-center gap-1.5">
+          <input 
+            type="text" 
+            id="hookSearchInput" 
+            oninput="renderHooks()"
+            placeholder="Filtrar ganchos..." 
+            class="px-2.5 py-1 bg-white border border-zinc-200 rounded-lg text-[11px] text-zinc-800 placeholder:text-zinc-400 focus:outline-none focus:border-zinc-900 w-40 sm:w-48"
+          />
           <button 
             onclick="addNewHook()" 
-            class="px-3.5 py-1.5 bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-semibold rounded-full shadow-xs flex items-center gap-1.5 transition-all active:scale-95 shrink-0">
-            <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+            class="px-2.5 py-1 bg-zinc-900 hover:bg-zinc-800 text-white text-[11px] font-medium rounded-lg flex items-center gap-1 transition-colors shrink-0">
+            <i data-lucide="plus" class="w-3 h-3"></i>
             <span>Nuevo Gancho</span>
           </button>
         </div>
       </div>
 
-      <!-- Grid de Ganchos -->
-      <div id="hooksContainer" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+      <!-- Grid de ganchos -->
+      <div id="hooksContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
         <!-- Inyectado dinámicamente -->
       </div>
 
-      <!-- Tarjeta de Modo Recepcionista Silencioso -->
-      <div class="studio-card rounded-2xl p-5 mt-6">
-        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div class="flex items-start gap-3.5">
-            <div class="w-10 h-10 rounded-2xl bg-zinc-900 text-white flex items-center justify-center shrink-0 mt-0.5">
-              <i data-lucide="Ear" class="w-4 h-4"></i>
-            </div>
-            <div>
-              <div class="flex items-center gap-2">
-                <h4 class="text-sm font-bold text-zinc-900">Modo Recepcionista No-Intrusivo</h4>
-                <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">Recomendado</span>
-              </div>
-              <p class="text-xs text-zinc-500 mt-1 max-w-3xl leading-relaxed">
-                Cuando está activo, el bot saluda con el Menú Principal la primera vez que un cliente escribe, pero si luego el cliente envía una consulta libre que no coincide con ningún gancho, <strong>el bot guarda silencio</strong> en vez de enviar mensajes de error.
-              </p>
-            </div>
+      <!-- Modo Recepcionista -->
+      <div class="studio-card rounded-xl p-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <div>
+          <div class="flex items-center gap-1.5">
+            <span class="text-xs font-semibold text-zinc-900">Modo Recepcionista Silencioso</span>
+            <span class="text-[10px] px-1.5 py-0.2 rounded bg-zinc-100 text-zinc-600 font-mono">Recomendado</span>
           </div>
-
-          <label class="inline-flex items-center cursor-pointer shrink-0 select-none">
-            <input type="checkbox" id="silentFallbackToggle" class="sr-only peer" checked onchange="toggleSilentFallback(this.checked)">
-            <div class="w-11 h-6 bg-zinc-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all after:shadow-xs relative peer-checked:bg-zinc-900"></div>
-            <span id="silentFallbackLabel" class="ml-2.5 text-xs font-semibold text-zinc-800">Activado</span>
-          </label>
+          <p class="text-[11px] text-zinc-500 mt-0.5 leading-relaxed">
+            Saluda a clientes nuevos con el Menú. Si un cliente escribe una duda libre no reconocida, el bot guarda silencio para no interrumpir.
+          </p>
         </div>
 
-        <div id="fallbackBoxContainer" class="pt-4 mt-4 border-t border-black/[0.06] hidden">
-          <label class="text-xs font-semibold text-zinc-600 block mb-1.5">Mensaje de respaldo (solo se envía si desactivas el Modo Recepcionista):</label>
-          <textarea 
-            id="fallbackInput" 
-            rows="2" 
-            class="w-full text-xs p-3 bg-[#F8FAFC] border border-black/[0.08] rounded-xl text-zinc-800 focus:outline-none focus:bg-white focus:border-zinc-900"
-            placeholder="Mensaje cuando no se reconoce el texto..."></textarea>
-        </div>
+        <label class="inline-flex items-center cursor-pointer shrink-0 select-none">
+          <input type="checkbox" id="silentFallbackToggle" class="sr-only peer" checked onchange="toggleSilentFallback(this.checked)">
+          <div class="w-9 h-5 bg-zinc-200 rounded-full peer peer-checked:after:translate-x-4 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all relative peer-checked:bg-zinc-900"></div>
+          <span id="silentFallbackLabel" class="ml-2 text-[11px] font-medium text-zinc-800">Activo</span>
+        </label>
+      </div>
+
+      <div id="fallbackBoxContainer" class="studio-card rounded-xl p-3 hidden">
+        <label class="text-[11px] font-medium text-zinc-600 block mb-1">Mensaje de respaldo (si desactivas el silencio):</label>
+        <textarea 
+          id="fallbackInput" 
+          rows="2" 
+          class="w-full text-xs p-2.5 bg-zinc-50 border border-zinc-200 rounded-lg text-zinc-800 focus:outline-none focus:bg-white focus:border-zinc-900"
+          placeholder="Mensaje cuando no coincide ninguna regla..."></textarea>
       </div>
     </section>
 
   </main>
 
   <!-- ========================================================= -->
-  <!-- MODAL AJUSTES GENERALES                                   -->
+  <!-- MODAL: AJUSTES GENERALES                                  -->
   <!-- ========================================================= -->
-  <div id="settingsModal" class="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs hidden items-center justify-center p-4">
-    <div class="bg-white border border-black/[0.08] rounded-[1.75rem] p-6 sm:p-7 max-w-lg w-full shadow-2xl">
-      <div class="flex items-center justify-between pb-4 border-b border-black/[0.06] mb-5">
-        <div class="flex items-center gap-2.5">
-          <div class="w-8 h-8 rounded-xl bg-zinc-100 flex items-center justify-center text-zinc-800">
-            <i data-lucide="sliders-horizontal" class="w-4 h-4"></i>
-          </div>
-          <h3 class="text-sm font-bold text-zinc-900">Variables y Ajustes del Negocio</h3>
-        </div>
-        <button onclick="closeSettingsModal()" class="p-1.5 rounded-full text-zinc-400 hover:text-zinc-800 hover:bg-zinc-100">
+  <div id="settingsModal" class="fixed inset-0 z-50 bg-black/25 hidden items-center justify-center p-4">
+    <div class="bg-white border border-zinc-200 rounded-2xl p-5 sm:p-6 max-w-md w-full shadow-lg">
+      <div class="flex items-center justify-between pb-3 border-b border-zinc-100 mb-4">
+        <h3 class="text-xs font-semibold uppercase tracking-wider text-zinc-800">Variables del Negocio</h3>
+        <button onclick="closeSettingsModal()" class="p-1 rounded-md text-zinc-400 hover:text-zinc-800">
           <i data-lucide="x" class="w-4 h-4"></i>
         </button>
       </div>
 
-      <div class="space-y-4 text-xs">
+      <div class="space-y-3 text-xs">
         <div>
-          <label class="block font-semibold text-zinc-700 mb-1">Nombre Comercial <span class="font-mono text-zinc-400 font-normal">{BUSINESS_NAME}</span></label>
-          <input type="text" id="settingBusinessName" class="w-full px-3 py-2.5 bg-[#F8FAFC] border border-black/[0.08] rounded-xl text-zinc-900 focus:outline-none focus:bg-white focus:border-zinc-900" />
+          <label class="block font-medium text-zinc-600 mb-1">Nombre Comercial <span class="font-mono text-zinc-400 font-normal">{BUSINESS_NAME}</span></label>
+          <input type="text" id="settingBusinessName" class="w-full px-2.5 py-1.5 bg-zinc-50 border border-zinc-200 rounded-lg text-zinc-900 focus:outline-none focus:bg-white focus:border-zinc-900" />
         </div>
         <div>
-          <label class="block font-semibold text-zinc-700 mb-1">Catálogo Web <span class="font-mono text-zinc-400 font-normal">{TIENDA_URL}</span></label>
-          <input type="url" id="settingTiendaUrl" class="w-full px-3 py-2.5 bg-[#F8FAFC] border border-black/[0.08] rounded-xl text-zinc-900 focus:outline-none focus:bg-white focus:border-zinc-900" />
+          <label class="block font-medium text-zinc-600 mb-1">Catálogo Web <span class="font-mono text-zinc-400 font-normal">{TIENDA_URL}</span></label>
+          <input type="url" id="settingTiendaUrl" class="w-full px-2.5 py-1.5 bg-zinc-50 border border-zinc-200 rounded-lg text-zinc-900 focus:outline-none focus:bg-white focus:border-zinc-900" />
         </div>
         <div>
-          <label class="block font-semibold text-zinc-700 mb-1">Ubicación en Google Maps <span class="font-mono text-zinc-400 font-normal">{MAPS_URL}</span></label>
-          <input type="url" id="settingMapsUrl" class="w-full px-3 py-2.5 bg-[#F8FAFC] border border-black/[0.08] rounded-xl text-zinc-900 focus:outline-none focus:bg-white focus:border-zinc-900" />
+          <label class="block font-medium text-zinc-600 mb-1">Ubicación Google Maps <span class="font-mono text-zinc-400 font-normal">{MAPS_URL}</span></label>
+          <input type="url" id="settingMapsUrl" class="w-full px-2.5 py-1.5 bg-zinc-50 border border-zinc-200 rounded-lg text-zinc-900 focus:outline-none focus:bg-white focus:border-zinc-900" />
         </div>
-        <div class="grid grid-cols-2 gap-3">
+        <div class="grid grid-cols-2 gap-2.5">
           <div>
-            <label class="block font-semibold text-zinc-700 mb-1">Teléfono / WhatsApp</label>
-            <input type="text" id="settingPhone" class="w-full px-3 py-2.5 bg-[#F8FAFC] border border-black/[0.08] rounded-xl text-zinc-900 focus:outline-none focus:bg-white focus:border-zinc-900" />
+            <label class="block font-medium text-zinc-600 mb-1">Teléfono / WhatsApp</label>
+            <input type="text" id="settingPhone" class="w-full px-2.5 py-1.5 bg-zinc-50 border border-zinc-200 rounded-lg text-zinc-900 focus:outline-none focus:bg-white focus:border-zinc-900" />
           </div>
           <div>
-            <label class="block font-semibold text-zinc-700 mb-1">Duración de Auto-Pausa (Horas)</label>
-            <input type="number" id="settingPauseHours" min="1" max="72" class="w-full px-3 py-2.5 bg-[#F8FAFC] border border-black/[0.08] rounded-xl text-zinc-900 focus:outline-none focus:bg-white focus:border-zinc-900" />
+            <label class="block font-medium text-zinc-600 mb-1">Horas de Auto-Pausa</label>
+            <input type="number" id="settingPauseHours" min="1" max="72" class="w-full px-2.5 py-1.5 bg-zinc-50 border border-zinc-200 rounded-lg text-zinc-900 focus:outline-none focus:bg-white focus:border-zinc-900" />
           </div>
         </div>
       </div>
 
-      <div class="mt-6 pt-4 border-t border-black/[0.06] flex justify-end gap-2">
-        <button onclick="closeSettingsModal()" class="px-4 py-2 bg-zinc-100 hover:bg-zinc-200/70 text-zinc-700 rounded-full font-semibold text-xs transition-all">Cancelar</button>
-        <button onclick="applySettings()" class="px-5 py-2 bg-zinc-900 hover:bg-zinc-800 text-white rounded-full font-semibold text-xs shadow-sm transition-all">Aplicar y Guardar</button>
+      <div class="mt-5 pt-3 border-t border-zinc-100 flex justify-end gap-1.5">
+        <button onclick="closeSettingsModal()" class="px-3 py-1.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded-lg font-medium text-xs transition-colors">Cancelar</button>
+        <button onclick="applySettings()" class="px-3.5 py-1.5 bg-zinc-900 hover:bg-zinc-800 text-white rounded-lg font-medium text-xs transition-colors">Aplicar</button>
       </div>
     </div>
   </div>
 
   <!-- ========================================================= -->
-  <!-- DRAWER: SIMULADOR DE INSTAGRAM DM                         -->
+  <!-- DRAWER: SIMULADOR DE CHAT                                 -->
   <!-- ========================================================= -->
-  <div id="simDrawer" class="fixed right-0 top-0 bottom-0 w-full sm:w-[400px] bg-white border-l border-black/[0.08] shadow-2xl z-50 transform translate-x-full transition-transform duration-300 flex flex-col">
-    <!-- Cabecera del Simulador -->
-    <div class="p-4 border-b border-black/[0.06] flex items-center justify-between bg-white/90 backdrop-blur-md">
-      <div class="flex items-center gap-2.5">
-        <div class="w-9 h-9 rounded-full ig-gradient flex items-center justify-center text-white text-xs font-bold shadow-xs">
+  <div id="simDrawer" class="fixed right-0 top-0 bottom-0 w-full sm:w-[380px] bg-white border-l border-zinc-200 shadow-xl z-50 transform translate-x-full transition-transform duration-200 flex flex-col">
+    <!-- Cabecera -->
+    <div class="p-3 border-b border-zinc-200 flex items-center justify-between bg-white">
+      <div class="flex items-center gap-2">
+        <div class="w-6 h-6 rounded-full bg-zinc-900 flex items-center justify-center text-white text-[9px] font-bold">
           TT
         </div>
         <div>
-          <h4 class="text-xs font-bold text-zinc-900">Simulador • @tecnotradepty</h4>
-          <p id="simStateBadge" class="text-[11px] text-emerald-600 font-medium">🟢 Cliente Nuevo (Bot Activo)</p>
+          <h4 class="text-xs font-semibold text-zinc-900">Simulador @tecnotradepty</h4>
+          <p id="simStateBadge" class="text-[10px] text-emerald-600 font-medium">Cliente Nuevo (Activo)</p>
         </div>
       </div>
-      <div class="flex items-center gap-1.5">
-        <button onclick="resetSimulatorChat()" class="px-2.5 py-1 text-[11px] font-medium bg-zinc-100 hover:bg-zinc-200/70 text-zinc-700 rounded-full transition-all" title="Reiniciar como cliente nuevo">
+      <div class="flex items-center gap-1">
+        <button onclick="resetSimulatorChat()" class="px-2 py-0.5 text-[10px] font-medium bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded transition-colors">
           Reiniciar
         </button>
-        <button onclick="toggleSimulator()" class="p-1.5 text-zinc-400 hover:text-zinc-800 rounded-full hover:bg-zinc-100">
-          <i data-lucide="x" class="w-4 h-4"></i>
+        <button onclick="toggleSimulator()" class="p-1 text-zinc-400 hover:text-zinc-700 rounded">
+          <i data-lucide="x" class="w-3.5 h-3.5"></i>
         </button>
       </div>
     </div>
 
     <!-- Mensajes -->
-    <div id="chatMessages" class="flex-1 p-4 overflow-y-auto space-y-3 text-xs bg-[#F8FAFC]"></div>
+    <div id="chatMessages" class="flex-1 p-3 overflow-y-auto space-y-2.5 text-xs bg-[#FAFAFA]"></div>
 
-    <!-- Input del Simulador -->
-    <div class="p-3.5 border-t border-black/[0.06] bg-white flex items-center gap-2">
+    <!-- Input -->
+    <div class="p-2.5 border-t border-zinc-200 bg-white flex items-center gap-1.5">
       <input 
         type="text" 
         id="simInput" 
-        placeholder="Escribe un mensaje de prueba..." 
-        class="flex-1 text-xs px-4 py-2.5 bg-[#F5F7FC] border border-black/[0.08] rounded-full text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:bg-white focus:border-zinc-900"
-        onkeydown="if(event.key==='Enter') sendSimMessage()"
+        placeholder="Escribe un mensaje..." 
+        onkeydown="if(event.key === 'Enter') sendSimMessage()"
+        class="flex-1 px-3 py-1.5 bg-zinc-50 border border-zinc-200 rounded-lg text-xs text-zinc-800 placeholder:text-zinc-400 focus:outline-none focus:bg-white focus:border-zinc-900"
       />
       <button 
         onclick="sendSimMessage()" 
-        class="w-9 h-9 rounded-full bg-zinc-900 hover:bg-zinc-800 text-white flex items-center justify-center shrink-0 shadow-xs active:scale-90 transition-all">
+        class="p-1.5 bg-zinc-900 hover:bg-zinc-800 text-white rounded-lg transition-colors">
         <i data-lucide="send" class="w-3.5 h-3.5"></i>
       </button>
     </div>
   </div>
 
   <!-- ========================================================= -->
-  <!-- LÓGICA DE APLICACIÓN                                      -->
+  <!-- JAVASCRIPT DEL CLIENTE (LIVIANO Y OPTIMIZADO)              -->
   <!-- ========================================================= -->
   <script>
     let activeConfig = null;
     let customersList = [];
     let savedPin = localStorage.getItem('tecnobot_pin') || '';
     let currentPinAttempt = '';
-    let currentViewMode = 'all';
     let countdownInterval = null;
+    let currentViewMode = 'all';
 
     // Estado del simulador
     let simIsPaused = false;
     let simIsNewCustomer = true;
 
-    window.onload = async () => {
+    // Inicialización
+    document.addEventListener('DOMContentLoaded', async () => {
       lucide.createIcons();
+      setupPinEvents();
       resetSimulatorChat();
-      setupKeyboardPinListener();
 
       if (savedPin) {
-        currentPinAttempt = savedPin;
-        updatePinDots();
-        await verifyPin();
+        try {
+          const res = await fetch('/api/config');
+          const data = await res.json();
+          document.getElementById('pinModal').classList.add('hidden');
+          loadConfigData(data);
+        } catch (e) {
+          console.warn('Re-autenticando...');
+          document.getElementById('pinModal').classList.remove('hidden');
+        }
+      } else {
+        document.getElementById('pinModal').classList.remove('hidden');
       }
-    };
+    });
 
-    // =========================================================
-    // 1. AUTENTICACIÓN CON TECLADO TÁCTIL Y FÍSICO
-    // =========================================================
-    function setupKeyboardPinListener() {
-      window.addEventListener('keydown', (e) => {
+    // 1. PIN & SEGURIDAD
+    function setupPinEvents() {
+      document.addEventListener('keydown', (e) => {
         const modal = document.getElementById('pinModal');
         if (modal.classList.contains('hidden')) return;
 
@@ -528,11 +473,9 @@
     function updatePinDots() {
       const dots = document.querySelectorAll('#pinDots > div');
       dots.forEach((dot, idx) => {
-        if (idx < currentPinAttempt.length) {
-          dot.className = "w-3 h-3 rounded-full bg-zinc-900 scale-110 transition-all duration-150";
-        } else {
-          dot.className = "w-3 h-3 rounded-full bg-zinc-200 transition-all duration-150";
-        }
+        dot.className = idx < currentPinAttempt.length
+          ? "w-2.5 h-2.5 rounded-full bg-zinc-900 transition-colors"
+          : "w-2.5 h-2.5 rounded-full bg-zinc-200 transition-colors";
       });
     }
 
@@ -560,9 +503,7 @@
       }
     }
 
-    // =========================================================
-    // 2. CARGA DE DATOS Y NAVEGACIÓN DE VISTAS
-    // =========================================================
+    // 2. CARGA DE CONFIGURACIÓN
     function loadConfigData(data) {
       activeConfig = data;
       customersList = Array.isArray(data.customers) ? data.customers : [];
@@ -577,10 +518,10 @@
 
       const txt = document.getElementById('storageText');
       if (activeConfig.hasUpstash) {
-        txt.innerText = "Upstash Redis Activo";
+        txt.innerText = "Redis";
         txt.className = "text-emerald-600 font-medium";
       } else {
-        txt.innerText = "Memoria Local";
+        txt.innerText = "Memoria";
         txt.className = "text-amber-600 font-medium";
       }
 
@@ -600,8 +541,8 @@
       const tabHooks = document.getElementById('tabHooks');
       const tabCustomers = document.getElementById('tabCustomers');
 
-      const activeClass = "px-3.5 py-1 rounded-full text-xs font-semibold transition-all bg-white text-zinc-900 shadow-xs flex items-center gap-1.5";
-      const inactiveClass = "px-3.5 py-1 rounded-full text-xs font-medium transition-all text-zinc-500 hover:text-zinc-900 flex items-center gap-1.5";
+      const activeClass = "px-2.5 py-1 rounded-md font-medium transition-all bg-white text-zinc-900 shadow-xs";
+      const inactiveClass = "px-2.5 py-1 rounded-md font-medium transition-all text-zinc-500 hover:text-zinc-900";
 
       tabAll.className = mode === 'all' ? activeClass : inactiveClass;
       tabHooks.className = mode === 'hooks' ? activeClass : inactiveClass;
@@ -629,29 +570,21 @@
       document.getElementById('navHooksCount').innerText = hooksCount;
       document.getElementById('kpiCustomersTotal').innerText = totalCust;
       document.getElementById('kpiPausedTotal').innerText = pausedCust;
-      document.getElementById('navCustomersCount').innerText = pausedCust > 0 ? `${pausedCust} en pausa` : totalCust;
+      document.getElementById('navCustomersCount').innerText = pausedCust;
     }
 
-    // =========================================================
-    // 3. LISTA VISUAL DE CLIENTES Y CONTADOR REGRESIVO EN VIVO
-    // =========================================================
+    // 3. RENDERIZADO DE CLIENTES
     function renderCustomers() {
       const container = document.getElementById('customersContainer');
       container.innerHTML = '';
 
       if (!customersList || customersList.length === 0) {
         container.innerHTML = `
-          <div class="col-span-full studio-card rounded-2xl p-8 text-center">
-            <div class="w-11 h-11 rounded-2xl bg-zinc-100 text-zinc-500 mx-auto flex items-center justify-center mb-3">
-              <i data-lucide="users" class="w-5 h-5"></i>
-            </div>
-            <h3 class="text-sm font-bold text-zinc-900">Aún no hay clientes registrados</h3>
-            <p class="text-xs text-zinc-500 mt-1 max-w-md mx-auto">
-              En cuanto un usuario escriba al DM de <b>@tecnotradepty</b>, aparecerá aquí con su foto de perfil, su último mensaje y el contador en vivo de horas en pausa.
-            </p>
+          <div class="col-span-full studio-card rounded-xl p-6 text-center">
+            <p class="text-xs font-medium text-zinc-800">Aún no hay clientes registrados</p>
+            <p class="text-[11px] text-zinc-400 mt-0.5">Aparecerán automáticamente cuando escriban a @tecnotradepty.</p>
           </div>
         `;
-        lucide.createIcons();
         return;
       }
 
@@ -664,57 +597,51 @@
         const totalDurationMs = Number(cust.pauseDurationMs) || ((activeConfig?.settings?.advisorPauseHours || 12) * 3600 * 1000);
         const progressPct = isPaused ? Math.min(100, Math.max(2, (remainingMs / totalDurationMs) * 100)) : 0;
 
-        const displayName = cust.name || (cust.username ? `@${cust.username}` : `Cliente IG`);
+        const displayName = cust.name || (cust.username ? `@${cust.username}` : `Cliente`);
         const displayHandle = cust.username ? `@${cust.username}` : `ID: ${cust.id}`;
         const initials = (cust.username || cust.name || 'IG').slice(0, 2).toUpperCase();
 
         const avatarHtml = cust.profilePic
-          ? `<img src="${escapeHtml(cust.profilePic)}" alt="${escapeHtml(displayHandle)}" onerror="this.onerror=null;this.parentElement.innerHTML='<span class=\\'text-xs font-bold text-white\\'>${initials}</span>';" class="w-10 h-10 rounded-full object-cover border border-black/[0.08]" />`
-          : `<span class="text-xs font-bold text-white">${initials}</span>`;
+          ? `<img src="${escapeHtml(cust.profilePic)}" alt="${escapeHtml(displayHandle)}" onerror="this.onerror=null;this.parentElement.innerHTML='<span class=\\'text-[10px] font-semibold text-zinc-600\\'>${initials}</span>';" class="w-7 h-7 rounded-full object-cover" />`
+          : `<span class="text-[10px] font-semibold text-zinc-600">${initials}</span>`;
 
         const card = document.createElement('div');
-        card.className = `studio-card rounded-2xl p-4 flex flex-col justify-between gap-3.5 ${isPaused ? 'ring-1 ring-amber-300/70' : ''}`;
+        card.className = `studio-card rounded-xl p-3 flex flex-col justify-between gap-2.5 ${isPaused ? 'border-amber-300' : ''}`;
 
         card.innerHTML = `
-          <!-- Cabecera del Cliente -->
-          <div class="flex items-start justify-between gap-3">
-            <div class="flex items-center gap-3 min-w-0">
-              <div class="w-10 h-10 rounded-full ig-gradient flex items-center justify-center shrink-0 shadow-2xs overflow-hidden">
+          <div class="flex items-center justify-between gap-2">
+            <div class="flex items-center gap-2 min-w-0">
+              <div class="w-7 h-7 rounded-full bg-zinc-100 flex items-center justify-center shrink-0 overflow-hidden border border-zinc-200">
                 ${avatarHtml}
               </div>
               <div class="min-w-0">
-                <div class="flex items-center gap-1.5">
-                  <h4 class="text-xs font-bold text-zinc-900 truncate">${escapeHtml(displayName)}</h4>
+                <div class="flex items-center gap-1">
+                  <h4 class="text-xs font-semibold text-zinc-900 truncate">${escapeHtml(displayName)}</h4>
                   ${cust.username ? `
-                    <a href="https://instagram.com/${encodeURIComponent(cust.username)}" target="_blank" class="text-zinc-400 hover:text-zinc-800 transition-colors" title="Ver perfil en Instagram">
-                      <i data-lucide="external-link" class="w-3 h-3"></i>
+                    <a href="https://instagram.com/${encodeURIComponent(cust.username)}" target="_blank" class="text-zinc-400 hover:text-zinc-700" title="Ver Instagram">
+                      <i data-lucide="external-link" class="w-2.5 h-2.5"></i>
                     </a>
                   ` : ''}
                 </div>
-                <p class="text-[11px] font-mono text-zinc-400 truncate">${escapeHtml(displayHandle)}</p>
+                <p class="text-[10px] font-mono text-zinc-400 truncate">${escapeHtml(displayHandle)}</p>
               </div>
             </div>
 
-            <!-- Badge de Estado -->
-            <span id="custBadge_${cust.id}" class="shrink-0 inline-flex items-center gap-1 text-[10px] font-semibold px-2.5 py-1 rounded-full ${
+            <span class="text-[10px] font-medium px-2 py-0.5 rounded-full ${
               isPaused 
-                ? 'bg-amber-50 text-amber-800 border border-amber-200/80' 
-                : 'bg-emerald-50 text-emerald-700 border border-emerald-200/80'
+                ? 'bg-amber-50 text-amber-800 border border-amber-200' 
+                : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
             }">
-              <span class="w-1.5 h-1.5 rounded-full ${isPaused ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500'}"></span>
-              <span>${isPaused ? 'En Pausa' : 'Bot Activo'}</span>
+              ${isPaused ? 'En Pausa' : 'Activo'}
             </span>
           </div>
 
-          <!-- Bloque del Contador Regresivo de Horas en Pausa -->
-          <div class="rounded-xl p-3 ${isPaused ? 'bg-amber-50/50 border border-amber-200/60' : 'bg-[#F8FAFC] border border-black/[0.04]'}">
-            <div class="flex items-center justify-between text-[11px] mb-1">
-              <span class="font-medium ${isPaused ? 'text-amber-800' : 'text-zinc-500'} flex items-center gap-1">
-                <i data-lucide="clock" class="w-3.5 h-3.5"></i>
-                <span>${isPaused ? 'Tiempo restante en pausa:' : 'Contador de silencio:'}</span>
-              </span>
+          <!-- Contador y Barra -->
+          <div class="rounded-lg p-2 ${isPaused ? 'bg-amber-50/60 border border-amber-200/60' : 'bg-zinc-50 border border-zinc-100'}">
+            <div class="flex items-center justify-between text-[10px]">
+              <span class="${isPaused ? 'text-amber-800 font-medium' : 'text-zinc-400'}">Pausa restante:</span>
               <span 
-                class="font-mono font-bold text-xs tabular-nums ${isPaused ? 'text-amber-900' : 'text-zinc-400'}"
+                class="font-mono font-medium ${isPaused ? 'text-amber-900 font-semibold' : 'text-zinc-400'}"
                 data-countdown-user="${cust.id}"
                 data-paused-until="${pausedUntil}"
                 data-pause-duration="${totalDurationMs}">
@@ -722,56 +649,46 @@
               </span>
             </div>
 
-            <!-- Barra de progreso visual -->
-            <div class="w-full h-1.5 bg-black/[0.06] rounded-full overflow-hidden mt-1.5">
+            <div class="w-full h-1 bg-zinc-200/70 rounded-full overflow-hidden mt-1.5">
               <div 
                 id="custBar_${cust.id}"
-                class="h-full transition-all duration-500 rounded-full ${isPaused ? 'bg-amber-500' : 'bg-emerald-500'}" 
+                class="h-full rounded-full ${isPaused ? 'bg-amber-500' : 'bg-emerald-500'}" 
                 style="width: ${isPaused ? progressPct : 0}%"></div>
             </div>
 
-            <div class="flex items-center justify-between mt-2 text-[10px] text-zinc-500">
-              <span class="truncate">${escapeHtml(cust.pauseReason || (isPaused ? 'Atención humana activa' : 'El bot responderá a palabras clave'))}</span>
-              <span class="shrink-0 font-mono text-zinc-400">${formatRelativeTime(cust.lastInteractionAt)}</span>
-            </div>
+            <p class="text-[10px] text-zinc-400 truncate mt-1">${escapeHtml(cust.pauseReason || (isPaused ? 'Atención humana' : 'Listo para responder'))}</p>
           </div>
 
-          <!-- Último Mensaje Recibido -->
-          <div class="text-xs bg-[#F8FAFC] border border-black/[0.04] rounded-xl px-3 py-2 flex items-start justify-between gap-2">
-            <div class="min-w-0">
-              <span class="text-[10px] font-semibold uppercase tracking-wider text-zinc-400 block">Último mensaje</span>
-              <p class="text-zinc-700 truncate mt-0.5 font-medium">"${escapeHtml(cust.lastMessage || 'Sin texto')}"</p>
-            </div>
+          <!-- Último Mensaje -->
+          <div class="text-[11px] bg-zinc-50 border border-zinc-100 rounded-lg px-2.5 py-1.5 flex items-center justify-between gap-1.5">
+            <p class="text-zinc-700 truncate font-normal">"${escapeHtml(cust.lastMessage || 'Sin texto')}"</p>
             ${cust.lastHookTitle ? `
-              <span class="shrink-0 text-[10px] font-medium px-2 py-0.5 rounded-md bg-white border border-black/[0.06] text-zinc-600">
+              <span class="shrink-0 text-[9px] px-1.5 py-0.2 rounded bg-white border border-zinc-200 text-zinc-500">
                 ${escapeHtml(cust.lastHookTitle)}
               </span>
             ` : ''}
           </div>
 
-          <!-- Controles de Acción en 1 Clic -->
-          <div class="pt-1 flex items-center justify-between gap-2">
+          <!-- Acciones -->
+          <div class="flex items-center gap-1.5 pt-0.5">
             ${isPaused ? `
               <button 
                 onclick="unpauseCustomerAction('${cust.id}')" 
-                class="flex-1 py-1.5 px-3 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition-all active:scale-95 shadow-2xs">
-                <i data-lucide="play" class="w-3.5 h-3.5"></i>
-                <span>Reactivar Bot Ahora</span>
+                class="flex-1 py-1 px-2 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-white text-[11px] font-medium transition-colors">
+                Reactivar Bot
               </button>
             ` : `
               <button 
                 onclick="pauseCustomerAction('${cust.id}', 12)" 
-                class="flex-1 py-1.5 px-3 rounded-xl bg-white hover:bg-amber-50 text-zinc-700 hover:text-amber-800 border border-black/[0.08] hover:border-amber-300 text-xs font-semibold flex items-center justify-center gap-1.5 transition-all active:scale-95">
-                <i data-lucide="pause" class="w-3.5 h-3.5"></i>
-                <span>Pausar 12h</span>
+                class="flex-1 py-1 px-2 rounded-lg bg-white hover:bg-zinc-50 text-zinc-700 border border-zinc-200 text-[11px] font-medium transition-colors">
+                Pausar 12h
               </button>
             `}
-
             <button 
               onclick="deleteCustomerAction('${cust.id}')" 
-              class="p-1.5 rounded-xl bg-white hover:bg-rose-50 text-zinc-400 hover:text-rose-600 border border-black/[0.06] transition-all"
-              title="Resetear cliente (volverá a recibir bienvenida como cliente nuevo)">
-              <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+              class="p-1 rounded-lg bg-white hover:bg-rose-50 text-zinc-400 hover:text-rose-600 border border-zinc-200 transition-colors"
+              title="Resetear cliente">
+              <i data-lucide="rotate-ccw" class="w-3 h-3"></i>
             </button>
           </div>
         `;
@@ -826,24 +743,7 @@
       return `${pad(hours)}h ${pad(minutes)}m ${pad(seconds)}s`;
     }
 
-    function formatRelativeTime(timestamp) {
-      if (!timestamp) return '';
-      const diffSec = Math.max(0, Math.floor((Date.now() - Number(timestamp)) / 1000));
-      if (diffSec < 60) return 'hace instantes';
-      const diffMin = Math.floor(diffSec / 60);
-      if (diffMin < 60) return `hace ${diffMin} min`;
-      const diffHours = Math.floor(diffMin / 60);
-      if (diffHours < 24) return `hace ${diffHours}h`;
-      const diffDays = Math.floor(diffHours / 24);
-      return `hace ${diffDays}d`;
-    }
-
     async function refreshCustomers() {
-      const btn = document.getElementById('btnRefreshCustomers');
-      const oldHtml = btn.innerHTML;
-      btn.innerHTML = `<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i><span>Sincronizando...</span>`;
-      lucide.createIcons();
-
       try {
         const res = await fetch('/api/config');
         const data = await res.json();
@@ -852,9 +752,6 @@
         updateKPIs();
       } catch (e) {
         console.error(e);
-      } finally {
-        btn.innerHTML = oldHtml;
-        lucide.createIcons();
       }
     }
 
@@ -880,7 +777,7 @@
           updateKPIs();
         }
       } catch (err) {
-        console.error('Error al pausar cliente:', err);
+        console.error('Error al pausar:', err);
       }
     }
 
@@ -898,12 +795,12 @@
           updateKPIs();
         }
       } catch (err) {
-        console.error('Error al reactivar cliente:', err);
+        console.error('Error al reactivar:', err);
       }
     }
 
     async function deleteCustomerAction(userId) {
-      if (!confirm('¿Resetear este cliente? Volverá a recibir el Menú Principal cuando escriba de nuevo.')) return;
+      if (!confirm('¿Resetear este cliente? Volverá a recibir el Menú Principal cuando escriba.')) return;
       try {
         const res = await fetch('/api/config?action=customer_delete', {
           method: 'POST',
@@ -917,13 +814,11 @@
           updateKPIs();
         }
       } catch (err) {
-        console.error('Error al eliminar cliente:', err);
+        console.error('Error al eliminar:', err);
       }
     }
 
-    // =========================================================
-    // 4. RENDERIZADO MINIMALISTA DE GANCHOS CON PILL CHIPS
-    // =========================================================
+    // 4. RENDERIZADO DE GANCHOS
     function renderHooks() {
       const container = document.getElementById('hooksContainer');
       const query = (document.getElementById('hookSearchInput')?.value || '').toLowerCase().trim();
@@ -945,54 +840,54 @@
 
         let badgeHtml = '';
         if (hook.type === 'trigger' || hook.id === 'hook_welcome') {
-          badgeHtml = `<span class="text-[10px] font-semibold px-2.5 py-0.5 rounded-full bg-zinc-900 text-white">Menú / Bienvenida</span>`;
+          badgeHtml = `<span class="text-[10px] font-medium px-2 py-0.5 rounded bg-zinc-900 text-white">Menú Principal</span>`;
         } else if (isAutoPause) {
-          badgeHtml = `<span class="text-[10px] font-semibold px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200/80">⏸️ Auto-Pausa 12h</span>`;
+          badgeHtml = `<span class="text-[10px] font-medium px-2 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200">Auto-Pausa</span>`;
         } else {
-          badgeHtml = `<span class="text-[10px] font-semibold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200/80">Respuesta Directa</span>`;
+          badgeHtml = `<span class="text-[10px] font-medium px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">Directo</span>`;
         }
 
         const posChipsHtml = (hook.keywords || []).map((kw, kwIdx) => `
-          <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] font-medium bg-zinc-100 text-zinc-800 border border-black/[0.06]">
+          <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-zinc-100 text-zinc-800 border border-zinc-200">
             <span>${escapeHtml(kw)}</span>
-            <button type="button" onclick="removeKeywordChip(${index}, 'keywords', ${kwIdx})" class="text-zinc-400 hover:text-zinc-900 ml-0.5">×</button>
+            <button type="button" onclick="removeKeywordChip(${index}, 'keywords', ${kwIdx})" class="text-zinc-400 hover:text-zinc-900">×</button>
           </span>
         `).join('');
 
         const negChipsHtml = (hook.negativeKeywords || []).map((nkw, nkwIdx) => `
-          <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] font-medium bg-rose-50 text-rose-700 border border-rose-200/70">
+          <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-rose-50 text-rose-700 border border-rose-200">
             <span>${escapeHtml(nkw)}</span>
-            <button type="button" onclick="removeKeywordChip(${index}, 'negativeKeywords', ${nkwIdx})" class="text-rose-400 hover:text-rose-800 ml-0.5">×</button>
+            <button type="button" onclick="removeKeywordChip(${index}, 'negativeKeywords', ${nkwIdx})" class="text-rose-400 hover:text-rose-900">×</button>
           </span>
         `).join('');
 
         const card = document.createElement('div');
-        card.className = "studio-card rounded-[1.5rem] p-5 flex flex-col justify-between gap-4 group";
+        card.className = "studio-card rounded-xl p-3.5 flex flex-col justify-between gap-3";
 
         card.innerHTML = `
-          <!-- Cabecera de la Tarjeta -->
+          <!-- Cabecera -->
           <div>
-            <div class="flex items-center justify-between gap-2 mb-2.5">
-              <div class="flex items-center gap-1.5 flex-wrap">
+            <div class="flex items-center justify-between gap-1.5 mb-2">
+              <div class="flex items-center gap-1.5">
                 ${badgeHtml}
-                <div class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#F8FAFC] border border-black/[0.06] text-[10px] font-mono text-zinc-500" title="Mayor prioridad se evalúa primero">
-                  <span>Prioridad</span>
+                <div class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-zinc-50 border border-zinc-200 text-[10px] text-zinc-500 font-mono">
+                  <span>Prio</span>
                   <input 
                     type="number" 
                     min="1" 
                     max="20" 
                     value="${hook.priority || 5}" 
                     onchange="updateHookField(${index}, 'priority', Number(this.value))"
-                    class="w-7 text-center font-bold text-zinc-800 bg-transparent focus:outline-none"
+                    class="w-6 text-center font-bold text-zinc-800 bg-transparent focus:outline-none"
                   />
                 </div>
               </div>
 
               <button 
                 onclick="deleteHook(${index})" 
-                class="p-1.5 rounded-full text-zinc-300 hover:text-rose-600 hover:bg-rose-50 transition-all"
+                class="p-1 rounded text-zinc-300 hover:text-rose-600 transition-colors"
                 title="Eliminar gancho">
-                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                <i data-lucide="trash-2" class="w-3 h-3"></i>
               </button>
             </div>
 
@@ -1000,85 +895,73 @@
               type="text" 
               value="${escapeHtml(hook.title || hook.name)}" 
               onchange="updateHookField(${index}, 'title', this.value)"
-              class="w-full text-sm font-bold text-zinc-900 bg-transparent border-b border-transparent focus:border-zinc-900 focus:outline-none pb-0.5 transition-colors"
+              class="w-full text-xs font-semibold text-zinc-900 bg-transparent border-b border-transparent focus:border-zinc-900 focus:outline-none pb-0.5 transition-colors"
             />
           </div>
 
-          <!-- Palabras Clave Activadoras (Chips) -->
-          <div class="space-y-1.5">
-            <div class="flex items-center justify-between">
-              <label class="text-[11px] font-semibold text-zinc-600 flex items-center gap-1">
-                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                <span>Palabras Activadoras</span>
-              </label>
-              <span class="text-[10px] text-zinc-400">${(hook.keywords || []).length} activas</span>
-            </div>
-            <div class="p-2 rounded-xl bg-[#F8FAFC] border border-black/[0.06] focus-within:bg-white focus-within:border-zinc-400 transition-all flex flex-wrap items-center gap-1.5 min-h-[40px]">
+          <!-- Palabras Clave -->
+          <div class="space-y-1">
+            <label class="text-[10px] font-medium text-zinc-500 block">Palabras Activadoras:</label>
+            <div class="p-1.5 rounded-lg bg-zinc-50 border border-zinc-200 flex flex-wrap items-center gap-1 min-h-[32px]">
               ${posChipsHtml}
               <input 
                 type="text" 
-                placeholder="+ añadir y Enter..." 
+                placeholder="+ Enter..." 
                 onkeydown="handleChipInputKey(event, ${index}, 'keywords')"
                 onblur="handleChipInputBlur(this, ${index}, 'keywords')"
-                class="flex-1 min-w-[110px] text-[11px] bg-transparent text-zinc-800 placeholder:text-zinc-400 focus:outline-none px-1 py-0.5"
+                class="flex-1 min-w-[70px] text-[10px] bg-transparent text-zinc-800 placeholder:text-zinc-400 focus:outline-none px-1"
               />
             </div>
           </div>
 
-          <!-- Palabras Clave Negativas (Bloqueos) -->
-          <div class="space-y-1.5">
-            <div class="flex items-center justify-between">
-              <label class="text-[11px] font-semibold text-rose-600/90 flex items-center gap-1">
-                <span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
-                <span>Palabras Negativas (No disparar si contiene)</span>
-              </label>
-            </div>
-            <div class="p-2 rounded-xl bg-rose-50/30 border border-rose-200/60 focus-within:bg-white focus-within:border-rose-400 transition-all flex flex-wrap items-center gap-1.5 min-h-[38px]">
+          <!-- Palabras Negativas -->
+          <div class="space-y-1">
+            <label class="text-[10px] font-medium text-rose-600 block">Exclusiones Negativas:</label>
+            <div class="p-1.5 rounded-lg bg-rose-50/40 border border-rose-200 flex flex-wrap items-center gap-1 min-h-[32px]">
               ${negChipsHtml}
               <input 
                 type="text" 
-                placeholder="+ bloquear palabra..." 
+                placeholder="+ Bloquear..." 
                 onkeydown="handleChipInputKey(event, ${index}, 'negativeKeywords')"
                 onblur="handleChipInputBlur(this, ${index}, 'negativeKeywords')"
-                class="flex-1 min-w-[115px] text-[11px] bg-transparent text-rose-900 placeholder:text-rose-300 focus:outline-none px-1 py-0.5"
+                class="flex-1 min-w-[70px] text-[10px] bg-transparent text-rose-900 placeholder:text-rose-300 focus:outline-none px-1"
               />
             </div>
           </div>
 
-          <!-- Mensaje de Respuesta -->
-          <div class="space-y-1.5 flex-1 flex flex-col">
+          <!-- Respuesta -->
+          <div class="space-y-1">
             <div class="flex items-center justify-between">
-              <label class="text-[11px] font-semibold text-zinc-600">Respuesta automática</label>
+              <label class="text-[10px] font-medium text-zinc-500">Respuesta:</label>
               <div class="flex items-center gap-1">
-                <button type="button" onclick="insertVariableInHook(${index}, '{TIENDA_URL}')" class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-zinc-100 hover:bg-zinc-200 text-zinc-600 transition-colors" title="Insertar enlace de tienda">+Tienda</button>
-                <button type="button" onclick="insertVariableInHook(${index}, '{MAPS_URL}')" class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-zinc-100 hover:bg-zinc-200 text-zinc-600 transition-colors" title="Insertar enlace de Google Maps">+Maps</button>
+                <button type="button" onclick="insertVariableInHook(${index}, '{TIENDA_URL}')" class="text-[9px] font-mono px-1 py-0.2 rounded bg-zinc-100 hover:bg-zinc-200 text-zinc-600">+Tienda</button>
+                <button type="button" onclick="insertVariableInHook(${index}, '{MAPS_URL}')" class="text-[9px] font-mono px-1 py-0.2 rounded bg-zinc-100 hover:bg-zinc-200 text-zinc-600">+Maps</button>
               </div>
             </div>
             <textarea 
               id="hookTextarea_${index}"
-              rows="5" 
+              rows="4" 
               onchange="updateHookField(${index}, 'response', this.value)"
-              class="w-full flex-1 text-xs p-3 bg-[#F8FAFC] border border-black/[0.06] rounded-xl text-zinc-800 focus:outline-none focus:bg-white focus:border-zinc-900 leading-relaxed resize-y">${escapeHtml(hook.response)}</textarea>
+              class="w-full text-[11px] p-2 bg-zinc-50 border border-zinc-200 rounded-lg text-zinc-800 focus:outline-none focus:bg-white focus:border-zinc-900 leading-relaxed resize-y">${escapeHtml(hook.response)}</textarea>
           </div>
 
           <!-- Pie del Gancho -->
-          <div class="pt-3 border-t border-black/[0.05] flex items-center justify-between gap-2">
-            <label class="inline-flex items-center gap-2 cursor-pointer select-none">
+          <div class="pt-2 border-t border-zinc-100 flex items-center justify-between">
+            <label class="inline-flex items-center gap-1.5 cursor-pointer select-none">
               <input 
                 type="checkbox" 
                 ${isAutoPause ? 'checked' : ''} 
                 onchange="updateHookField(${index}, 'autoPause', this.checked); renderHooks();"
                 class="sr-only peer"
               />
-              <div class="w-8 h-4.5 bg-zinc-200 rounded-full peer peer-checked:after:translate-x-3.5 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-3.5 after:w-3.5 after:transition-all relative peer-checked:bg-amber-500"></div>
-              <span class="text-[11px] font-medium text-zinc-600">Pausar bot tras responder</span>
+              <div class="w-7 h-4 bg-zinc-200 rounded-full peer peer-checked:after:translate-x-3 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all relative peer-checked:bg-amber-500"></div>
+              <span class="text-[10px] font-medium text-zinc-600">Auto-Pausa 12h</span>
             </label>
 
             <button 
               onclick="testHookInSim('${escapeJsSingleQuote((hook.keywords && hook.keywords[0]) || 'hola')}')" 
-              class="px-2.5 py-1 rounded-full bg-zinc-100 hover:bg-zinc-900 text-zinc-700 hover:text-white text-[11px] font-semibold flex items-center gap-1 transition-all shrink-0">
-              <i data-lucide="play" class="w-3 h-3"></i>
-              <span>Probar</span>
+              class="px-2 py-0.5 rounded bg-zinc-100 hover:bg-zinc-900 text-zinc-700 hover:text-white text-[10px] font-medium transition-colors">
+              Probar
             </button>
           </div>
         `;
@@ -1148,24 +1031,22 @@
         autoPause: false,
         keywords: ["ejemplo"],
         negativeKeywords: [],
-        title: "✨ Nuevo Gancho Personalizado",
-        response: "Escribe aquí la respuesta automática para el cliente."
+        title: "Nuevo Gancho",
+        response: "Escribe aquí la respuesta automática."
       });
       renderHooks();
       updateKPIs();
     }
 
     function deleteHook(idx) {
-      if (confirm('¿Eliminar este gancho de respuesta?')) {
+      if (confirm('¿Eliminar este gancho?')) {
         activeConfig.hooks.splice(idx, 1);
         renderHooks();
         updateKPIs();
       }
     }
 
-    // =========================================================
-    // 5. GUARDADO Y CONTROL DE ESTADO GLOBAL
-    // =========================================================
+    // 5. CONTROL MAESTRO Y GUARDADO
     function toggleSilentFallback(checked) {
       if (activeConfig && activeConfig.settings) {
         activeConfig.settings.silentFallback = checked;
@@ -1174,15 +1055,15 @@
       const box = document.getElementById('fallbackBoxContainer');
       const kpi = document.getElementById('kpiModeText');
       if (checked) {
-        lbl.innerText = "Activado";
-        lbl.className = "ml-2.5 text-xs font-semibold text-zinc-900";
+        lbl.innerText = "Activo";
+        lbl.className = "ml-2 text-[11px] font-medium text-zinc-800";
         box.classList.add('hidden');
         if (kpi) kpi.innerText = "Recepcionista";
       } else {
-        lbl.innerText = "Desactivado";
-        lbl.className = "ml-2.5 text-xs font-semibold text-amber-600";
+        lbl.innerText = "Inactivo";
+        lbl.className = "ml-2 text-[11px] font-medium text-amber-700";
         box.classList.remove('hidden');
-        if (kpi) kpi.innerText = "Respuesta Continua";
+        if (kpi) kpi.innerText = "Respaldo Activo";
       }
     }
 
@@ -1190,10 +1071,7 @@
       try {
         const res = await fetch('/api/config?action=toggle', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-admin-pin': savedPin
-          }
+          headers: { 'Content-Type': 'application/json', 'x-admin-pin': savedPin }
         });
         const data = await res.json();
         if (data.success) {
@@ -1212,20 +1090,20 @@
       const text = document.getElementById('statusIndicatorText');
 
       if (isActive) {
-        btn.className = "flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all active:scale-95 bg-emerald-50/90 border-emerald-200 text-emerald-800 hover:bg-emerald-100/80";
-        dot.className = "w-2 h-2 rounded-full bg-emerald-500 animate-pulse";
-        text.innerText = "Bot Activo";
+        btn.className = "flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium border transition-colors bg-emerald-50 border-emerald-200 text-emerald-800 hover:bg-emerald-100/70";
+        dot.className = "w-1.5 h-1.5 rounded-full bg-emerald-600";
+        text.innerText = "Activo";
       } else {
-        btn.className = "flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all active:scale-95 bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100";
-        dot.className = "w-2 h-2 rounded-full bg-rose-500";
-        text.innerText = "Bot Pausado";
+        btn.className = "flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium border transition-colors bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100";
+        dot.className = "w-1.5 h-1.5 rounded-full bg-rose-600";
+        text.innerText = "Pausado";
       }
     }
 
     async function saveCurrentConfig() {
       const btn = document.getElementById('btnSaveAll');
       const originalHtml = btn.innerHTML;
-      btn.innerHTML = `<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i><span>Guardando...</span>`;
+      btn.innerHTML = `<i data-lucide="loader-2" class="w-3 h-3 animate-spin"></i><span>Guardando...</span>`;
       lucide.createIcons();
 
       activeConfig.fallbackResponse = document.getElementById('fallbackInput').value;
@@ -1233,20 +1111,17 @@
       try {
         const res = await fetch('/api/config', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-admin-pin': savedPin
-          },
+          headers: { 'Content-Type': 'application/json', 'x-admin-pin': savedPin },
           body: JSON.stringify(activeConfig)
         });
 
         const data = await res.json();
         if (data.success) {
-          btn.className = "px-4 py-1.5 bg-emerald-600 text-white text-xs font-semibold rounded-full shadow-sm flex items-center gap-1.5 transition-all";
-          btn.innerHTML = `<i data-lucide="check" class="w-3.5 h-3.5"></i><span>¡Guardado!</span>`;
+          btn.className = "px-3 py-1 bg-emerald-600 text-white text-[11px] font-medium rounded-lg flex items-center gap-1 transition-colors";
+          btn.innerHTML = `<i data-lucide="check" class="w-3 h-3"></i><span>Listo</span>`;
           lucide.createIcons();
           setTimeout(() => {
-            btn.className = "px-4 py-1.5 bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-semibold rounded-full shadow-sm flex items-center gap-1.5 transition-all active:scale-95";
+            btn.className = "px-3 py-1 bg-zinc-900 hover:bg-zinc-800 text-white text-[11px] font-medium rounded-lg flex items-center gap-1 transition-colors";
             btn.innerHTML = originalHtml;
             lucide.createIcons();
           }, 2000);
@@ -1287,9 +1162,7 @@
       saveCurrentConfig();
     }
 
-    // =========================================================
-    // 6. SIMULADOR DE CHAT DE INSTAGRAM
-    // =========================================================
+    // 6. SIMULADOR DE CHAT
     function toggleSimulator() {
       document.getElementById('simDrawer').classList.toggle('translate-x-full');
     }
@@ -1300,12 +1173,9 @@
       updateSimBadge();
       const chat = document.getElementById('chatMessages');
       chat.innerHTML = `
-        <div class="text-center text-[10px] text-zinc-400 my-1">Simulando conversación como cliente nuevo</div>
-        <div class="bg-white border border-black/[0.06] rounded-2xl p-3 text-[11px] text-zinc-600 shadow-2xs leading-relaxed">
-          💡 <b>Pruebas Recomendadas (Anuncios y Flujos):</b><br>
-          1. Escribe <b>"¿Cuánto pagan por mi iPhone?"</b> o <b>"Quiero vender mi iPhone"</b> (activa Trade-In y Auto-Pausa).<br>
-          2. Luego responde <b>"pantalla cambiada, 85% batería"</b> y comprueba cómo el bot permanece en silencio para el asesor humano.<br>
-          3. Escribe <b>"¿Sigue disponible?"</b> o <b>"Precios"</b> para ver el Catálogo.
+        <div class="text-center text-[10px] text-zinc-400 my-1">Simulación reiniciada</div>
+        <div class="bg-white border border-zinc-200 rounded-lg p-2.5 text-[11px] text-zinc-600 leading-relaxed">
+          💡 <b>Prueba rápida:</b> Escribe <b>"¿Cuánto pagan por mi iPhone?"</b> o <b>"Precios"</b> para verificar los ganchos.
         </div>
       `;
     }
@@ -1313,14 +1183,14 @@
     function updateSimBadge() {
       const badge = document.getElementById('simStateBadge');
       if (simIsPaused) {
-        badge.className = "text-[11px] text-amber-600 font-semibold";
-        badge.innerText = "⏸️ En Auto-Pausa (Modo Escucha Humana)";
+        badge.className = "text-[10px] text-amber-600 font-semibold";
+        badge.innerText = "Pausado (Atención Humana)";
       } else if (simIsNewCustomer) {
-        badge.className = "text-[11px] text-emerald-600 font-medium";
-        badge.innerText = "🟢 Cliente Nuevo (Esperando 1er mensaje)";
+        badge.className = "text-[10px] text-emerald-600 font-medium";
+        badge.innerText = "Cliente Nuevo (Activo)";
       } else {
-        badge.className = "text-[11px] text-zinc-500 font-medium";
-        badge.innerText = "🤖 Cliente Registrado (Recepcionista Activo)";
+        badge.className = "text-[10px] text-zinc-500 font-medium";
+        badge.innerText = "Cliente Registrado";
       }
     }
 
@@ -1351,7 +1221,7 @@
 
       const userBubble = document.createElement('div');
       userBubble.className = "flex justify-end";
-      userBubble.innerHTML = `<div class="bg-zinc-900 text-white px-3.5 py-2.5 rounded-2xl rounded-tr-xs max-w-[82%] shadow-2xs">${escapeHtml(text)}</div>`;
+      userBubble.innerHTML = `<div class="bg-zinc-900 text-white px-3 py-2 rounded-xl rounded-tr-xs max-w-[85%]">${escapeHtml(text)}</div>`;
       chat.appendChild(userBubble);
 
       input.value = '';
@@ -1364,7 +1234,7 @@
         let shouldUnpause = false;
 
         if (activeConfig.botActive === false) {
-          appendSystemNotice("⏸️ El bot está pausado globalmente.");
+          appendSystemNotice("Bot pausado globalmente.");
           return;
         }
 
@@ -1387,7 +1257,7 @@
             }
           }
           if (!reply) {
-            appendSystemNotice("🤫 Silencio Inteligente: El cliente está enviando datos para el asesor. El bot no interrumpe.");
+            appendSystemNotice("Silencio: El cliente envía datos para el asesor.");
             return;
           }
         } else {
@@ -1415,7 +1285,7 @@
               const wHook = (activeConfig.hooks || []).find(h => h.id === "hook_welcome");
               if (wHook) reply = formatSimText(wHook.response);
             } else if (activeConfig.settings?.silentFallback !== false) {
-              appendSystemNotice("🤫 Modo Recepcionista: Mensaje libre no reconocido. El bot guarda silencio.");
+              appendSystemNotice("Recepcionista: Mensaje no reconocido, guardando silencio.");
               simIsNewCustomer = false;
               updateSimBadge();
               return;
@@ -1432,26 +1302,26 @@
 
         if (reply) {
           const botBubble = document.createElement('div');
-          botBubble.className = "flex gap-2 items-end";
+          botBubble.className = "flex gap-2 items-start";
           botBubble.innerHTML = `
-            <div class="w-6 h-6 rounded-full ig-gradient shrink-0 flex items-center justify-center text-[9px] font-bold text-white">TT</div>
-            <div class="bg-white border border-black/[0.06] text-zinc-800 p-3 rounded-2xl rounded-tl-xs max-w-[82%] whitespace-pre-line leading-relaxed shadow-2xs">${escapeHtml(reply)}</div>
+            <div class="w-5 h-5 rounded-full bg-zinc-900 shrink-0 flex items-center justify-center text-[8px] font-bold text-white mt-0.5">TT</div>
+            <div class="bg-white border border-zinc-200 text-zinc-800 p-2.5 rounded-xl rounded-tl-xs max-w-[85%] whitespace-pre-line leading-relaxed">${escapeHtml(reply)}</div>
           `;
           chat.appendChild(botBubble);
         }
 
         if (shouldPause) {
-          appendSystemNotice("⏸️ Auto-Pausa (12h) activada para este cliente.");
+          appendSystemNotice("Auto-Pausa (12h) activada.");
         }
 
         chat.scrollTop = chat.scrollHeight;
-      }, 240);
+      }, 150);
     }
 
     function appendSystemNotice(msg) {
       const chat = document.getElementById('chatMessages');
       const div = document.createElement('div');
-      div.className = "text-center text-[10px] py-1.5 px-3 rounded-xl bg-amber-50 border border-amber-200/70 text-amber-800 my-1";
+      div.className = "text-center text-[10px] py-1 px-2.5 rounded bg-zinc-100 text-zinc-600 my-1 font-mono";
       div.innerText = msg;
       chat.appendChild(div);
       chat.scrollTop = chat.scrollHeight;
@@ -1466,15 +1336,18 @@
     }
 
     function escapeHtml(str) {
-      return String(str || '')
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;");
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
     }
 
     function escapeJsSingleQuote(str) {
-      return String(str || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+      if (!str) return '';
+      return String(str).replace(/'/g, "\\'");
     }
   </script>
 </body>
