@@ -1302,9 +1302,10 @@
       chat.innerHTML = `
         <div class="text-center text-[10px] text-zinc-400 my-1">Simulando conversación como cliente nuevo</div>
         <div class="bg-white border border-black/[0.06] rounded-2xl p-3 text-[11px] text-zinc-600 shadow-2xs leading-relaxed">
-          💡 <b>Prueba de Auto-Pausa y Palabras Negativas:</b><br>
-          1. Escribe <b>"Quiero vender mi iPhone"</b>.<br>
-          2. Luego responde <b>"pantalla cambiada, 85% batería"</b> y comprueba cómo el bot permanece en silencio sin activar el gancho de taller.
+          💡 <b>Pruebas Recomendadas (Anuncios y Flujos):</b><br>
+          1. Escribe <b>"¿Cuánto pagan por mi iPhone?"</b> o <b>"Quiero vender mi iPhone"</b> (activa Trade-In y Auto-Pausa).<br>
+          2. Luego responde <b>"pantalla cambiada, 85% batería"</b> y comprueba cómo el bot permanece en silencio para el asesor humano.<br>
+          3. Escribe <b>"¿Sigue disponible?"</b> o <b>"Precios"</b> para ver el Catálogo.
         </div>
       `;
     }
@@ -1332,7 +1333,13 @@
     }
 
     function normalizeStr(s) {
-      return (s || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+      return (s || '')
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[¿?¡!.,;:#*_\-~]/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
     }
 
     function sendSimMessage() {

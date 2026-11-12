@@ -4,7 +4,7 @@
 
 const { DEFAULT_CONFIG } = require('./responses');
 
-const CURRENT_SCHEMA_VERSION = 2;
+const CURRENT_SCHEMA_VERSION = 3;
 
 let inMemoryConfig = { ...DEFAULT_CONFIG, schemaVersion: CURRENT_SCHEMA_VERSION };
 let inMemoryCustomers = {};
@@ -80,43 +80,50 @@ function upgradeAndMergeConfig(saved) {
     return { ...DEFAULT_CONFIG, schemaVersion: CURRENT_SCHEMA_VERSION };
   }
 
-  const isOldSchema = !saved.schemaVersion || saved.schemaVersion < CURRENT_SCHEMA_VERSION;
-
   const mergedSettings = {
     ...DEFAULT_CONFIG.settings,
     ...(saved.settings || {}),
     silentFallback: saved.settings?.silentFallback !== undefined ? saved.settings.silentFallback : true
   };
 
-  if (isOldSchema) {
-    return {
-      ...DEFAULT_CONFIG,
-      botActive: saved.botActive !== undefined ? saved.botActive : true,
-      settings: mergedSettings,
-      schemaVersion: CURRENT_SCHEMA_VERSION
-    };
-  }
-
   const savedHooks = Array.isArray(saved.hooks) ? saved.hooks : DEFAULT_CONFIG.hooks;
-  const mergedHooks = savedHooks.map(hook => {
-    const defaultMatch = DEFAULT_CONFIG.hooks.find(d => d.id === hook.id);
-    if (!defaultMatch) return hook;
+
+  // Fusionar inteligentemente los hooks por defecto con lo guardado en Redis
+  const mergedHooks = DEFAULT_CONFIG.hooks.map(defaultHook => {
+    const savedMatch = savedHooks.find(s => s.id === defaultHook.id);
+    if (!savedMatch) return defaultHook;
+
+    const userKws = Array.isArray(savedMatch.keywords) ? savedMatch.keywords : [];
+    const defaultKws = Array.isArray(defaultHook.keywords) ? defaultHook.keywords : [];
+    const combinedKeywords = Array.from(new Set([...defaultKws, ...userKws]));
+
+    const userNegs = Array.isArray(savedMatch.negativeKeywords) ? savedMatch.negativeKeywords : [];
+    const defaultNegs = Array.isArray(defaultHook.negativeKeywords) ? defaultHook.negativeKeywords : [];
+    const combinedNegatives = Array.from(new Set([...defaultNegs, ...userNegs]));
+
     return {
-      ...defaultMatch,
-      ...hook,
-      negativeKeywords: Array.isArray(hook.negativeKeywords) ? hook.negativeKeywords : defaultMatch.negativeKeywords,
-      autoPause: hook.autoPause !== undefined ? hook.autoPause : defaultMatch.autoPause,
-      priority: hook.priority !== undefined ? hook.priority : defaultMatch.priority,
-      allowedWhenPaused: hook.allowedWhenPaused !== undefined ? hook.allowedWhenPaused : defaultMatch.allowedWhenPaused,
-      unpauseOnTrigger: hook.unpauseOnTrigger !== undefined ? hook.unpauseOnTrigger : defaultMatch.unpauseOnTrigger
+      ...defaultHook,
+      ...savedMatch,
+      response: savedMatch.response || defaultHook.response,
+      keywords: combinedKeywords,
+      negativeKeywords: combinedNegatives,
+      autoPause: savedMatch.autoPause !== undefined ? savedMatch.autoPause : defaultHook.autoPause,
+      priority: savedMatch.priority !== undefined ? savedMatch.priority : defaultHook.priority,
+      allowedWhenPaused: savedMatch.allowedWhenPaused !== undefined ? savedMatch.allowedWhenPaused : defaultHook.allowedWhenPaused,
+      unpauseOnTrigger: savedMatch.unpauseOnTrigger !== undefined ? savedMatch.unpauseOnTrigger : defaultHook.unpauseOnTrigger
     };
   });
+
+  // Conservar ganchos personalizados creados por el usuario que no estén en DEFAULT_CONFIG
+  const extraUserHooks = savedHooks.filter(s => !DEFAULT_CONFIG.hooks.some(d => d.id === s.id));
+  const finalHooks = [...mergedHooks, ...extraUserHooks];
 
   return {
     ...DEFAULT_CONFIG,
     ...saved,
+    botActive: saved.botActive !== undefined ? saved.botActive : true,
     settings: mergedSettings,
-    hooks: mergedHooks,
+    hooks: finalHooks,
     schemaVersion: CURRENT_SCHEMA_VERSION
   };
 }
@@ -502,6 +509,7 @@ module.exports = {
   getRedisCredentials,
   getConfig,
   saveConfig,
+  upgradeAndMergeConfig,
   getCustomersList,
   upsertCustomer,
   deleteCustomer,

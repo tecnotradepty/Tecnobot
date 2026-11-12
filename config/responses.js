@@ -67,6 +67,7 @@ const DEFAULT_CONFIG = {
         "vidrio",
         "camara",
         "cambio de pantalla",
+        "cambio de bateria",
         "pin de carga",
         "centro de carga",
         "danado",
@@ -81,7 +82,14 @@ const DEFAULT_CONFIG = {
         "quiero vender",
         "parte de pago",
         "como abono",
-        "piezas cambiadas"
+        "piezas cambiadas",
+        "cuanto pagan",
+        "pagan por",
+        "pagan",
+        "cuanto dan",
+        "cuanto me dan",
+        "compran",
+        "cuanto vale mi"
       ],
       title: "🔧 Taller Especializado & Reparaciones",
       response: 
@@ -103,6 +111,8 @@ const DEFAULT_CONFIG = {
         "3",
         "vender",
         "vendo",
+        "vender mi",
+        "quiero vender",
         "trade",
         "tradein",
         "trade-in",
@@ -110,7 +120,46 @@ const DEFAULT_CONFIG = {
         "parte de pago",
         "cambio mi",
         "reciben",
-        "cotizar mi"
+        "reciben mi",
+        "reciben celular",
+        "reciben iphone",
+        "reciben telefono",
+        "toman mi",
+        "toman celular",
+        "toman iphone",
+        "en cuanto me toman",
+        "en cuanto toman",
+        "en cuanto me reciben",
+        "en cuanto reciben",
+        "cotizar mi",
+        "cotizar",
+        "cotizacion",
+        "cuanto pagan",
+        "pagan por",
+        "pagan",
+        "cuanto dan",
+        "cuanto me dan",
+        "cuanto dan por",
+        "cuanto me dan por",
+        "cuanto me pagan",
+        "cuanto me pagarian",
+        "cuanto pagarian",
+        "cuanto vale mi",
+        "cuanto por mi",
+        "compran",
+        "compran celular",
+        "compran celulares",
+        "compran iphone",
+        "compran telefono",
+        "compran telefonos",
+        "compran equipos",
+        "dar mi celular",
+        "dar mi iphone",
+        "dar mi telefono",
+        "entregar mi celular",
+        "entregar mi iphone",
+        "tasar",
+        "tasacion"
       ],
       negativeKeywords: [
         "reparar",
@@ -148,9 +197,14 @@ const DEFAULT_CONFIG = {
         "costo",
         "celulares",
         "disponibles",
+        "disponible",
+        "sigue disponible",
+        "esta disponible",
+        "tienen disponible",
         "stock",
         "modelos",
-        "tienen"
+        "tienen",
+        "que tienen"
       ],
       negativeKeywords: [
         "reparar",
@@ -168,15 +222,38 @@ const DEFAULT_CONFIG = {
         "rota",
         "vender",
         "vendo",
+        "vender mi",
         "trade",
         "tradein",
+        "trade-in",
         "abono",
         "parte de pago",
         "salud",
         "esim",
         "piezas",
         "garantia",
-        "reclamo"
+        "reclamo",
+        "pagan",
+        "cuanto pagan",
+        "pagarian",
+        "cuanto me pagarian",
+        "cuanto dan",
+        "cuanto me dan",
+        "dan por",
+        "me dan por",
+        "compran",
+        "reciben mi",
+        "toman mi",
+        "en cuanto me toman",
+        "en cuanto toman",
+        "en cuanto me reciben",
+        "en cuanto reciben",
+        "cuanto vale mi",
+        "cuanto por mi",
+        "tasar",
+        "tasacion",
+        "dar mi",
+        "entregar mi"
       ],
       title: "📦 Catálogo de Productos",
       response: 
@@ -273,11 +350,17 @@ const DEFAULT_CONFIG = {
 };
 
 /**
- * Normaliza un texto: minúsculas, sin acentos y sin espacios extremos
+ * Normaliza un texto: minúsculas, sin acentos, sin puntuaciones y sin espacios extremos
  */
 function normalizeText(str) {
   if (!str || typeof str !== 'string') return '';
-  return str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+  return str
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "") // sin tildes ni diacríticos
+    .replace(/[¿?¡!.,;:#*_\-~]/g, " ") // reemplaza signos de puntuación comunes por espacio
+    .replace(/\s+/g, " ") // colapsa espacios múltiples
+    .trim();
 }
 
 /**
