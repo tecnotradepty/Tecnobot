@@ -47,7 +47,7 @@
     }
     .wf-node {
       position: absolute;
-      width: 268px;
+      width: 292px;
       background: #FFFFFF;
       border: 1.5px solid #E2E8F0;
       border-radius: 14px;
@@ -65,9 +65,16 @@
       z-index: 25;
     }
     .wf-node.node-connect-target {
-      border-color: #2563EB;
-      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.16);
-      cursor: crosshair;
+      border-color: #2563EB !important;
+      box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.18) !important;
+      cursor: pointer !important;
+    }
+    .wf-node.node-connect-target:hover {
+      border-color: #1D4ED8 !important;
+      box-shadow: 0 0 0 5px rgba(37, 99, 235, 0.28) !important;
+    }
+    .wf-node.node-connect-target * {
+      pointer-events: none !important;
     }
     .wf-node.node-dimmed {
       opacity: 0.35;
@@ -304,20 +311,28 @@
             onclick="addNewStep()"
             class="px-2.5 py-1 bg-zinc-900 hover:bg-zinc-800 text-white text-[11px] font-medium rounded-lg flex items-center gap-1 transition-colors">
             <i data-lucide="plus" class="w-3 h-3"></i>
-            <span>Nuevo Nodo</span>
+            <span>Nueva Ventana</span>
           </button>
         </div>
       </div>
 
       <!-- Banner Contextual para Modo Conectar -->
-      <div id="connectBanner" class="hidden bg-blue-50 border border-blue-200 text-blue-900 rounded-xl px-3.5 py-2 text-[11px] flex items-center justify-between">
+      <div id="connectBanner" class="hidden bg-blue-50 border border-blue-200 text-blue-900 rounded-xl px-3.5 py-2 text-[11px] flex flex-wrap items-center justify-between gap-2">
         <div class="flex items-center gap-2">
-          <span class="w-2 h-2 rounded-full bg-blue-600"></span>
-          <span id="connectBannerText">Haz clic en cualquier nodo de destino para crear el enlace.</span>
+          <span class="w-2 h-2 rounded-full bg-blue-600 animate-pulse"></span>
+          <span id="connectBannerText">Mueve el mouse y haz clic en la ventana de respuesta que quieras conectar.</span>
         </div>
-        <button onclick="cancelConnectMode()" class="px-2 py-0.5 rounded bg-white border border-blue-200 text-blue-700 font-medium hover:bg-blue-100">
-          Cancelar (Esc)
-        </button>
+        <div class="flex items-center gap-1.5">
+          <button id="connectBannerUnlinkBtn" onclick="unlinkActiveLinkingRoute()" class="hidden px-2 py-0.5 rounded bg-white border border-rose-200 text-rose-600 font-medium hover:bg-rose-50">
+            Desconectar enlace
+          </button>
+          <button id="connectBannerModalBtn" onclick="openModalForActiveLinkingRoute()" class="hidden px-2 py-0.5 rounded bg-white border border-blue-200 text-blue-700 font-medium hover:bg-blue-100">
+            Editar alias/teclas
+          </button>
+          <button onclick="cancelConnectMode()" class="px-2 py-0.5 rounded bg-white border border-blue-200 text-blue-700 font-medium hover:bg-blue-100">
+            Cancelar (Esc)
+          </button>
+        </div>
       </div>
 
       <!-- LIENZO INTERACTIVO DOTTED N8N -->
@@ -337,9 +352,12 @@
                   <marker id="arrowHeadActive" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
                     <polygon points="0 0, 8 3, 0 6" fill="#111827"></polygon>
                   </marker>
+                  <marker id="arrowHeadLive" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+                    <polygon points="0 0, 8 3, 0 6" fill="#2563EB"></polygon>
+                  </marker>
                 </defs>
                 <g id="flowSvgWires"></g>
-                <path id="liveDragWire" d="" fill="none" stroke="#2563EB" stroke-width="2" stroke-dasharray="5,4" class="hidden"></path>
+                <path id="liveDragWire" d="" fill="none" stroke="#2563EB" stroke-width="2.5" stroke-dasharray="6,4" marker-end="url(#arrowHeadLive)" class="hidden"></path>
               </svg>
 
               <!-- Capa HTML para badges clicables en mitad de cada cable -->
@@ -615,9 +633,7 @@
     let selectedNodeId = null;
     let inspectingNodeId = null;
     let draggingNodeState = null; // { stepId, startClientX, startClientY, origX, origY, moved }
-    let connectSourceStepId = null;
-    let dragConnectState = null; // { sourceStepId, x1, y1, moved }
-    let justFinishedWireDrag = false;
+    let linkingRouteState = null; // { sourceStepId, routeIdx } - cable siguiendo el mouse
     let activeRouteModalCtx = null; // { sourceStepId, routeIdx, isNew, preTargetId }
 
     // Estado del Simulador
@@ -657,7 +673,7 @@
           return;
         }
         if (e.key === 'Escape') {
-          if (connectSourceStepId) cancelConnectMode();
+          if (linkingRouteState) cancelConnectMode();
           if (!document.getElementById('routeEditorModal').classList.contains('hidden')) closeRouteModal();
           else if (!document.getElementById('nodeInspectorModal').classList.contains('hidden')) closeNodeInspector();
         }
@@ -893,7 +909,7 @@
       steps.forEach((step) => {
         const isRoot = step.id === initialStepId;
         const isSelected = step.id === selectedNodeId;
-        const isConnectTarget = connectSourceStepId && connectSourceStepId !== step.id;
+        const isConnectTarget = Boolean(linkingRouteState && linkingRouteState.sourceStepId !== step.id);
 
         let matchesSearch = true;
         if (searchQ) {
@@ -908,19 +924,49 @@
             : { label: 'PASO', cls: 'bg-zinc-100 text-zinc-700 border-zinc-200', dot: 'bg-zinc-500' };
 
         const routesHtml = (step.routes || []).map((r, rIdx) => {
-          const targetExists = steps.some(t => t.id === r.targetStepId);
+          const targetStep = steps.find(t => t.id === r.targetStepId);
+          const targetExists = Boolean(targetStep);
+          const isBeingLinked = linkingRouteState && linkingRouteState.sourceStepId === step.id && linkingRouteState.routeIdx === rIdx;
           const shortKey = String(r.key || '?').split(/[,|]/)[0].trim() || '?';
           return `
-            <div class="relative flex items-center justify-between gap-1.5 px-2 py-1 rounded-md bg-zinc-50 hover:bg-zinc-100 border border-zinc-200/80 text-[10px] cursor-pointer group"
-                 onclick="event.stopPropagation(); openRouteModal('${escapeJsSingleQuote(step.id)}', ${rIdx})"
-                 title="Teclas: ${escapeHtml(r.key || '?')}">
-              <div class="flex items-center gap-1.5 min-w-0">
-                <span class="px-1.5 py-0.2 rounded bg-zinc-900 text-white font-mono text-[9px] font-semibold shrink-0">${escapeHtml(shortKey)}</span>
-                <span class="truncate font-medium ${targetExists ? 'text-zinc-700' : 'text-rose-600'}">${escapeHtml(r.label || r.targetStepId || 'Sin destino')}</span>
-              </div>
+            <div class="relative flex items-center justify-between gap-1 px-1.5 py-1 rounded-lg ${isBeingLinked ? 'bg-blue-50 border-blue-400 ring-2 ring-blue-500/20' : 'bg-zinc-50 hover:bg-zinc-100/80 border-zinc-200/90'} border text-[10px] group"
+                 onmousedown="event.stopPropagation()">
+              <input type="text"
+                     value="${escapeHtml(shortKey)}"
+                     onchange="updateInlineRouteKey('${escapeJsSingleQuote(step.id)}', ${rIdx}, this.value)"
+                     title="Tecla o número (ej: 1). Clic en editar alias para variantes: ${escapeHtml(r.key || '')}"
+                     class="w-7 px-1 py-0.5 rounded bg-zinc-900 text-white font-mono text-[9.5px] font-semibold text-center focus:outline-none focus:ring-2 focus:ring-blue-500 shrink-0" />
+              <input type="text"
+                     value="${escapeHtml(r.label || '')}"
+                     placeholder="${targetStep ? escapeHtml(targetStep.title) : 'Nombre de opción...'}"
+                     oninput="updateInlineRouteLabel('${escapeJsSingleQuote(step.id)}', ${rIdx}, this.value)"
+                     class="flex-1 min-w-0 bg-transparent px-1 py-0.5 text-[10.5px] font-medium ${targetExists ? 'text-zinc-800' : 'text-amber-700'} focus:bg-white focus:outline-none rounded truncate" />
+              <button type="button"
+                      onclick="event.stopPropagation(); removeRouteFromStep('${escapeJsSingleQuote(step.id)}', ${rIdx})"
+                      class="opacity-0 group-hover:opacity-100 px-1 text-zinc-400 hover:text-rose-600 text-xs transition-opacity"
+                      title="Eliminar esta opción">×</button>
+              <button type="button"
+                      onclick="startLinkingOption(event, '${escapeJsSingleQuote(step.id)}', ${rIdx})"
+                      class="px-1.5 py-0.5 rounded text-[9px] font-medium flex items-center gap-1 transition-colors shrink-0 ${
+                        isBeingLinked
+                          ? 'bg-blue-600 text-white'
+                          : targetExists
+                            ? 'bg-white hover:bg-blue-50 text-zinc-600 hover:text-blue-700 border border-zinc-200'
+                            : 'bg-blue-600 hover:bg-blue-700 text-white animate-pulse'
+                      }"
+                      title="${targetExists ? 'Enlazado a: ' + escapeHtml(targetStep.title) + ' (Clic para cambiar enlace)' : 'Sin conectar: Clic para abrir enlace y elegir ventana'}">
+                <span>${isBeingLinked ? 'Elige ventana...' : (targetExists ? '🔗' : 'Enlazar →')}</span>
+              </button>
               <span data-out-port="${escapeHtml(step.id)}:${rIdx}"
-                    class="wf-port shrink-0 -mr-[17px] ${targetExists ? '!border-zinc-500 !bg-white' : '!border-rose-500 !bg-rose-100'}"
-                    title="Clic para editar enlace"></span>
+                    onclick="startLinkingOption(event, '${escapeJsSingleQuote(step.id)}', ${rIdx})"
+                    class="wf-port shrink-0 -mr-[14px] cursor-pointer ${
+                      isBeingLinked
+                        ? '!border-blue-600 !bg-blue-600 scale-125'
+                        : targetExists
+                          ? '!border-zinc-700 !bg-zinc-900'
+                          : '!border-blue-500 !bg-white'
+                    }"
+                    title="Clic para abrir el enlace siguiendo el mouse y conectar con otra ventana"></span>
             </div>
           `;
         }).join('');
@@ -931,76 +977,104 @@
         nodeEl.style.left = `${step.position.x}px`;
         nodeEl.style.top = `${step.position.y}px`;
 
-        nodeEl.onmouseup = (e) => handleDropOnTargetNode(e, step.id);
         nodeEl.onclick = (e) => {
           e.stopPropagation();
-          if (connectSourceStepId && connectSourceStepId !== step.id) {
-            finishConnectMode(step.id);
+          if (linkingRouteState) {
+            if (linkingRouteState.sourceStepId !== step.id) {
+              finishLinkingOption(step.id);
+            }
             return;
           }
           selectedNodeId = step.id;
           refreshNodeSelectionClasses();
-        };
-        nodeEl.ondblclick = (e) => {
-          e.stopPropagation();
-          openNodeInspector(step.id);
         };
 
         const kwCount = (step.keywords || []).length;
         const negCount = (step.negativeKeywords || []).length;
 
         nodeEl.innerHTML = `
+          <!-- Indicador flotante cuando está en modo elegir ventana destino -->
+          ${isConnectTarget ? `
+            <div class=" -top-7 left-1/2 -translate-x-1/2 absolute px-2.5 py-0.5 rounded-full bg-blue-600 text-white text-[9.5px] font-semibold shadow-md whitespace-nowrap">
+              🎯 Clic aquí para conectar como siguiente paso
+            </div>
+          ` : ''}
+
           <!-- Puerto de Entrada Izquierdo -->
           <div data-in-port="${escapeHtml(step.id)}"
-               onmouseup="handleDropOnTargetNode(event, '${escapeJsSingleQuote(step.id)}')"
                class="wf-port absolute -left-[7px] top-[15px] !border-zinc-400"
-               title="Entrada al paso"></div>
+               title="Entrada a esta ventana"></div>
 
-          <!-- Barra de Título Arrastrable -->
-          <div class="px-3 py-2 border-b border-zinc-100 flex items-center justify-between gap-1.5 cursor-grab active:cursor-grabbing rounded-t-[13px] bg-white"
+          <!-- Barra de Título Arrastrable con Edición Directa -->
+          <div class="px-2.5 py-2 border-b border-zinc-100 flex items-center justify-between gap-1.5 cursor-grab active:cursor-grabbing rounded-t-[13px] bg-zinc-50/70"
                onmousedown="startDragNode(event, '${escapeJsSingleQuote(step.id)}')">
-            <div class="flex items-center gap-1.5 min-w-0">
+            <div class="flex items-center gap-1.5 min-w-0 flex-1">
+              <span class="text-zinc-400 text-xs select-none" title="Arrastra desde aquí para mover">⠿</span>
               <span class="w-2 h-2 rounded-full ${typeMeta.dot} shrink-0"></span>
-              <span class="text-[11px] font-semibold text-zinc-900 truncate">${escapeHtml(step.title)}</span>
+              <input type="text"
+                     value="${escapeHtml(step.title)}"
+                     placeholder="Nombre del paso..."
+                     onmousedown="event.stopPropagation()"
+                     oninput="updateStepField('${escapeJsSingleQuote(step.id)}', 'title', this.value)"
+                     class="w-full bg-transparent text-[11px] font-semibold text-zinc-900 focus:bg-white focus:px-1 focus:outline-none focus:ring-1 focus:ring-zinc-300 rounded truncate" />
             </div>
-            <div class="flex items-center gap-1 shrink-0">
+            <div class="flex items-center gap-1 shrink-0" onmousedown="event.stopPropagation()">
               ${isRoot ? '<span class="text-[8px] font-mono px-1 py-0.2 rounded bg-emerald-600 text-white">INICIO</span>' : ''}
               <span class="text-[8px] font-mono px-1.5 py-0.2 rounded border ${typeMeta.cls}">${typeMeta.label}</span>
+              ${!isRoot && steps.length > 1 ? `
+                <button type="button" onclick="event.stopPropagation(); deleteStep('${escapeJsSingleQuote(step.id)}')"
+                        class="p-0.5 text-zinc-400 hover:text-rose-600 rounded" title="Eliminar ventana">
+                  <i data-lucide="x" class="w-3 h-3"></i>
+                </button>
+              ` : ''}
             </div>
           </div>
 
-          <!-- Cuerpo Compacto -->
+          <!-- Cuerpo: Respuesta Directamente Editable + Opciones -->
           <div class="p-2.5 space-y-2 text-[11px]">
-            <p class="text-[10.5px] text-zinc-500 leading-snug line-clamp-2 min-h-[28px]">
-              ${escapeHtml(step.message || '(Sin mensaje definido)')}
-            </p>
-
-            <!-- Chips Resumen de Ganchos y Reglas -->
-            <div class="flex flex-wrap items-center gap-1 text-[9.5px] font-mono">
-              <span class="px-1.5 py-0.5 rounded bg-zinc-100 text-zinc-700" title="Keywords activadoras">
-                🔑 ${kwCount} kw
-              </span>
-              ${negCount > 0 ? `<span class="px-1.5 py-0.5 rounded bg-rose-50 text-rose-700 border border-rose-200/70" title="Palabras negativas">🚫 ${negCount} neg</span>` : ''}
-              <span class="px-1.5 py-0.5 rounded bg-zinc-50 text-zinc-500 border border-zinc-200/80" title="Prioridad">P:${step.priority ?? 5}</span>
-              ${step.autoPause ? `<span class="px-1.5 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200">⏸️ 12h</span>` : ''}
-              ${step.allowedWhenPaused ? `<span class="px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200">✓ En pausa</span>` : ''}
+            <div onmousedown="event.stopPropagation()">
+              <textarea id="inlineMsg_${escapeHtml(step.id)}"
+                        rows="3"
+                        placeholder="Escribe aquí la respuesta de esta ventana (vacía)..."
+                        oninput="updateStepField('${escapeJsSingleQuote(step.id)}', 'message', this.value)"
+                        class="w-full p-2 rounded-lg bg-zinc-50/70 hover:bg-zinc-50 focus:bg-white border border-zinc-200/80 focus:border-zinc-900 text-[10.5px] text-zinc-800 placeholder:text-zinc-400 leading-snug focus:outline-none resize-y">${escapeHtml(step.message || '')}</textarea>
             </div>
 
-            <!-- Rutas / Enlaces Salientes -->
-            ${routesHtml ? `<div class="space-y-1 pt-1 border-t border-zinc-100">${routesHtml}</div>` : ''}
+            <!-- Lista de Opciones / Enlaces Salientes -->
+            <div class="space-y-1">
+              <div class="flex items-center justify-between text-[9.5px] text-zinc-400 font-medium px-0.5">
+                <span>Opciones / Siguientes pasos (${(step.routes || []).length})</span>
+                <button type="button"
+                        onmousedown="event.stopPropagation()"
+                        onclick="addInlineOptionAndLink(event, '${escapeJsSingleQuote(step.id)}')"
+                        class="text-blue-600 hover:text-blue-800 font-semibold flex items-center gap-0.5">
+                  <span>+ Añadir opción y enlazar</span>
+                </button>
+              </div>
+              ${routesHtml ? `<div class="space-y-1">${routesHtml}</div>` : `
+                <div class="text-[10px] text-zinc-400 italic bg-zinc-50/50 border border-dashed border-zinc-200 rounded-lg px-2.5 py-1.5 text-center">
+                  Sin conexiones salientes (paso final)
+                </div>
+              `}
+            </div>
 
-            <!-- Pie de Acciones de la Ventanita -->
-            <div class="flex items-center justify-between gap-1.5 pt-1.5 border-t border-zinc-100">
-              <button onclick="event.stopPropagation(); openNodeInspector('${escapeJsSingleQuote(step.id)}')"
-                      class="flex-1 py-1 px-2 rounded-lg bg-zinc-100 hover:bg-zinc-200 text-zinc-800 text-[10px] font-medium transition-colors text-center">
-                ⚙️ Configurar
+            <!-- Pie de Ventanita: Auto-Pausa 1-clic & Ganchos Avanzados -->
+            <div class="flex items-center justify-between gap-1.5 pt-1.5 border-t border-zinc-100" onmousedown="event.stopPropagation()">
+              <button type="button"
+                      onclick="toggleStepAutoPauseInline('${escapeJsSingleQuote(step.id)}')"
+                      class="py-1 px-2 rounded-lg border text-[10px] font-medium transition-colors ${
+                        step.autoPause
+                          ? 'bg-amber-50 border-amber-300 text-amber-900'
+                          : 'bg-white hover:bg-zinc-50 border-zinc-200 text-zinc-500'
+                      }"
+                      title="Activar/desactivar pausa de 12h para que atienda un humano">
+                ${step.autoPause ? '⏸️ Pausa 12h: Sí' : '⏸️ Pausa 12h: No'}
               </button>
-              <button onmousedown="startWireDrag(event, '${escapeJsSingleQuote(step.id)}')"
-                      onclick="event.stopPropagation(); toggleConnectMode('${escapeJsSingleQuote(step.id)}')"
-                      class="py-1 px-2 rounded-lg bg-white hover:bg-blue-50 text-blue-700 border border-zinc-200 hover:border-blue-300 text-[10px] font-medium flex items-center gap-1 transition-colors"
-                      title="Arrastra hacia otro nodo o haz clic para crear un enlace">
-                <span>+ Enlace</span>
-                <span data-new-port="${escapeHtml(step.id)}" class="w-2 h-2 rounded-full bg-blue-600 inline-block"></span>
+              <button type="button"
+                      onclick="event.stopPropagation(); openNodeInspector('${escapeJsSingleQuote(step.id)}')"
+                      class="flex-1 py-1 px-2 rounded-lg bg-zinc-100 hover:bg-zinc-200 text-zinc-800 text-[10px] font-medium transition-colors text-center"
+                      title="Configurar keywords de anuncios (${kwCount}), negativas (${negCount}) y prioridad">
+                🔑 Keywords (${kwCount}) · Más
               </button>
             </div>
           </div>
@@ -1018,7 +1092,7 @@
         const el = document.getElementById(`wf_node_${s.id}`);
         if (!el) return;
         el.classList.toggle('node-selected', s.id === selectedNodeId);
-        el.classList.toggle('node-connect-target', Boolean(connectSourceStepId && connectSourceStepId !== s.id));
+        el.classList.toggle('node-connect-target', Boolean(linkingRouteState && linkingRouteState.sourceStepId !== s.id));
       });
     }
 
@@ -1081,13 +1155,18 @@
       steps.forEach((step) => {
         const isStepSelected = step.id === selectedNodeId;
         (step.routes || []).forEach((route, rIdx) => {
+          // Si este enlace está actualmente abierto siguiendo el mouse, no dibujar el cable fijo viejo
+          if (linkingRouteState && linkingRouteState.sourceStepId === step.id && linkingRouteState.routeIdx === rIdx) {
+            return;
+          }
+
           const targetStep = steps.find(t => t.id === route.targetStepId);
           if (!targetStep) return;
 
           const outEl = document.querySelector(`[data-out-port="${step.id}:${rIdx}"]`);
           const inEl = document.querySelector(`[data-in-port="${targetStep.id}"]`);
 
-          const p1 = getPortCanvasPos(outEl, step.position.x + 268, step.position.y + 115 + rIdx * 28);
+          const p1 = getPortCanvasPos(outEl, step.position.x + 292, step.position.y + 135 + rIdx * 30);
           const p2 = getPortCanvasPos(inEl, targetStep.position.x, targetStep.position.y + 22);
           const { d, mx, my } = buildBezierData(p1.x, p1.y, p2.x - 4, p2.y);
 
@@ -1098,7 +1177,7 @@
           svgHtml += `
             <path d="${d}" fill="none" stroke="transparent" stroke-width="14"
                   class="pointer-events-auto cursor-pointer"
-                  onclick="openRouteModal('${escapeJsSingleQuote(step.id)}', ${rIdx})" />
+                  onclick="startLinkingOption(event, '${escapeJsSingleQuote(step.id)}', ${rIdx})" />
             <path d="${d}" fill="none" stroke="${strokeColor}" stroke-width="${strokeWidth}" marker-end="${marker}" />
           `;
 
@@ -1106,10 +1185,10 @@
           const pillKeyLabel = pillParts.slice(0, 2).join(', ');
           pillsHtml += `
             <button type="button"
-                    onclick="event.stopPropagation(); openRouteModal('${escapeJsSingleQuote(step.id)}', ${rIdx})"
+                    onclick="startLinkingOption(event, '${escapeJsSingleQuote(step.id)}', ${rIdx})"
                     style="left:${mx}px; top:${my}px; transform:translate(-50%,-50%)"
-                    class="absolute pointer-events-auto px-2 py-0.5 rounded-full bg-white hover:bg-zinc-900 hover:text-white border ${isStepSelected ? 'border-zinc-900 text-zinc-900' : 'border-zinc-300 text-zinc-700'} text-[9.5px] font-medium shadow-xs flex items-center gap-1 transition-colors whitespace-nowrap"
-                    title="Teclas activadoras: ${escapeHtml(route.key || '?')} (Clic para modificar o eliminar)">
+                    class="absolute pointer-events-auto px-2 py-0.5 rounded-full bg-white hover:bg-blue-600 hover:text-white hover:border-blue-600 border ${isStepSelected ? 'border-zinc-900 text-zinc-900' : 'border-zinc-300 text-zinc-700'} text-[9.5px] font-medium shadow-xs flex items-center gap-1 transition-colors whitespace-nowrap"
+                    title="Clic para desprender este enlace con el mouse y conectarlo a otra ventana">
               <span class="font-mono font-bold">[${escapeHtml(pillKeyLabel || '?')}]</span>
               ${route.label ? `<span class="max-w-[100px] truncate">${escapeHtml(route.label)}</span>` : ''}
             </button>
@@ -1122,10 +1201,11 @@
     }
 
     // =========================================================
-    // 4. ARRASTRE DE NODOS (60fps) Y CONEXIÓN POR PUERTOS
+    // 4. ARRASTRE DE NODOS (60fps) Y ENLACES SIGUIENDO EL MOUSE
     // =========================================================
     function startDragNode(event, stepId) {
       if (event.button !== 0) return;
+      if (linkingRouteState) return;
       event.stopPropagation();
       event.preventDefault();
 
@@ -1153,30 +1233,153 @@
       };
     }
 
-    function startWireDrag(event, sourceStepId) {
-      if (event.button !== 0) return;
-      event.stopPropagation();
-      const portEl = document.querySelector(`[data-new-port="${sourceStepId}"]`);
+    function getLinkingOriginCoords() {
+      if (!linkingRouteState) return { x: 0, y: 0 };
+      const { sourceStepId, routeIdx } = linkingRouteState;
+      const outEl = document.querySelector(`[data-out-port="${sourceStepId}:${routeIdx}"]`);
       const step = activeConfig.workflow.steps.find(s => s.id === sourceStepId);
-      const p1 = getPortCanvasPos(portEl, (step?.position.x || 0) + 250, (step?.position.y || 0) + 120);
-      dragConnectState = { sourceStepId, x1: p1.x, y1: p1.y, moved: false };
+      return getPortCanvasPos(outEl, (step?.position.x || 0) + 292, (step?.position.y || 0) + 135 + routeIdx * 30);
     }
 
-    function handleDropOnTargetNode(event, targetStepId) {
-      if (!dragConnectState) return;
-      const src = dragConnectState.sourceStepId;
-      const wasMoved = dragConnectState.moved;
-      dragConnectState = null;
-      hideLiveDragWire();
-      if (wasMoved && src && src !== targetStepId) {
-        justFinishedWireDrag = true;
-        setTimeout(() => { justFinishedWireDrag = false; }, 50);
-        event.stopPropagation();
-        openNewRouteModal(src, targetStepId);
+    function updateLiveWireToClientPoint(clientX, clientY) {
+      if (!linkingRouteState) return;
+      const inner = document.getElementById('flowCanvasInner');
+      if (!inner) return;
+      const rect = inner.getBoundingClientRect();
+      const p1 = getLinkingOriginCoords();
+      const x2 = (clientX - rect.left) / canvasZoom;
+      const y2 = (clientY - rect.top) / canvasZoom;
+      const { d } = buildBezierData(p1.x, p1.y, x2, y2);
+      const wire = document.getElementById('liveDragWire');
+      if (wire) {
+        wire.setAttribute('d', d);
+        wire.classList.remove('hidden');
       }
     }
 
+    function startLinkingOption(event, sourceStepId, routeIdx) {
+      if (event) event.stopPropagation();
+      // Si hace clic de nuevo en el mismo puerto que ya estaba enlazando, cancelar
+      if (linkingRouteState && linkingRouteState.sourceStepId === sourceStepId && linkingRouteState.routeIdx === routeIdx) {
+        cancelConnectMode();
+        return;
+      }
+
+      const src = activeConfig.workflow.steps.find(s => s.id === sourceStepId);
+      const route = src?.routes?.[routeIdx];
+      if (!src || !route) return;
+
+      linkingRouteState = { sourceStepId, routeIdx };
+      selectedNodeId = sourceStepId;
+
+      const shortKey = String(route.key || '?').split(/[,|]/)[0].trim();
+      document.getElementById('connectBannerText').innerText =
+        `Enlazando opción [${shortKey}] "${route.label || 'Opción'}" de "${src.title}" → Mueve el mouse y haz clic en la ventana de respuesta destino.`;
+      document.getElementById('connectBanner').classList.remove('hidden');
+      document.getElementById('connectBannerUnlinkBtn').classList.toggle('hidden', !route.targetStepId);
+      document.getElementById('connectBannerModalBtn').classList.remove('hidden');
+
+      renderWorkflowCanvas();
+      lucide.createIcons();
+
+      if (event && typeof event.clientX === 'number') {
+        requestAnimationFrame(() => updateLiveWireToClientPoint(event.clientX, event.clientY));
+      }
+    }
+
+    function finishLinkingOption(targetStepId) {
+      if (!linkingRouteState) return;
+      const { sourceStepId, routeIdx } = linkingRouteState;
+      if (sourceStepId === targetStepId) return;
+
+      const src = activeConfig.workflow.steps.find(s => s.id === sourceStepId);
+      const target = activeConfig.workflow.steps.find(s => s.id === targetStepId);
+      if (src && src.routes && src.routes[routeIdx] && target) {
+        src.routes[routeIdx].targetStepId = targetStepId;
+        if (!src.routes[routeIdx].label || /^Opci[oó]n\s+\d+$/i.test(src.routes[routeIdx].label)) {
+          src.routes[routeIdx].label = (target.title || '').replace(/^Paso \d+:\s*/i, '') || target.title;
+        }
+      }
+
+      cancelConnectMode();
+      updateKPIs();
+    }
+
+    function unlinkActiveLinkingRoute() {
+      if (!linkingRouteState) return;
+      const { sourceStepId, routeIdx } = linkingRouteState;
+      const src = activeConfig.workflow.steps.find(s => s.id === sourceStepId);
+      if (src && src.routes && src.routes[routeIdx]) {
+        src.routes[routeIdx].targetStepId = '';
+      }
+      cancelConnectMode();
+      updateKPIs();
+    }
+
+    function openModalForActiveLinkingRoute() {
+      if (!linkingRouteState) return;
+      const { sourceStepId, routeIdx } = linkingRouteState;
+      cancelConnectMode();
+      openRouteModal(sourceStepId, routeIdx);
+    }
+
+    function addInlineOptionAndLink(event, stepId) {
+      if (event) event.stopPropagation();
+      const step = activeConfig.workflow.steps.find(s => s.id === stepId);
+      if (!step) return;
+      if (!Array.isArray(step.routes)) step.routes = [];
+      const nextNum = String(step.routes.length + 1);
+      step.routes.push({
+        key: nextNum,
+        label: `Opción ${nextNum}`,
+        targetStepId: ''
+      });
+      const newIdx = step.routes.length - 1;
+      updateKPIs();
+      startLinkingOption(event, stepId, newIdx);
+    }
+
+    function updateInlineRouteKey(stepId, routeIdx, newShortKey) {
+      const step = activeConfig.workflow.steps.find(s => s.id === stepId);
+      const route = step?.routes?.[routeIdx];
+      if (!route) return;
+      const cleanVal = newShortKey.trim() || String(routeIdx + 1);
+      const parts = String(route.key || '').split(/[,|]/).map(s => s.trim()).filter(Boolean);
+      if (parts.length > 1) {
+        parts[0] = cleanVal;
+        route.key = parts.join(', ');
+      } else {
+        route.key = cleanVal;
+      }
+      renderWiresOnly();
+    }
+
+    function updateInlineRouteLabel(stepId, routeIdx, newLabel) {
+      const step = activeConfig.workflow.steps.find(s => s.id === stepId);
+      const route = step?.routes?.[routeIdx];
+      if (!route) return;
+      route.label = newLabel;
+      renderWiresOnly();
+    }
+
+    function toggleStepAutoPauseInline(stepId) {
+      const step = activeConfig.workflow.steps.find(s => s.id === stepId);
+      if (!step) return;
+      step.autoPause = !step.autoPause;
+      renderWorkflowCanvas();
+      lucide.createIcons();
+    }
+
     function setupGlobalCanvasListeners() {
+      const inner = document.getElementById('flowCanvasInner');
+      if (inner) {
+        inner.addEventListener('click', (e) => {
+          if (e.target === inner || e.target.id === 'nodesLayer' || e.target.id === 'flowSvgLayer') {
+            if (linkingRouteState) cancelConnectMode();
+          }
+        });
+      }
+
       document.addEventListener('mousemove', (e) => {
         if (draggingNodeState) {
           const dx = (e.clientX - draggingNodeState.startClientX) / canvasZoom;
@@ -1199,18 +1402,8 @@
             el.style.top = `${newY}px`;
           }
           renderWiresOnly();
-        } else if (dragConnectState) {
-          dragConnectState.moved = true;
-          const inner = document.getElementById('flowCanvasInner');
-          const rect = inner.getBoundingClientRect();
-          const x2 = (e.clientX - rect.left) / canvasZoom;
-          const y2 = (e.clientY - rect.top) / canvasZoom;
-          const { d } = buildBezierData(dragConnectState.x1, dragConnectState.y1, x2, y2);
-          const wire = document.getElementById('liveDragWire');
-          if (wire) {
-            wire.setAttribute('d', d);
-            wire.classList.remove('hidden');
-          }
+        } else if (linkingRouteState) {
+          updateLiveWireToClientPoint(e.clientX, e.clientY);
         }
       });
 
@@ -1218,14 +1411,6 @@
         if (draggingNodeState) {
           if (draggingNodeState.moved) updateCanvasBounds();
           draggingNodeState = null;
-        }
-        if (dragConnectState) {
-          if (dragConnectState.moved) {
-            justFinishedWireDrag = true;
-            setTimeout(() => { justFinishedWireDrag = false; }, 50);
-          }
-          dragConnectState = null;
-          hideLiveDragWire();
         }
       });
     }
@@ -1235,34 +1420,12 @@
       if (wire) wire.classList.add('hidden');
     }
 
-    function toggleConnectMode(sourceStepId) {
-      if (justFinishedWireDrag) {
-        justFinishedWireDrag = false;
-        return;
-      }
-      if (connectSourceStepId === sourceStepId) {
-        cancelConnectMode();
-        return;
-      }
-      connectSourceStepId = sourceStepId;
-      const src = activeConfig.workflow.steps.find(s => s.id === sourceStepId);
-      document.getElementById('connectBannerText').innerText = `Conectando enlace desde "${src?.title || sourceStepId}". Haz clic en el nodo de destino...`;
-      document.getElementById('connectBanner').classList.remove('hidden');
-      refreshNodeSelectionClasses();
-    }
-
     function cancelConnectMode() {
-      connectSourceStepId = null;
+      linkingRouteState = null;
+      hideLiveDragWire();
       document.getElementById('connectBanner').classList.add('hidden');
-      refreshNodeSelectionClasses();
-    }
-
-    function finishConnectMode(targetStepId) {
-      const src = connectSourceStepId;
-      cancelConnectMode();
-      if (src && src !== targetStepId) {
-        openNewRouteModal(src, targetStepId);
-      }
+      renderWorkflowCanvas();
+      lucide.createIcons();
     }
 
     function applyCanvasSearch() {
@@ -1710,10 +1873,15 @@
     }
 
     function removeRouteFromStep(stepId, routeIdx) {
+      if (linkingRouteState && linkingRouteState.sourceStepId === stepId) {
+        linkingRouteState = null;
+        hideLiveDragWire();
+        document.getElementById('connectBanner').classList.add('hidden');
+      }
       const step = activeConfig.workflow.steps.find(s => s.id === stepId);
       if (step && step.routes) {
         step.routes.splice(routeIdx, 1);
-        renderNodeInspectorBody(stepId);
+        if (inspectingNodeId === stepId) renderNodeInspectorBody(stepId);
         renderWorkflowCanvas();
         updateKPIs();
         lucide.createIcons();
@@ -1736,30 +1904,45 @@
       const count = activeConfig.workflow.steps.length;
       const newId = 'step_custom_' + Date.now().toString(36);
       const viewport = document.getElementById('canvasViewport');
-      const posX = Math.max(340, Math.round((viewport.scrollLeft + 260) / canvasZoom));
-      const posY = Math.max(60, Math.round((viewport.scrollTop + 140) / canvasZoom));
+      let posX = Math.max(360, Math.round((viewport.scrollLeft + 340) / canvasZoom));
+      let posY = Math.max(60, Math.round((viewport.scrollTop + 110) / canvasZoom));
+
+      // Evitar encimar si ya hay una ventana en esa misma coordenada
+      while (activeConfig.workflow.steps.some(s => Math.abs((s.position?.x || 0) - posX) < 40 && Math.abs((s.position?.y || 0) - posY) < 40)) {
+        posX += 48;
+        posY += 48;
+      }
 
       activeConfig.workflow.steps.push({
         id: newId,
-        title: `Paso ${count}: Nuevo Nodo`,
+        title: `Paso ${count}: Nueva Ventana`,
         type: 'response',
         isRoot: false,
         position: { x: posX, y: posY },
-        priority: 6,
+        priority: 5,
         autoPause: false,
         allowedWhenPaused: false,
         unpauseOnTrigger: false,
         keywords: [],
         negativeKeywords: [],
-        message: 'Escribe aquí el mensaje que enviará el bot en este paso.\n\n(Escribe *Menú* para volver)',
+        message: '',
         routes: [],
         invalidMessage: null
       });
 
-      selectedNodeId = newId;
+      if (!linkingRouteState) {
+        selectedNodeId = newId;
+      }
       renderWorkflowCanvas();
       updateKPIs();
-      openNodeInspector(newId);
+      lucide.createIcons();
+
+      if (!linkingRouteState) {
+        setTimeout(() => {
+          const msgBox = document.getElementById(`inlineMsg_${newId}`);
+          if (msgBox) msgBox.focus();
+        }, 40);
+      }
     }
 
     function deleteStep(stepId) {
