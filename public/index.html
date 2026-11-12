@@ -45,6 +45,17 @@
       background-image: radial-gradient(#CBD5E1 1.25px, transparent 1.25px);
       background-size: 22px 22px;
     }
+    #canvasViewport {
+      touch-action: none;
+      cursor: grab;
+      overscroll-behavior: contain;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    #canvasViewport.canvas-panning,
+    #canvasViewport.canvas-panning * {
+      cursor: grabbing !important;
+    }
     .wf-node {
       position: absolute;
       width: 292px;
@@ -53,7 +64,26 @@
       border-radius: 14px;
       box-shadow: 0 4px 14px -2px rgba(15, 23, 42, 0.06), 0 1px 3px rgba(15, 23, 42, 0.04);
       transition: border-color 0.12s ease, box-shadow 0.12s ease;
+      cursor: default;
       user-select: none;
+    }
+    .wf-drag-handle {
+      touch-action: none;
+      user-select: none;
+    }
+    .wf-node input,
+    .wf-node textarea {
+      user-select: text;
+      -webkit-user-select: text;
+    }
+    .wf-node textarea {
+      touch-action: pan-y;
+    }
+    .wf-node input,
+    .wf-node button,
+    .wf-node select,
+    .wf-port {
+      touch-action: manipulation;
     }
     .wf-node:hover {
       border-color: #94A3B8;
@@ -337,9 +367,9 @@
 
       <!-- LIENZO INTERACTIVO DOTTED N8N -->
       <div class="studio-card rounded-2xl overflow-hidden relative">
-        <div id="canvasViewport" class="n8n-canvas-bg w-full h-[640px] overflow-auto relative">
-          <div id="canvasScaleWrapper" style="transform-origin: 0 0; position: relative;">
-            <div id="flowCanvasInner" class="relative" style="width: 1450px; height: 960px;">
+        <div id="canvasViewport" class="n8n-canvas-bg w-full h-[65vh] min-h-[440px] sm:h-[640px] overflow-auto relative">
+          <div id="canvasScaleWrapper" style="position: relative;">
+            <div id="flowCanvasInner" class="relative" style="width: 1650px; height: 1100px; transform-origin: 0 0;">
               <!-- SVG para líneas Bézier curvas modificables -->
               <svg id="flowSvgLayer" class="absolute inset-0 w-full h-full pointer-events-none" style="z-index: 5;">
                 <defs>
@@ -354,6 +384,9 @@
                   </marker>
                   <marker id="arrowHeadLive" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
                     <polygon points="0 0, 8 3, 0 6" fill="#2563EB"></polygon>
+                  </marker>
+                  <marker id="arrowHeadWildcard" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+                    <polygon points="0 0, 8 3, 0 6" fill="#7C3AED"></polygon>
                   </marker>
                 </defs>
                 <g id="flowSvgWires"></g>
@@ -372,9 +405,9 @@
         <!-- Leyenda sutil inferior del lienzo -->
         <div class="bg-white border-t border-zinc-200 px-3.5 py-2 flex flex-wrap items-center justify-between gap-2 text-[10px] text-zinc-500">
           <div class="flex flex-wrap items-center gap-3">
-            <span>🖱️ Arrastra la barra superior de un nodo para moverlo</span>
-            <span>⚙️ Doble clic o <b>Configurar</b> para editar mensaje, keywords y enlaces</span>
-            <span>🔗 Clic en un badge sobre la línea para cambiar ruta o eliminar enlace</span>
+            <span>✋ Arrastra el fondo (clic o dedo) para desplazarte por el lienzo</span>
+            <span>⠿ Arrastra la barra superior de una ventana para moverla</span>
+            <span>🔗 Toca <b>Enlazar</b> o cualquier badge en la línea para conectar pasos</span>
           </div>
           <span class="font-mono text-zinc-400">Guardado requiere clic en "Guardar" o Ctrl+S</span>
         </div>
@@ -506,17 +539,24 @@
           <label class="block text-[10px] font-semibold uppercase tracking-wider text-zinc-400 mb-1">Origen -> Destino</label>
           <select id="routeModalTarget" class="w-full px-2.5 py-1.5 bg-zinc-50 border border-zinc-200 rounded-lg text-zinc-900 focus:outline-none focus:border-zinc-900"></select>
         </div>
+        <label class="flex items-start gap-2 p-2.5 rounded-xl bg-violet-50/70 border border-violet-200 cursor-pointer select-none">
+          <input type="checkbox" id="routeModalMatchAny" onchange="toggleRouteModalMatchAny(this.checked)" class="mt-0.5 w-3.5 h-3.5 rounded text-violet-600 border-violet-300" />
+          <div>
+            <span class="block text-[11px] font-semibold text-violet-900">✱ Responder tras cualquier mensaje (sin keywords)</span>
+            <span class="block text-[10px] text-violet-700 leading-snug">Ideal para pasos donde el cliente responde texto libre variable (ej. detalles de equipo o precio).</span>
+          </div>
+        </label>
         <div class="grid grid-cols-3 gap-2">
           <div>
             <label class="block text-[10px] font-semibold uppercase tracking-wider text-zinc-400 mb-1">Opción (Key)</label>
-            <input type="text" id="routeModalKey" placeholder="1" class="w-full px-2.5 py-1.5 bg-zinc-50 border border-zinc-200 rounded-lg font-mono text-center text-zinc-900 focus:outline-none focus:border-zinc-900" />
+            <input type="text" id="routeModalKey" placeholder="1" class="w-full px-2.5 py-1.5 bg-zinc-50 border border-zinc-200 rounded-lg font-mono text-center text-zinc-900 focus:outline-none focus:border-zinc-900 disabled:opacity-60" />
           </div>
           <div class="col-span-2">
             <label class="block text-[10px] font-semibold uppercase tracking-wider text-zinc-400 mb-1">Etiqueta en Diagrama</label>
             <input type="text" id="routeModalLabel" placeholder="Ej: Catálogo de iPhones" class="w-full px-2.5 py-1.5 bg-zinc-50 border border-zinc-200 rounded-lg text-zinc-900 focus:outline-none focus:border-zinc-900" />
           </div>
         </div>
-        <p class="text-[10px] text-zinc-400">Puedes usar varias teclas separadas por coma en Opción (ej: <code class="bg-zinc-100 px-1 rounded">1, catalogo</code>).</p>
+        <p class="text-[10px] text-zinc-400">Puedes usar varias teclas separadas por coma en Opción (ej: <code class="bg-zinc-100 px-1 rounded">1, catalogo</code>) o <code class="bg-zinc-100 px-1 rounded">*</code> para cualquier respuesta.</p>
       </div>
 
       <div class="pt-2 border-t border-zinc-100 flex items-center justify-between gap-2">
@@ -632,7 +672,9 @@
     let canvasZoom = 0.85;
     let selectedNodeId = null;
     let inspectingNodeId = null;
-    let draggingNodeState = null; // { stepId, startClientX, startClientY, origX, origY, moved }
+    let draggingNodeState = null; // { pointerId, stepId, startClientX, startClientY, origX, origY, moved }
+    let panningState = null; // { pointerId, startClientX, startClientY, startScrollLeft, startScrollTop, moved }
+    let suppressCanvasClickUntil = 0;
     let linkingRouteState = null; // { sourceStepId, routeIdx } - cable siguiendo el mouse
     let activeRouteModalCtx = null; // { sourceStepId, routeIdx, isNew, preTargetId }
 
@@ -798,10 +840,12 @@
       if (mode === 'all') {
         secWorkflow.classList.remove('hidden');
         secCust.classList.remove('hidden');
+        updateCanvasBounds();
         requestAnimationFrame(renderWiresOnly);
       } else if (mode === 'workflow') {
         secWorkflow.classList.remove('hidden');
         secCust.classList.add('hidden');
+        updateCanvasBounds();
         requestAnimationFrame(renderWiresOnly);
       } else {
         secWorkflow.classList.add('hidden');
@@ -846,28 +890,61 @@
     // =========================================================
     // 3. LIENZO N8N / MANYCHAT (NODOS FLOTANTES & CABLES SVG)
     // =========================================================
+    function syncCanvasBackground() {
+      const viewport = document.getElementById('canvasViewport');
+      if (!viewport) return;
+      const dotStep = 22 * canvasZoom;
+      viewport.style.backgroundSize = `${dotStep}px ${dotStep}px`;
+      viewport.style.backgroundPosition = `${-viewport.scrollLeft}px ${-viewport.scrollTop}px`;
+    }
+
     function setCanvasZoom(z) {
+      const viewport = document.getElementById('canvasViewport');
+      const prevZoom = canvasZoom;
       canvasZoom = Math.min(1.25, Math.max(0.55, Math.round(z * 20) / 20));
-      const wrapper = document.getElementById('canvasScaleWrapper');
-      if (wrapper) wrapper.style.transform = `scale(${canvasZoom})`;
+
+      if (viewport && prevZoom !== canvasZoom && viewport.clientWidth > 0) {
+        const cx = (viewport.scrollLeft + viewport.clientWidth / 2) / prevZoom;
+        const cy = (viewport.scrollTop + viewport.clientHeight / 2) / prevZoom;
+        updateCanvasBounds();
+        viewport.scrollLeft = Math.max(0, cx * canvasZoom - viewport.clientWidth / 2);
+        viewport.scrollTop = Math.max(0, cy * canvasZoom - viewport.clientHeight / 2);
+      } else {
+        updateCanvasBounds();
+      }
+
       document.getElementById('zoomLabel').innerText = `${Math.round(canvasZoom * 100)}%`;
+      syncCanvasBackground();
       requestAnimationFrame(renderWiresOnly);
     }
 
     function updateCanvasBounds() {
       const steps = activeConfig?.workflow?.steps || [];
       const tp = activeConfig?.workflow?.triggerPosition || { x: 40, y: 295 };
-      let maxX = Math.max(1250, tp.x + 350);
-      let maxY = Math.max(920, tp.y + 300);
+      const viewport = document.getElementById('canvasViewport');
+      const minWForViewport = viewport && viewport.clientWidth > 0 ? Math.ceil((viewport.clientWidth + 480) / canvasZoom) : 1650;
+      const minHForViewport = viewport && viewport.clientHeight > 0 ? Math.ceil((viewport.clientHeight + 360) / canvasZoom) : 1100;
+
+      let maxX = Math.max(1650, minWForViewport, tp.x + 520);
+      let maxY = Math.max(1100, minHForViewport, tp.y + 420);
       steps.forEach(s => {
-        maxX = Math.max(maxX, (s.position?.x || 0) + 380);
-        maxY = Math.max(maxY, (s.position?.y || 0) + 280 + (s.routes?.length || 0) * 32);
+        maxX = Math.max(maxX, (s.position?.x || 0) + 520);
+        maxY = Math.max(maxY, (s.position?.y || 0) + 380 + (s.routes?.length || 0) * 36);
       });
+
+      const wrapper = document.getElementById('canvasScaleWrapper');
+      if (wrapper) {
+        wrapper.style.width = `${Math.round(maxX * canvasZoom)}px`;
+        wrapper.style.height = `${Math.round(maxY * canvasZoom)}px`;
+      }
       const inner = document.getElementById('flowCanvasInner');
       if (inner) {
         inner.style.width = `${maxX}px`;
         inner.style.height = `${maxY}px`;
+        inner.style.transform = `scale(${canvasZoom})`;
+        inner.style.transformOrigin = '0 0';
       }
+      syncCanvasBackground();
     }
 
     function renderWorkflowCanvas() {
@@ -887,8 +964,8 @@
       trigEl.style.left = `${tp.x}px`;
       trigEl.style.top = `${tp.y}px`;
       trigEl.innerHTML = `
-        <div class="px-3 py-2 flex items-center justify-between gap-2 cursor-grab active:cursor-grabbing border-b border-zinc-800"
-             onmousedown="startDragNode(event, '__trigger__')">
+        <div class="wf-drag-handle px-3 py-2 flex items-center justify-between gap-2 cursor-grab active:cursor-grabbing border-b border-zinc-800"
+             onpointerdown="startDragNode(event, '__trigger__')">
           <div class="flex items-center gap-1.5">
             <span class="text-amber-400 text-xs">⚡</span>
             <span class="text-[11px] font-semibold tracking-tight">DM Recibido</span>
@@ -926,19 +1003,31 @@
         const routesHtml = (step.routes || []).map((r, rIdx) => {
           const targetStep = steps.find(t => t.id === r.targetStepId);
           const targetExists = Boolean(targetStep);
+          const isWildcard = isWildcardRouteUI(r);
           const isBeingLinked = linkingRouteState && linkingRouteState.sourceStepId === step.id && linkingRouteState.routeIdx === rIdx;
           const shortKey = String(r.key || '?').split(/[,|]/)[0].trim() || '?';
           return `
-            <div class="relative flex items-center justify-between gap-1 px-1.5 py-1 rounded-lg ${isBeingLinked ? 'bg-blue-50 border-blue-400 ring-2 ring-blue-500/20' : 'bg-zinc-50 hover:bg-zinc-100/80 border-zinc-200/90'} border text-[10px] group"
-                 onmousedown="event.stopPropagation()">
-              <input type="text"
-                     value="${escapeHtml(shortKey)}"
-                     onchange="updateInlineRouteKey('${escapeJsSingleQuote(step.id)}', ${rIdx}, this.value)"
-                     title="Tecla o número (ej: 1). Clic en editar alias para variantes: ${escapeHtml(r.key || '')}"
-                     class="w-7 px-1 py-0.5 rounded bg-zinc-900 text-white font-mono text-[9.5px] font-semibold text-center focus:outline-none focus:ring-2 focus:ring-blue-500 shrink-0" />
+            <div class="relative flex items-center justify-between gap-1 px-1.5 py-1 rounded-lg ${isBeingLinked ? 'bg-blue-50 border-blue-400 ring-2 ring-blue-500/20' : isWildcard ? 'bg-violet-50/70 hover:bg-violet-50 border-violet-200' : 'bg-zinc-50 hover:bg-zinc-100/80 border-zinc-200/90'} border text-[10px] group"
+                 onpointerdown="event.stopPropagation()">
+              ${isWildcard ? `
+                <button type="button"
+                        onclick="toggleRouteWildcard('${escapeJsSingleQuote(step.id)}', ${rIdx})"
+                        class="px-1.5 py-0.5 rounded bg-violet-600 hover:bg-violet-700 text-white font-semibold text-[9px] shrink-0 transition-colors"
+                        title="Activo: responde tras cualquier mensaje del cliente (sin keywords). Clic para cambiar a tecla fija">✱ Libre</button>
+              ` : `
+                <input type="text"
+                       value="${escapeHtml(shortKey)}"
+                       onchange="updateInlineRouteKey('${escapeJsSingleQuote(step.id)}', ${rIdx}, this.value)"
+                       title="Tecla o número (ej: 1). Escribe * o pulsa ✱ para responder tras cualquier mensaje"
+                       class="w-7 px-1 py-0.5 rounded bg-zinc-900 text-white font-mono text-[9.5px] font-semibold text-center focus:outline-none focus:ring-2 focus:ring-blue-500 shrink-0" />
+                <button type="button"
+                        onclick="toggleRouteWildcard('${escapeJsSingleQuote(step.id)}', ${rIdx})"
+                        class="px-1 py-0.5 rounded border border-zinc-200 bg-white hover:bg-violet-50 hover:text-violet-700 hover:border-violet-300 text-zinc-400 text-[9px] font-semibold shrink-0 transition-colors"
+                        title="Cambiar a 'Cualquier respuesta' (para respuestas variables sin keywords)">✱</button>
+              `}
               <input type="text"
                      value="${escapeHtml(r.label || '')}"
-                     placeholder="${targetStep ? escapeHtml(targetStep.title) : 'Nombre de opción...'}"
+                     placeholder="${isWildcard ? 'Tras respuesta variable...' : (targetStep ? escapeHtml(targetStep.title) : 'Nombre de opción...')}"
                      oninput="updateInlineRouteLabel('${escapeJsSingleQuote(step.id)}', ${rIdx}, this.value)"
                      class="flex-1 min-w-0 bg-transparent px-1 py-0.5 text-[10.5px] font-medium ${targetExists ? 'text-zinc-800' : 'text-amber-700'} focus:bg-white focus:outline-none rounded truncate" />
               <button type="button"
@@ -962,14 +1051,17 @@
                     class="wf-port shrink-0 -mr-[14px] cursor-pointer ${
                       isBeingLinked
                         ? '!border-blue-600 !bg-blue-600 scale-125'
-                        : targetExists
-                          ? '!border-zinc-700 !bg-zinc-900'
-                          : '!border-blue-500 !bg-white'
+                        : isWildcard && targetExists
+                          ? '!border-violet-600 !bg-violet-600'
+                          : targetExists
+                            ? '!border-zinc-700 !bg-zinc-900'
+                            : '!border-blue-500 !bg-white'
                     }"
                     title="Clic para abrir el enlace siguiendo el mouse y conectar con otra ventana"></span>
             </div>
           `;
         }).join('');
+        const hasWildcardOut = (step.routes || []).some(r => isWildcardRouteUI(r));
 
         const nodeEl = document.createElement('div');
         nodeEl.id = `wf_node_${step.id}`;
@@ -979,6 +1071,7 @@
 
         nodeEl.onclick = (e) => {
           e.stopPropagation();
+          if (Date.now() < suppressCanvasClickUntil) return;
           if (linkingRouteState) {
             if (linkingRouteState.sourceStepId !== step.id) {
               finishLinkingOption(step.id);
@@ -1006,19 +1099,19 @@
                title="Entrada a esta ventana"></div>
 
           <!-- Barra de Título Arrastrable con Edición Directa -->
-          <div class="px-2.5 py-2 border-b border-zinc-100 flex items-center justify-between gap-1.5 cursor-grab active:cursor-grabbing rounded-t-[13px] bg-zinc-50/70"
-               onmousedown="startDragNode(event, '${escapeJsSingleQuote(step.id)}')">
+          <div class="wf-drag-handle px-2.5 py-2 border-b border-zinc-100 flex items-center justify-between gap-1.5 cursor-grab active:cursor-grabbing rounded-t-[13px] bg-zinc-50/70"
+               onpointerdown="startDragNode(event, '${escapeJsSingleQuote(step.id)}')">
             <div class="flex items-center gap-1.5 min-w-0 flex-1">
               <span class="text-zinc-400 text-xs select-none" title="Arrastra desde aquí para mover">⠿</span>
               <span class="w-2 h-2 rounded-full ${typeMeta.dot} shrink-0"></span>
               <input type="text"
                      value="${escapeHtml(step.title)}"
                      placeholder="Nombre del paso..."
-                     onmousedown="event.stopPropagation()"
+                     onpointerdown="event.stopPropagation()"
                      oninput="updateStepField('${escapeJsSingleQuote(step.id)}', 'title', this.value)"
                      class="w-full bg-transparent text-[11px] font-semibold text-zinc-900 focus:bg-white focus:px-1 focus:outline-none focus:ring-1 focus:ring-zinc-300 rounded truncate" />
             </div>
-            <div class="flex items-center gap-1 shrink-0" onmousedown="event.stopPropagation()">
+            <div class="flex items-center gap-1 shrink-0" onpointerdown="event.stopPropagation()">
               ${isRoot ? '<span class="text-[8px] font-mono px-1 py-0.2 rounded bg-emerald-600 text-white">INICIO</span>' : ''}
               <span class="text-[8px] font-mono px-1.5 py-0.2 rounded border ${typeMeta.cls}">${typeMeta.label}</span>
               ${!isRoot && steps.length > 1 ? `
@@ -1032,7 +1125,7 @@
 
           <!-- Cuerpo: Respuesta Directamente Editable + Opciones -->
           <div class="p-2.5 space-y-2 text-[11px]">
-            <div onmousedown="event.stopPropagation()">
+            <div onpointerdown="event.stopPropagation()">
               <textarea id="inlineMsg_${escapeHtml(step.id)}"
                         rows="3"
                         placeholder="Escribe aquí la respuesta de esta ventana (vacía)..."
@@ -1045,7 +1138,7 @@
               <div class="flex items-center justify-between text-[9.5px] text-zinc-400 font-medium px-0.5">
                 <span>Opciones / Siguientes pasos (${(step.routes || []).length})</span>
                 <button type="button"
-                        onmousedown="event.stopPropagation()"
+                        onpointerdown="event.stopPropagation()"
                         onclick="addInlineOptionAndLink(event, '${escapeJsSingleQuote(step.id)}')"
                         class="text-blue-600 hover:text-blue-800 font-semibold flex items-center gap-0.5">
                   <span>+ Añadir opción y enlazar</span>
@@ -1059,7 +1152,7 @@
             </div>
 
             <!-- Pie de Ventanita: Auto-Pausa 1-clic & Ganchos Avanzados -->
-            <div class="flex items-center justify-between gap-1.5 pt-1.5 border-t border-zinc-100" onmousedown="event.stopPropagation()">
+            <div class="flex items-center justify-between gap-1.5 pt-1.5 border-t border-zinc-100" onpointerdown="event.stopPropagation()">
               <button type="button"
                       onclick="toggleStepAutoPauseInline('${escapeJsSingleQuote(step.id)}')"
                       class="py-1 px-2 rounded-lg border text-[10px] font-medium transition-colors ${
@@ -1176,6 +1269,7 @@
 
           svgHtml += `
             <path d="${d}" fill="none" stroke="transparent" stroke-width="14"
+                  data-wire-hit="1"
                   class="pointer-events-auto cursor-pointer"
                   onclick="startLinkingOption(event, '${escapeJsSingleQuote(step.id)}', ${rIdx})" />
             <path d="${d}" fill="none" stroke="${strokeColor}" stroke-width="${strokeWidth}" marker-end="${marker}" />
@@ -1201,13 +1295,13 @@
     }
 
     // =========================================================
-    // 4. ARRASTRE DE NODOS (60fps) Y ENLACES SIGUIENDO EL MOUSE
+    // 4. ARRASTRE DE NODOS (60fps), PAN DEL LIENZO (CLIC/DEDO) Y ENLACES
     // =========================================================
     function startDragNode(event, stepId) {
-      if (event.button !== 0) return;
-      if (linkingRouteState) return;
+      if (event.button !== undefined && event.button !== 0) return;
+      if (linkingRouteState || draggingNodeState || panningState) return;
       event.stopPropagation();
-      event.preventDefault();
+      if (event.pointerType === 'mouse') event.preventDefault();
 
       let origX = 0, origY = 0;
       if (stepId === '__trigger__') {
@@ -1224,6 +1318,7 @@
       }
 
       draggingNodeState = {
+        pointerId: event.pointerId,
         stepId,
         startClientX: event.clientX,
         startClientY: event.clientY,
@@ -1371,20 +1466,63 @@
     }
 
     function setupGlobalCanvasListeners() {
+      const viewport = document.getElementById('canvasViewport');
+      const wrapper = document.getElementById('canvasScaleWrapper');
       const inner = document.getElementById('flowCanvasInner');
-      if (inner) {
-        inner.addEventListener('click', (e) => {
-          if (e.target === inner || e.target.id === 'nodesLayer' || e.target.id === 'flowSvgLayer') {
+
+      if (viewport) {
+        viewport.addEventListener('click', (e) => {
+          if (Date.now() < suppressCanvasClickUntil) return;
+          if (e.target === viewport || e.target === wrapper || e.target === inner || e.target.id === 'nodesLayer' || e.target.id === 'flowSvgLayer') {
             if (linkingRouteState) cancelConnectMode();
           }
         });
+
+        viewport.addEventListener('scroll', syncCanvasBackground, { passive: true });
+
+        viewport.addEventListener('wheel', (e) => {
+          if (e.ctrlKey || e.metaKey) {
+            e.preventDefault();
+            setCanvasZoom(canvasZoom + (e.deltaY < 0 ? 0.1 : -0.1));
+          }
+        }, { passive: false });
+
+        viewport.addEventListener('pointerdown', (e) => {
+          if (draggingNodeState || panningState) return;
+
+          const isMiddleMouse = e.button === 1;
+          if (!isMiddleMouse && e.button !== undefined && e.button !== 0) return;
+
+          const interactiveHit = e.target.closest('input, textarea, select, button, a, label, [data-out-port], [data-in-port], .wf-port, .wf-drag-handle, [data-wire-hit]');
+          if (!isMiddleMouse && interactiveHit) return;
+
+          // En escritorio, dejar clics dentro del cuerpo de la ventana para seleccionar/enlazar sin mover el lienzo;
+          // en móvil/táctil permitir deslizar también desde áreas no interactivas si las ventanas ocupan la pantalla.
+          if (!isMiddleMouse && e.pointerType === 'mouse' && e.target.closest('.wf-node')) return;
+
+          if (isMiddleMouse) e.preventDefault();
+          if (document.activeElement && viewport.contains(document.activeElement) && document.activeElement !== document.body) {
+            document.activeElement.blur();
+          }
+
+          panningState = {
+            pointerId: e.pointerId,
+            startClientX: e.clientX,
+            startClientY: e.clientY,
+            startScrollLeft: viewport.scrollLeft,
+            startScrollTop: viewport.scrollTop,
+            moved: false
+          };
+        });
       }
 
-      document.addEventListener('mousemove', (e) => {
-        if (draggingNodeState) {
+      document.addEventListener('pointermove', (e) => {
+        if (draggingNodeState && (draggingNodeState.pointerId === undefined || e.pointerId === draggingNodeState.pointerId)) {
           const dx = (e.clientX - draggingNodeState.startClientX) / canvasZoom;
           const dy = (e.clientY - draggingNodeState.startClientY) / canvasZoom;
-          if (Math.abs(dx) > 3 || Math.abs(dy) > 3) draggingNodeState.moved = true;
+          if (!draggingNodeState.moved && Math.hypot(e.clientX - draggingNodeState.startClientX, e.clientY - draggingNodeState.startClientY) > 3) {
+            draggingNodeState.moved = true;
+          }
 
           const newX = Math.max(12, Math.round(draggingNodeState.origX + dx));
           const newY = Math.max(12, Math.round(draggingNodeState.origY + dy));
@@ -1402,16 +1540,59 @@
             el.style.top = `${newY}px`;
           }
           renderWiresOnly();
+        } else if (panningState && viewport && (panningState.pointerId === undefined || e.pointerId === panningState.pointerId)) {
+          const rawDx = e.clientX - panningState.startClientX;
+          const rawDy = e.clientY - panningState.startClientY;
+          if (!panningState.moved && Math.hypot(rawDx, rawDy) > 4) {
+            panningState.moved = true;
+            viewport.classList.add('canvas-panning');
+            try { window.getSelection?.()?.removeAllRanges?.(); } catch (_) {}
+            try { viewport.setPointerCapture?.(e.pointerId); } catch (_) {}
+          }
+          if (panningState.moved) {
+            viewport.scrollLeft = panningState.startScrollLeft - rawDx;
+            viewport.scrollTop = panningState.startScrollTop - rawDy;
+            syncCanvasBackground();
+          }
+          if (linkingRouteState) {
+            updateLiveWireToClientPoint(e.clientX, e.clientY);
+          }
         } else if (linkingRouteState) {
           updateLiveWireToClientPoint(e.clientX, e.clientY);
         }
       });
 
-      document.addEventListener('mouseup', () => {
-        if (draggingNodeState) {
-          if (draggingNodeState.moved) updateCanvasBounds();
+      const endActiveInteractions = (e) => {
+        if (draggingNodeState && (draggingNodeState.pointerId === undefined || e.pointerId === undefined || e.pointerId === draggingNodeState.pointerId)) {
+          if (draggingNodeState.moved) {
+            updateCanvasBounds();
+            suppressCanvasClickUntil = Date.now() + 120;
+          }
           draggingNodeState = null;
         }
+        if (panningState && (panningState.pointerId === undefined || e.pointerId === undefined || e.pointerId === panningState.pointerId)) {
+          if (panningState.moved) {
+            suppressCanvasClickUntil = Date.now() + 150;
+          }
+          if (viewport) {
+            viewport.classList.remove('canvas-panning');
+            try {
+              if (panningState.pointerId !== undefined && viewport.hasPointerCapture?.(panningState.pointerId)) {
+                viewport.releasePointerCapture(panningState.pointerId);
+              }
+            } catch (_) {}
+          }
+          panningState = null;
+        }
+      };
+
+      document.addEventListener('pointerup', endActiveInteractions);
+      document.addEventListener('pointercancel', endActiveInteractions);
+
+      window.addEventListener('resize', () => {
+        updateCanvasBounds();
+        syncCanvasBackground();
+        requestAnimationFrame(renderWiresOnly);
       });
     }
 
@@ -1904,8 +2085,10 @@
       const count = activeConfig.workflow.steps.length;
       const newId = 'step_custom_' + Date.now().toString(36);
       const viewport = document.getElementById('canvasViewport');
-      let posX = Math.max(360, Math.round((viewport.scrollLeft + 340) / canvasZoom));
-      let posY = Math.max(60, Math.round((viewport.scrollTop + 110) / canvasZoom));
+      const viewOffsetX = Math.min(340, Math.max(24, Math.round((viewport?.clientWidth || 800) / 2 - 125)));
+      const minX = viewport && viewport.clientWidth < 540 ? 40 : 360;
+      let posX = Math.max(minX, Math.round(((viewport?.scrollLeft || 0) + viewOffsetX) / canvasZoom));
+      let posY = Math.max(60, Math.round(((viewport?.scrollTop || 0) + 110) / canvasZoom));
 
       // Evitar encimar si ya hay una ventana en esa misma coordenada
       while (activeConfig.workflow.steps.some(s => Math.abs((s.position?.x || 0) - posX) < 40 && Math.abs((s.position?.y || 0) - posY) < 40)) {

@@ -133,7 +133,8 @@ module.exports = async function handler(req, res) {
 
             // Si el gancho activado requiere espera de datos (Trade-In, Taller, Asesor), pausar al bot tras responder
             if (shouldPause) {
-              const reason = matchedHook ? `Auto-Pausa: ${matchedHook.title}` : 'En atención humana';
+              const pauseTarget = matchedStep || matchedHook;
+              const reason = pauseTarget ? `Auto-Pausa: ${pauseTarget.title}` : 'En atención humana';
               console.log(`[Auto-Pausa Activada] Gancho "${hookId}" requiere seguimiento humano. Pausando bot para ${senderId} por ${activeConfig.settings?.advisorPauseHours || 12}h.`);
               await pauseUser(senderId, pauseDuration, reason, PAGE_ACCESS_TOKEN);
             }

@@ -535,6 +535,17 @@ function stripMenuPrefix(clean) {
   return clean.replace(/^(?:(?:la|el)\s+)?(?:(?:opcion|numero|num|nro)\s+)*(?:(?:la|el)\s+)?/, "").trim();
 }
 
+function isWildcardRoute(route) {
+  if (!route) return false;
+  if (route.matchAny === true) return true;
+  const rawParts = String(route.key || "").split(/[,|]/).map(s => s.trim()).filter(Boolean);
+  return rawParts.some(p => {
+    if (p === "*" || p === "✱") return true;
+    const norm = normalizeText(p);
+    return norm === "any" || norm === "cualquier" || norm === "cualquiera" || norm === "cualquier respuesta" || norm === "libre";
+  });
+}
+
 function isOptionOnlyKeyword(cleanKw) {
   return cleanKw.length <= 2 || NUMERIC_OPTION_WORDS.has(cleanKw);
 }
@@ -638,24 +649,24 @@ function resolveBotResponse(userText, config = DEFAULT_CONFIG, context = {}) {
     return { text: null, hookId: null, nextStep: currentStep, shouldPause: false, shouldUnpause: false };
   }
 
-  // 3. Si el mensaje parece directamente una lista de especificaciones técnicas
-  if (looksLikeDeviceSpecs(clean) && !clean.includes("vender") && !clean.includes("reparar")) {
-    const tradeinStepId = workflowSteps.some(s => s.id === "step_tradein") ? "step_tradein" : currentStep;
-    return {
-      text: null,
-      hookId: "spec_detected_silent",
-      nextStep: tradeinStepId,
-      shouldPause: true,
-      shouldUnpause: false
-    };
-  }
+  const buildRouteReply = (targetStep) => ({
+    text: formatResponseText(targetStep.message, config),
+    hookId: targetStep.id,
+    nextStep: targetStep.id,
+    shouldPause: Boolean(targetStep.autoPause || targetStep.type === "handoff" || targetStep.id === "step_advisor"),
+    shouldUnpause: Boolean(targetStep.unpauseOnTrigger)
+  });
 
-  // 4. Si el cliente está posicionado en un paso con enlaces salientes, evaluar primero esos enlaces
+  // Preparar enlaces activos del paso donde se encuentra el cliente
   const activeStep = currentStep ? workflowSteps.find(s => s.id === currentStep) : null;
   const effectiveActiveStep = activeStep || (isStrictStepMode && !isNewCustomer ? rootStep : null);
+  const activeRoutes = (effectiveActiveStep && Array.isArray(effectiveActiveStep.routes)) ? effectiveActiveStep.routes : [];
+  const specificRoutes = activeRoutes.filter(r => !isWildcardRoute(r));
+  const wildcardRoutes = activeRoutes.filter(r => isWildcardRoute(r));
 
-  if (effectiveActiveStep && Array.isArray(effectiveActiveStep.routes) && effectiveActiveStep.routes.length > 0) {
-    for (const route of effectiveActiveStep.routes) {
+  // 3. Evaluar primero opciones específicas del paso activo (ej: teclas 1..6 o nombre de opción)
+  if (specificRoutes.length > 0) {
+    for (const route of specificRoutes) {
       const targetStep = workflowSteps.find(s => s.id === route.targetStepId);
       if (!targetStep) continue;
 
@@ -674,23 +685,35 @@ function resolveBotResponse(userText, config = DEFAULT_CONFIG, context = {}) {
         && !hasNegativeMatch(targetStep, clean);
 
       if (keyMatch || labelMatch) {
-        return {
-          text: formatResponseText(targetStep.message, config),
-          hookId: targetStep.id,
-          nextStep: targetStep.id,
-          shouldPause: Boolean(targetStep.autoPause || targetStep.type === "handoff" || targetStep.id === "step_advisor"),
-          shouldUnpause: Boolean(targetStep.unpauseOnTrigger)
-        };
+        return buildRouteReply(targetStep);
       }
     }
   }
 
-  // 5. Evaluación global por prioridad y palabras clave (protege intenciones directas de Meta Ads)
-  const hasActiveRoutes = Boolean(
-    effectiveActiveStep && Array.isArray(effectiveActiveStep.routes) && effectiveActiveStep.routes.length > 0
-  );
+  // 4. Si el cliente está en un paso posterior (ej: Trade-In pidiendo detalles) con enlace "Cualquier respuesta (*)",
+  // capturar cualquier mensaje variable antes de detecciones globales (evita saltos accidentales a Catálogo o Silencio)
+  if (activeStep && !isNewCustomer && activeStep.id !== initialStepId && wildcardRoutes.length > 0) {
+    for (const route of wildcardRoutes) {
+      const targetStep = workflowSteps.find(s => s.id === route.targetStepId);
+      if (targetStep) return buildRouteReply(targetStep);
+    }
+  }
+
+  // 5. Si el mensaje parece directamente una lista de especificaciones técnicas (sin paso siguiente libre esperando respuesta)
+  if (looksLikeDeviceSpecs(clean) && !clean.includes("vender") && !clean.includes("reparar")) {
+    const tradeinStepId = workflowSteps.some(s => s.id === "step_tradein") ? "step_tradein" : currentStep;
+    return {
+      text: null,
+      hookId: "spec_detected_silent",
+      nextStep: tradeinStepId,
+      shouldPause: true,
+      shouldUnpause: false
+    };
+  }
+
+  // 6. Evaluación global por prioridad y palabras clave (protege intenciones directas de Meta Ads)
   const matchedNode = findMatchingNode(sortedNodes, clean, {
-    requireLongKeyword: isStrictStepMode && hasActiveRoutes
+    requireLongKeyword: isStrictStepMode && specificRoutes.length > 0
   });
 
   if (matchedNode) {
@@ -704,13 +727,20 @@ function resolveBotResponse(userText, config = DEFAULT_CONFIG, context = {}) {
     };
   }
 
-  // 6. Validación estricta en cualquier paso con enlaces salientes definidos
+  // 7. Respaldo por enlace "Cualquier respuesta (*)" en el menú raíz (solo si no hubo coincidencia específica ni global)
+  if (!isNewCustomer && wildcardRoutes.length > 0) {
+    for (const route of wildcardRoutes) {
+      const targetStep = workflowSteps.find(s => s.id === route.targetStepId);
+      if (targetStep) return buildRouteReply(targetStep);
+    }
+  }
+
+  // 8. Validación estricta en cualquier paso con enlaces salientes definidos
   if (
     isStrictStepMode
     && !isNewCustomer
     && effectiveActiveStep
-    && Array.isArray(effectiveActiveStep.routes)
-    && effectiveActiveStep.routes.length > 0
+    && specificRoutes.length > 0
     && effectiveActiveStep.invalidMessage
   ) {
     return {
@@ -752,5 +782,6 @@ module.exports = {
   DEFAULT_CONFIG,
   resolveBotResponse,
   normalizeText,
-  formatResponseText
+  formatResponseText,
+  isWildcardRoute
 };
