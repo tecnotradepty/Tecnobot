@@ -4,7 +4,7 @@
 
 const { DEFAULT_CONFIG } = require('./responses');
 
-const CURRENT_SCHEMA_VERSION = 5;
+const CURRENT_SCHEMA_VERSION = 6;
 
 let inMemoryConfig = { ...DEFAULT_CONFIG, schemaVersion: CURRENT_SCHEMA_VERSION };
 let inMemoryCustomers = {};
@@ -130,10 +130,43 @@ function upgradeAndMergeConfig(saved) {
 
   let finalSteps;
   if (savedVersion >= CURRENT_SCHEMA_VERSION && savedSteps.length > 0) {
-    // En v5+, respetar exactamente los pasos, enlaces (incluso routes=[]) y keywords editados en el mapa
+    // En v6+, respetar exactamente los pasos, enlaces (incluso routes=[]) y keywords editados en el mapa
     finalSteps = savedSteps.map((s, idx) => {
       const def = defaultWorkflow.steps.find(d => d.id === s.id) || null;
       return normalizeWorkflowStep(s, idx, def);
+    });
+  } else if (savedVersion >= 5 && savedSteps.length > 0) {
+    // Migración puntual v5 -> v6: inyectar números en letras (uno, dos, tres...) sin revertir borrados
+    const numberAliasesByStep = {
+      step_catalog: ['uno', 'una', 'primero', 'primera'],
+      step_repairs: ['dos', 'segundo', 'segunda'],
+      step_tradein: ['tres', 'tercero', 'tercera'],
+      step_hours: ['cuatro', 'cuarto', 'cuarta'],
+      step_location: ['cinco', 'quinto', 'quinta'],
+      step_advisor: ['seis', 'sexto', 'sexta']
+    };
+    const routeKeyByDigit = {
+      '1': '1, uno, una, primera, primero',
+      '2': '2, dos, segunda, segundo',
+      '3': '3, tres, tercera, tercero',
+      '4': '4, cuatro, cuarta, cuarto',
+      '5': '5, cinco, quinta, quinto',
+      '6': '6, seis, sexta, sexto'
+    };
+    finalSteps = savedSteps.map((s, idx) => {
+      const def = defaultWorkflow.steps.find(d => d.id === s.id) || null;
+      const stepCopy = { ...s };
+      const extras = numberAliasesByStep[s.id];
+      if (extras) {
+        stepCopy.keywords = Array.from(new Set([...(Array.isArray(s.keywords) ? s.keywords : []), ...extras]));
+      }
+      if (Array.isArray(s.routes) && s.routes.length > 0) {
+        stepCopy.routes = s.routes.map(r => {
+          const trimmedKey = String(r.key || '').trim();
+          return routeKeyByDigit[trimmedKey] ? { ...r, key: routeKeyByDigit[trimmedKey] } : r;
+        });
+      }
+      return normalizeWorkflowStep(stepCopy, idx, def);
     });
   } else {
     // Migración desde v1-v4: fusionar defaults de workflow + hooks legacy sin perder ediciones ni reglas de anuncios

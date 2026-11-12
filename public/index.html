@@ -909,11 +909,13 @@
 
         const routesHtml = (step.routes || []).map((r, rIdx) => {
           const targetExists = steps.some(t => t.id === r.targetStepId);
+          const shortKey = String(r.key || '?').split(/[,|]/)[0].trim() || '?';
           return `
             <div class="relative flex items-center justify-between gap-1.5 px-2 py-1 rounded-md bg-zinc-50 hover:bg-zinc-100 border border-zinc-200/80 text-[10px] cursor-pointer group"
-                 onclick="event.stopPropagation(); openRouteModal('${escapeJsSingleQuote(step.id)}', ${rIdx})">
+                 onclick="event.stopPropagation(); openRouteModal('${escapeJsSingleQuote(step.id)}', ${rIdx})"
+                 title="Teclas: ${escapeHtml(r.key || '?')}">
               <div class="flex items-center gap-1.5 min-w-0">
-                <span class="px-1 py-0.2 rounded bg-zinc-900 text-white font-mono text-[9px] font-semibold shrink-0">${escapeHtml(r.key || '?')}</span>
+                <span class="px-1.5 py-0.2 rounded bg-zinc-900 text-white font-mono text-[9px] font-semibold shrink-0">${escapeHtml(shortKey)}</span>
                 <span class="truncate font-medium ${targetExists ? 'text-zinc-700' : 'text-rose-600'}">${escapeHtml(r.label || r.targetStepId || 'Sin destino')}</span>
               </div>
               <span data-out-port="${escapeHtml(step.id)}:${rIdx}"
@@ -1100,13 +1102,15 @@
             <path d="${d}" fill="none" stroke="${strokeColor}" stroke-width="${strokeWidth}" marker-end="${marker}" />
           `;
 
+          const pillParts = String(route.key || '?').split(/[,|]/).map(s => s.trim()).filter(Boolean);
+          const pillKeyLabel = pillParts.slice(0, 2).join(', ');
           pillsHtml += `
             <button type="button"
                     onclick="event.stopPropagation(); openRouteModal('${escapeJsSingleQuote(step.id)}', ${rIdx})"
                     style="left:${mx}px; top:${my}px; transform:translate(-50%,-50%)"
                     class="absolute pointer-events-auto px-2 py-0.5 rounded-full bg-white hover:bg-zinc-900 hover:text-white border ${isStepSelected ? 'border-zinc-900 text-zinc-900' : 'border-zinc-300 text-zinc-700'} text-[9.5px] font-medium shadow-xs flex items-center gap-1 transition-colors whitespace-nowrap"
-                    title="Clic para modificar o eliminar este enlace">
-              <span class="font-mono font-bold">[${escapeHtml(route.key || '?')}]</span>
+                    title="Teclas activadoras: ${escapeHtml(route.key || '?')} (Clic para modificar o eliminar)">
+              <span class="font-mono font-bold">[${escapeHtml(pillKeyLabel || '?')}]</span>
               ${route.label ? `<span class="max-w-[100px] truncate">${escapeHtml(route.label)}</span>` : ''}
             </button>
           `;
@@ -2139,14 +2143,25 @@
       });
     }
 
+    const SIM_NUMERIC_OPTION_WORDS = new Set([
+      "cero", "uno", "una", "dos", "tres", "cuatro", "cinco", "seis", "siete", "ocho", "nueve", "diez",
+      "primero", "primera", "segundo", "segunda", "tercero", "tercera", "cuarto", "cuarta", "quinto", "quinta", "sexto", "sexta"
+    ]);
+
+    function stripMenuPrefixSim(clean) {
+      return clean.replace(/^(?:(?:la|el)\s+)?(?:(?:opcion|numero|num|nro)\s+)*(?:(?:la|el)\s+)?/, "").trim();
+    }
+
     function simFindMatchingNode(nodes, clean, requireLongKeyword = false) {
+      const cleanOption = stripMenuPrefixSim(clean);
       for (const n of nodes) {
         if (simHasNegative(n, clean)) continue;
         const ok = (n.keywords || []).some(k => {
           const ck = normalizeStr(k);
           if (!ck) return false;
-          if (requireLongKeyword && ck.length <= 2) return false;
-          return ck.length <= 2 ? clean === ck : clean.includes(ck);
+          const optionOnly = ck.length <= 2 || SIM_NUMERIC_OPTION_WORDS.has(ck);
+          if (requireLongKeyword && optionOnly) return false;
+          return optionOnly ? (clean === ck || cleanOption === ck) : clean.includes(ck);
         });
         if (ok) return n;
       }
@@ -2221,7 +2236,8 @@
               const target = workflowSteps.find(s => s.id === r.targetStepId);
               if (!target) continue;
               const tokens = String(r.key || '').split(/[,|]/).map(t => normalizeStr(t)).filter(Boolean);
-              const keyMatch = tokens.some(tk => clean === tk);
+              const cleanOption = stripMenuPrefixSim(clean);
+              const keyMatch = tokens.some(tk => clean === tk || cleanOption === tk);
               const cl = normalizeStr(r.label);
               const labelMatch = !keyMatch && cl && cl.length > 3 && clean.includes(cl) && !simHasNegative(target, clean);
               if (keyMatch || labelMatch) {

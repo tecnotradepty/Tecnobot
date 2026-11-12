@@ -68,12 +68,12 @@ const DEFAULT_CONFIG = {
           "5️⃣ *Ubicación de Tienda*\n" +
           "6️⃣ *Hablar con un Asesor*",
         routes: [
-          { key: "1", targetStepId: "step_catalog", label: "Catálogo y Precios" },
-          { key: "2", targetStepId: "step_repairs", label: "Taller de Reparaciones" },
-          { key: "3", targetStepId: "step_tradein", label: "Trade-In / Vender" },
-          { key: "4", targetStepId: "step_hours", label: "Horarios de Atención" },
-          { key: "5", targetStepId: "step_location", label: "Ubicación de Tienda" },
-          { key: "6", targetStepId: "step_advisor", label: "Hablar con un Asesor" }
+          { key: "1, uno, una, primera, primero", targetStepId: "step_catalog", label: "Catálogo y Precios" },
+          { key: "2, dos, segunda, segundo", targetStepId: "step_repairs", label: "Taller de Reparaciones" },
+          { key: "3, tres, tercera, tercero", targetStepId: "step_tradein", label: "Trade-In / Vender" },
+          { key: "4, cuatro, cuarta, cuarto", targetStepId: "step_hours", label: "Horarios de Atención" },
+          { key: "5, cinco, quinta, quinto", targetStepId: "step_location", label: "Ubicación de Tienda" },
+          { key: "6, seis, sexta, sexto", targetStepId: "step_advisor", label: "Hablar con un Asesor" }
         ],
         invalidMessage: "⚠️ Opción no válida. Por favor responde únicamente con un número del *1 al 6* o escribe *Menú* para reiniciar."
       },
@@ -89,6 +89,10 @@ const DEFAULT_CONFIG = {
         unpauseOnTrigger: false,
         keywords: [
           "1",
+          "uno",
+          "una",
+          "primero",
+          "primera",
           "precio",
           "precios",
           "catalogo",
@@ -180,6 +184,9 @@ const DEFAULT_CONFIG = {
         unpauseOnTrigger: false,
         keywords: [
           "2",
+          "dos",
+          "segundo",
+          "segunda",
           "reparar",
           "reparacion",
           "reparaciones",
@@ -240,6 +247,9 @@ const DEFAULT_CONFIG = {
         unpauseOnTrigger: false,
         keywords: [
           "3",
+          "tres",
+          "tercero",
+          "tercera",
           "vender",
           "vendo",
           "vender mi",
@@ -383,7 +393,7 @@ const DEFAULT_CONFIG = {
         autoPause: false,
         allowedWhenPaused: true,
         unpauseOnTrigger: false,
-        keywords: ["4", "horario", "horarios", "hora abren", "a que hora", "abren", "abierto", "cierran"],
+        keywords: ["4", "cuatro", "cuarto", "cuarta", "horario", "horarios", "hora abren", "a que hora", "abren", "abierto", "cierran"],
         negativeKeywords: ["bateria", "pantalla", "salud", "garantia"],
         message: 
           "🕒 *Horario de Atención TecnoTrade*\n\n" +
@@ -405,7 +415,7 @@ const DEFAULT_CONFIG = {
         autoPause: false,
         allowedWhenPaused: true,
         unpauseOnTrigger: false,
-        keywords: ["5", "ubicacion", "donde estan", "direccion", "como llegar", "tienda fisica", "mapa", "maps"],
+        keywords: ["5", "cinco", "quinto", "quinta", "ubicacion", "donde estan", "direccion", "como llegar", "tienda fisica", "mapa", "maps"],
         negativeKeywords: ["bateria", "pantalla", "salud"],
         message: 
           "📍 *Nuestra Ubicación*\n\n" +
@@ -429,6 +439,9 @@ const DEFAULT_CONFIG = {
         unpauseOnTrigger: false,
         keywords: [
           "6",
+          "seis",
+          "sexto",
+          "sexta",
           "asesor",
           "humano",
           "persona",
@@ -513,6 +526,19 @@ const LEGACY_HOOK_TO_STEP = {
   hook_advisor: "step_advisor"
 };
 
+const NUMERIC_OPTION_WORDS = new Set([
+  "cero", "uno", "una", "dos", "tres", "cuatro", "cinco", "seis", "siete", "ocho", "nueve", "diez",
+  "primero", "primera", "segundo", "segunda", "tercero", "tercera", "cuarto", "cuarta", "quinto", "quinta", "sexto", "sexta"
+]);
+
+function stripMenuPrefix(clean) {
+  return clean.replace(/^(?:(?:la|el)\s+)?(?:(?:opcion|numero|num|nro)\s+)*(?:(?:la|el)\s+)?/, "").trim();
+}
+
+function isOptionOnlyKeyword(cleanKw) {
+  return cleanKw.length <= 2 || NUMERIC_OPTION_WORDS.has(cleanKw);
+}
+
 function hasNegativeMatch(node, clean) {
   return (node.negativeKeywords || []).some(neg => {
     const cleanNeg = normalizeText(neg);
@@ -522,13 +548,17 @@ function hasNegativeMatch(node, clean) {
 
 function findMatchingNode(nodes, clean, options = {}) {
   const { requireLongKeyword = false } = options;
+  const cleanOption = stripMenuPrefix(clean);
   for (const node of nodes) {
     if (hasNegativeMatch(node, clean)) continue;
     const matched = (node.keywords || []).some(kw => {
       const cleanKw = normalizeText(kw);
       if (!cleanKw) return false;
-      if (requireLongKeyword && cleanKw.length <= 2) return false;
-      return cleanKw.length <= 2 ? clean === cleanKw : clean.includes(cleanKw);
+      const optionOnly = isOptionOnlyKeyword(cleanKw);
+      if (requireLongKeyword && optionOnly) return false;
+      return optionOnly
+        ? (clean === cleanKw || cleanOption === cleanKw)
+        : clean.includes(cleanKw);
     });
     if (matched) return node;
   }
@@ -633,7 +663,8 @@ function resolveBotResponse(userText, config = DEFAULT_CONFIG, context = {}) {
         .split(/[,|]/)
         .map(k => normalizeText(k))
         .filter(Boolean);
-      const keyMatch = keyTokens.some(tk => clean === tk);
+      const cleanOption = stripMenuPrefix(clean);
+      const keyMatch = keyTokens.some(tk => clean === tk || cleanOption === tk);
 
       const cleanLabel = normalizeText(route.label);
       const labelMatch = !keyMatch
