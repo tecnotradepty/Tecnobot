@@ -557,13 +557,27 @@ function hasNegativeMatch(node, clean) {
   });
 }
 
+function getKeywordText(entry) {
+  if (typeof entry === 'string') return entry;
+  if (entry && typeof entry === 'object') return String(entry.text || '');
+  return '';
+}
+
+function isParentScopedKeyword(entry) {
+  return Boolean(entry && typeof entry === 'object' && entry.scope === 'parent');
+}
+
 function findMatchingNode(nodes, clean, options = {}) {
-  const { requireLongKeyword = false } = options;
+  const { requireLongKeyword = false, scope = 'all' } = options;
   const cleanOption = stripMenuPrefix(clean);
   for (const node of nodes) {
     if (hasNegativeMatch(node, clean)) continue;
     const matched = (node.keywords || []).some(kw => {
-      const cleanKw = normalizeText(kw);
+      const parentScoped = isParentScopedKeyword(kw);
+      if (scope === 'global' && parentScoped) return false;
+      if (scope === 'parent' && !parentScoped) return false;
+
+      const cleanKw = normalizeText(getKeywordText(kw));
       if (!cleanKw) return false;
       const optionOnly = isOptionOnlyKeyword(cleanKw);
       if (requireLongKeyword && optionOnly) return false;
@@ -629,13 +643,34 @@ function resolveBotResponse(userText, config = DEFAULT_CONFIG, context = {}) {
   }
 
   // 2. Si el usuario está en PAUSA (ya pidió Trade-In, Taller, Asesor o un humano le habló):
+  const activeStep = (!isNewCustomer && currentStep) ? workflowSteps.find(s => s.id === currentStep) : null;
+  const buildStepReply = (node) => {
+    const targetStepId = node.nextStepId || node.id;
+    return {
+      text: formatResponseText(node.message, config),
+      hookId: node.id,
+      nextStep: targetStepId,
+      shouldPause: Boolean(node.autoPause || node.type === "handoff" || targetStepId === "step_advisor"),
+      shouldUnpause: Boolean(node.unpauseOnTrigger)
+    };
+  };
+
   if (isPaused) {
     if (looksLikeDeviceSpecs(clean)) {
       return { text: null, hookId: null, nextStep: currentStep, shouldPause: false, shouldUnpause: false };
     }
 
     const pausedAllowedNodes = sortedNodes.filter(n => n.allowedWhenPaused);
-    const matchedPaused = findMatchingNode(pausedAllowedNodes, clean);
+    const activeTargetIds = new Set(
+      (activeStep && Array.isArray(activeStep.routes) ? activeStep.routes : [])
+        .map(r => r.targetStepId)
+        .filter(Boolean)
+    );
+    const matchedPaused = (activeTargetIds.size > 0
+      ? findMatchingNode(pausedAllowedNodes.filter(n => activeTargetIds.has(n.nextStepId || n.id)), clean, { scope: 'parent' })
+      : null)
+      || findMatchingNode(pausedAllowedNodes, clean, { scope: 'global' });
+
     if (matchedPaused) {
       return {
         text: formatResponseText(matchedPaused.message, config),
@@ -649,16 +684,7 @@ function resolveBotResponse(userText, config = DEFAULT_CONFIG, context = {}) {
     return { text: null, hookId: null, nextStep: currentStep, shouldPause: false, shouldUnpause: false };
   }
 
-  const buildRouteReply = (targetStep) => ({
-    text: formatResponseText(targetStep.message, config),
-    hookId: targetStep.id,
-    nextStep: targetStep.id,
-    shouldPause: Boolean(targetStep.autoPause || targetStep.type === "handoff" || targetStep.id === "step_advisor"),
-    shouldUnpause: Boolean(targetStep.unpauseOnTrigger)
-  });
-
   // Preparar enlaces activos del paso donde se encuentra el cliente
-  const activeStep = currentStep ? workflowSteps.find(s => s.id === currentStep) : null;
   const effectiveActiveStep = activeStep || (isStrictStepMode && !isNewCustomer ? rootStep : null);
   const activeRoutes = (effectiveActiveStep && Array.isArray(effectiveActiveStep.routes)) ? effectiveActiveStep.routes : [];
   const specificRoutes = activeRoutes.filter(r => !isWildcardRoute(r));
@@ -685,7 +711,22 @@ function resolveBotResponse(userText, config = DEFAULT_CONFIG, context = {}) {
         && !hasNegativeMatch(targetStep, clean);
 
       if (keyMatch || labelMatch) {
-        return buildRouteReply(targetStep);
+        return buildStepReply(targetStep);
+      }
+    }
+  }
+
+  // 3.5. Evaluar keywords sujetas al paso anterior (🔒) únicamente de los pasos destino conectados al paso activo
+  if (effectiveActiveStep && activeRoutes.length > 0) {
+    const connectedIds = new Set(activeRoutes.map(r => r.targetStepId).filter(Boolean));
+    const connectedTargets = sortedNodes.filter(n => connectedIds.has(n.nextStepId || n.id));
+    if (connectedTargets.length > 0) {
+      const scopedMatch = findMatchingNode(connectedTargets, clean, {
+        scope: 'parent',
+        requireLongKeyword: false
+      });
+      if (scopedMatch) {
+        return buildStepReply(scopedMatch);
       }
     }
   }
@@ -695,7 +736,7 @@ function resolveBotResponse(userText, config = DEFAULT_CONFIG, context = {}) {
   if (activeStep && !isNewCustomer && activeStep.id !== initialStepId && wildcardRoutes.length > 0) {
     for (const route of wildcardRoutes) {
       const targetStep = workflowSteps.find(s => s.id === route.targetStepId);
-      if (targetStep) return buildRouteReply(targetStep);
+      if (targetStep) return buildStepReply(targetStep);
     }
   }
 
@@ -711,27 +752,21 @@ function resolveBotResponse(userText, config = DEFAULT_CONFIG, context = {}) {
     };
   }
 
-  // 6. Evaluación global por prioridad y palabras clave (protege intenciones directas de Meta Ads)
+  // 6. Evaluación global por prioridad solo para keywords libres (🌐) (protege intenciones directas de Meta Ads)
   const matchedNode = findMatchingNode(sortedNodes, clean, {
+    scope: 'global',
     requireLongKeyword: isStrictStepMode && specificRoutes.length > 0
   });
 
   if (matchedNode) {
-    const targetStepId = matchedNode.nextStepId || matchedNode.id;
-    return {
-      text: formatResponseText(matchedNode.message, config),
-      hookId: matchedNode.id,
-      nextStep: targetStepId,
-      shouldPause: Boolean(matchedNode.autoPause || matchedNode.type === "handoff" || targetStepId === "step_advisor"),
-      shouldUnpause: Boolean(matchedNode.unpauseOnTrigger)
-    };
+    return buildStepReply(matchedNode);
   }
 
   // 7. Respaldo por enlace "Cualquier respuesta (*)" en el menú raíz (solo si no hubo coincidencia específica ni global)
   if (!isNewCustomer && wildcardRoutes.length > 0) {
     for (const route of wildcardRoutes) {
       const targetStep = workflowSteps.find(s => s.id === route.targetStepId);
-      if (targetStep) return buildRouteReply(targetStep);
+      if (targetStep) return buildStepReply(targetStep);
     }
   }
 
@@ -783,5 +818,7 @@ module.exports = {
   resolveBotResponse,
   normalizeText,
   formatResponseText,
-  isWildcardRoute
+  isWildcardRoute,
+  getKeywordText,
+  isParentScopedKeyword
 };

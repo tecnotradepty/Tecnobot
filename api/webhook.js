@@ -168,9 +168,20 @@ function isKnownBotResponse(echoText, config) {
   if (!cleanEcho) return false;
 
   const candidates = [];
-  for (const step of config.workflow?.steps || []) {
-    if (step.message) candidates.push(formatResponseText(step.message, config));
-    if (step.invalidMessage) candidates.push(formatResponseText(step.invalidMessage, config));
+  const collectFromWorkflow = (wf, wfCfg) => {
+    for (const step of wf?.steps || []) {
+      if (step.message) candidates.push(formatResponseText(step.message, wfCfg));
+      if (step.invalidMessage) candidates.push(formatResponseText(step.invalidMessage, wfCfg));
+    }
+  };
+
+  collectFromWorkflow(config.workflow, config);
+  for (const canvas of config.canvases || []) {
+    const canvasCfg = { settings: canvas.settings || config.settings };
+    collectFromWorkflow(canvas.workflow, canvasCfg);
+    if (canvas.fallbackResponse) {
+      candidates.push(formatResponseText(canvas.fallbackResponse, canvasCfg));
+    }
   }
   for (const hook of config.hooks || []) {
     if (hook.response) candidates.push(formatResponseText(hook.response, config));

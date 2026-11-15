@@ -292,11 +292,72 @@
     <!-- SECCIÓN 1: LIENZO N8N / MANYCHAT (NODOS Y ENLACES)        -->
     <!-- ========================================================= -->
     <section id="sectionWorkflow" class="space-y-3">
+      <!-- Barra Multi-Lienzos (Guardar, Duplicar, Borrar, Activar en IG) -->
+      <div class="studio-card rounded-xl px-3.5 py-2.5 flex flex-wrap items-center justify-between gap-2.5">
+        <div class="flex flex-wrap items-center gap-2 min-w-0">
+          <span class="text-[10px] font-semibold uppercase tracking-wider text-zinc-400 flex items-center gap-1 shrink-0">
+            <i data-lucide="layers" class="w-3.5 h-3.5 text-zinc-500"></i>
+            <span>Lienzos</span>
+          </span>
+          <div id="canvasTabsContainer" class="flex flex-wrap items-center gap-1.5"></div>
+          <span id="canvasDraftBadge" class="hidden text-[10px] px-2 py-0.5 rounded-full font-medium bg-amber-50 text-amber-800 border border-amber-200">
+            Borrador en edición
+          </span>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-1.5">
+          <button
+            type="button"
+            onclick="createNewEmptyCanvas()"
+            class="px-2 py-1 bg-white hover:bg-zinc-50 text-zinc-700 border border-zinc-200 text-[11px] font-medium rounded-lg flex items-center gap-1 transition-colors"
+            title="Crear un lienzo nuevo completamente vacío">
+            <i data-lucide="file-plus-2" class="w-3 h-3 text-zinc-500"></i>
+            <span>Nuevo vacío</span>
+          </button>
+
+          <button
+            type="button"
+            onclick="duplicateCurrentCanvas()"
+            class="px-2 py-1 bg-white hover:bg-zinc-50 text-zinc-700 border border-zinc-200 text-[11px] font-medium rounded-lg flex items-center gap-1 transition-colors"
+            title="Crear un nuevo lienzo copiando nodos, keywords y variables del lienzo actual">
+            <i data-lucide="copy" class="w-3 h-3 text-zinc-500"></i>
+            <span>Duplicar</span>
+          </button>
+
+          <button
+            type="button"
+            onclick="renameCurrentCanvas()"
+            class="px-2 py-1 bg-white hover:bg-zinc-50 text-zinc-700 border border-zinc-200 text-[11px] font-medium rounded-lg flex items-center gap-1 transition-colors"
+            title="Cambiar nombre del lienzo en pantalla">
+            <i data-lucide="pencil" class="w-3 h-3 text-zinc-500"></i>
+            <span class="hidden sm:inline">Renombrar</span>
+          </button>
+
+          <button
+            type="button"
+            id="btnDeleteCanvas"
+            onclick="deleteCurrentCanvas()"
+            class="px-2 py-1 bg-white hover:bg-rose-50 text-rose-600 border border-zinc-200 hover:border-rose-200 text-[11px] font-medium rounded-lg flex items-center gap-1 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            title="Eliminar este lienzo">
+            <i data-lucide="trash-2" class="w-3 h-3"></i>
+          </button>
+
+          <button
+            type="button"
+            id="btnActivateCanvas"
+            onclick="openActivateCanvasModal()"
+            class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-medium rounded-lg flex items-center gap-1 transition-colors">
+            <i data-lucide="zap" class="w-3 h-3"></i>
+            <span id="btnActivateCanvasLabel">Activar en IG</span>
+          </button>
+        </div>
+      </div>
+
       <!-- Barra de Herramientas del Lienzo -->
       <div class="studio-card rounded-xl px-3.5 py-2.5 flex flex-wrap items-center justify-between gap-2.5">
         <div class="flex flex-wrap items-center gap-2">
           <h2 class="text-xs font-semibold text-zinc-800 flex items-center gap-1.5">
-            <span>Editor de Flujo Visual</span>
+            <span id="editingCanvasHeading">Editor de Flujo Visual</span>
             <span id="workflowModeBadge" class="text-[10px] px-2 py-0.5 rounded-full font-medium bg-emerald-50 text-emerald-800 border border-emerald-200">
               Modo Estricto Activo
             </span>
@@ -405,7 +466,7 @@
         <!-- Leyenda sutil inferior del lienzo -->
         <div class="bg-white border-t border-zinc-200 px-3.5 py-2 flex flex-wrap items-center justify-between gap-2 text-[10px] text-zinc-500">
           <div class="flex flex-wrap items-center gap-3">
-            <span>✋ Arrastra el fondo (clic o dedo) para desplazarte por el lienzo</span>
+            <span>✋ Arrastra el fondo para moverte · 🤏 En teléfono pellizca con 2 dedos para zoom (PC: Ctrl+rueda)</span>
             <span>⠿ Arrastra la barra superior de una ventana para moverla</span>
             <span>🔗 Toca <b>Enlazar</b> o cualquier badge en la línea para conectar pasos</span>
           </div>
@@ -577,7 +638,10 @@
   <div id="settingsModal" class="fixed inset-0 z-50 bg-black/25 hidden items-center justify-center p-4">
     <div class="bg-white border border-zinc-200 rounded-2xl p-5 sm:p-6 max-w-md w-full shadow-xl">
       <div class="flex items-center justify-between pb-3 border-b border-zinc-100 mb-4">
-        <h3 class="text-xs font-semibold uppercase tracking-wider text-zinc-800">Variables del Negocio</h3>
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-zinc-800">Variables del Negocio</h3>
+          <p id="settingsCanvasHint" class="text-[10px] text-zinc-400 mt-0.5">Editando variables del lienzo actual</p>
+        </div>
         <button onclick="closeSettingsModal()" class="p-1 rounded-md text-zinc-400 hover:text-zinc-800">
           <i data-lucide="x" class="w-4 h-4"></i>
         </button>
@@ -611,6 +675,79 @@
       <div class="mt-5 pt-3 border-t border-zinc-100 flex justify-end gap-1.5">
         <button onclick="closeSettingsModal()" class="px-3 py-1.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded-lg font-medium text-xs transition-colors">Cancelar</button>
         <button onclick="applySettings()" class="px-3.5 py-1.5 bg-zinc-900 hover:bg-zinc-800 text-white rounded-lg font-medium text-xs transition-colors">Aplicar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================= -->
+  <!-- MODAL: ACTIVAR LIENZO EN PRODUCCIÓN (CON OPCIÓN DE PAUSA) -->
+  <!-- ========================================================= -->
+  <div id="activateCanvasModal" class="fixed inset-0 z-50 bg-black/30 hidden items-center justify-center p-4">
+    <div class="bg-white border border-zinc-200 rounded-2xl p-5 max-w-md w-full shadow-2xl space-y-4 text-xs">
+      <div class="flex items-start justify-between gap-3 border-b border-zinc-100 pb-3">
+        <div>
+          <h3 class="text-sm font-semibold text-zinc-900 flex items-center gap-1.5">
+            <i data-lucide="zap" class="w-4 h-4 text-emerald-600"></i>
+            <span>Activar Lienzo en Instagram</span>
+          </h3>
+          <p class="text-[11px] text-zinc-500 mt-0.5">
+            Lienzo que responderá en vivo: <b id="activateModalCanvasName" class="text-zinc-900">Lienzo</b>
+          </p>
+        </div>
+        <button onclick="closeActivateCanvasModal()" class="p-1 text-zinc-400 hover:text-zinc-800 rounded">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <div class="space-y-2">
+        <label class="block text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
+          ¿Qué hacer con los clientes registrados en la base al cambiar de lienzo?
+        </label>
+
+        <label class="flex items-start gap-2.5 p-2.5 rounded-xl border border-zinc-200 hover:bg-zinc-50 cursor-pointer">
+          <input type="radio" name="activatePauseMode" value="none" checked onchange="updateActivatePauseOptionsUI()" class="mt-0.5 text-zinc-900" />
+          <div>
+            <span class="block font-semibold text-zinc-900">No pausar a nadie (Recomendado)</span>
+            <span class="block text-[10.5px] text-zinc-500">Se conservan pausas previas. Quienes estén en un paso que ya no exista pasan automáticamente al Paso 0 del nuevo lienzo.</span>
+          </div>
+        </label>
+
+        <label class="flex items-start gap-2.5 p-2.5 rounded-xl border border-zinc-200 hover:bg-zinc-50 cursor-pointer">
+          <input type="radio" name="activatePauseMode" value="recent" onchange="updateActivatePauseOptionsUI()" class="mt-0.5 text-zinc-900" />
+          <div>
+            <span class="block font-semibold text-zinc-900">Pausar solo conversaciones activas recientes</span>
+            <span class="block text-[10.5px] text-zinc-500">Evita mezclar flujos si alguien está respondiendo ahora mismo al lienzo anterior.</span>
+          </div>
+        </label>
+
+        <label class="flex items-start gap-2.5 p-2.5 rounded-xl border border-amber-200 bg-amber-50/40 hover:bg-amber-50/70 cursor-pointer">
+          <input type="radio" name="activatePauseMode" value="all" onchange="updateActivatePauseOptionsUI()" class="mt-0.5 text-amber-700" />
+          <div>
+            <span class="block font-semibold text-amber-900">Pausar a TODOS los clientes registrados</span>
+            <span class="block text-[10.5px] text-amber-700">Silencia el bot temporalmente para toda la base existente (solo reactivable con "Menú" o desde Clientes).</span>
+          </div>
+        </label>
+      </div>
+
+      <div id="activatePauseParamsBox" class="hidden grid grid-cols-2 gap-2.5 bg-zinc-50 border border-zinc-200 rounded-xl p-3">
+        <div id="activateRecentWindowCol">
+          <label class="block text-[10px] font-medium text-zinc-600 mb-1">Actividad en últimas (h)</label>
+          <input type="number" id="activateRecentHoursInput" value="12" min="1" max="720"
+                 class="w-full px-2.5 py-1.5 bg-white border border-zinc-200 rounded-lg text-zinc-900 font-mono" />
+        </div>
+        <div class="col-span-1">
+          <label class="block text-[10px] font-medium text-zinc-600 mb-1">Duración pausa (horas)</label>
+          <input type="number" id="activatePauseDurationInput" value="12" min="1" max="720"
+                 class="w-full px-2.5 py-1.5 bg-white border border-zinc-200 rounded-lg text-zinc-900 font-mono" />
+        </div>
+      </div>
+
+      <div class="pt-2 border-t border-zinc-100 flex items-center justify-end gap-2">
+        <button type="button" onclick="closeActivateCanvasModal()" class="px-3 py-1.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded-lg font-medium">Cancelar</button>
+        <button type="button" id="btnConfirmActivateCanvas" onclick="confirmActivateCanvas()" class="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium flex items-center gap-1.5">
+          <i data-lucide="zap" class="w-3.5 h-3.5"></i>
+          <span>Guardar y Activar</span>
+        </button>
       </div>
     </div>
   </div>
@@ -668,12 +805,15 @@
     let countdownInterval = null;
     let currentViewMode = 'workflow';
 
-    // Estado del Lienzo n8n / ManyChat
+    // Estado del Lienzo n8n / ManyChat & Multi-Lienzos
     let canvasZoom = 0.85;
+    let editingCanvasId = null;
+    let keywordAddScopeMode = 'global'; // 'global' (🌐 Libre) | 'parent' (🔒 Paso anterior)
     let selectedNodeId = null;
     let inspectingNodeId = null;
     let draggingNodeState = null; // { pointerId, stepId, startClientX, startClientY, origX, origY, moved }
     let panningState = null; // { pointerId, startClientX, startClientY, startScrollLeft, startScrollTop, moved }
+    let pinchState = null; // { startDist, startZoom, lastMidX, lastMidY }
     let suppressCanvasClickUntil = 0;
     let linkingRouteState = null; // { sourceStepId, routeIdx } - cable siguiendo el mouse
     let activeRouteModalCtx = null; // { sourceStepId, routeIdx, isNew, preTargetId }
@@ -716,7 +856,8 @@
         }
         if (e.key === 'Escape') {
           if (linkingRouteState) cancelConnectMode();
-          if (!document.getElementById('routeEditorModal').classList.contains('hidden')) closeRouteModal();
+          if (!document.getElementById('activateCanvasModal').classList.contains('hidden')) closeActivateCanvasModal();
+          else if (!document.getElementById('routeEditorModal').classList.contains('hidden')) closeRouteModal();
           else if (!document.getElementById('nodeInspectorModal').classList.contains('hidden')) closeNodeInspector();
         }
         if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
@@ -772,16 +913,72 @@
     }
 
     // =========================================================
-    // 2. CARGA Y ESTADO GENERAL
+    // 2. CARGA, MULTI-LIENZOS Y ESTADO GENERAL
     // =========================================================
-    function loadConfigData(data) {
-      activeConfig = data;
-      if (!activeConfig.workflow) activeConfig.workflow = { enabled: true, initialStepId: 'step_welcome', steps: [] };
-      if (!Array.isArray(activeConfig.workflow.steps)) activeConfig.workflow.steps = [];
-      if (!activeConfig.workflow.triggerPosition) activeConfig.workflow.triggerPosition = { x: 40, y: 295 };
+    function getKeywordTextUI(entry) {
+      if (typeof entry === 'string') return entry;
+      if (entry && typeof entry === 'object') return String(entry.text || '');
+      return '';
+    }
 
-      // Asegurar posiciones válidas en cada nodo
-      activeConfig.workflow.steps.forEach((s, idx) => {
+    function isKeywordParentScopedUI(entry) {
+      return Boolean(entry && typeof entry === 'object' && entry.scope === 'parent');
+    }
+
+    function getEmptyCanvasSettingsUI() {
+      return {
+        businessName: '',
+        tiendaUrl: '',
+        mapsUrl: '',
+        phone: '',
+        advisorPauseHours: 12,
+        silentFallback: true,
+        strictStepMode: true
+      };
+    }
+
+    function createEmptyCanvasDataUI(name) {
+      const now = Date.now();
+      const suffix = `${now.toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
+      const rootId = `step_start_${suffix}`;
+      return {
+        id: `canvas_${suffix}`,
+        name: String(name || 'Nuevo Lienzo').trim() || 'Nuevo Lienzo',
+        createdAt: now,
+        updatedAt: now,
+        settings: getEmptyCanvasSettingsUI(),
+        fallbackResponse: '',
+        workflow: {
+          enabled: true,
+          initialStepId: rootId,
+          triggerPosition: { x: 40, y: 240 },
+          steps: [
+            {
+              id: rootId,
+              title: 'Paso 0: Inicio',
+              type: 'menu',
+              isRoot: true,
+              position: { x: 340, y: 210 },
+              priority: 1,
+              autoPause: false,
+              allowedWhenPaused: false,
+              unpauseOnTrigger: true,
+              keywords: [],
+              negativeKeywords: [],
+              message: '',
+              routes: [],
+              invalidMessage: null
+            }
+          ]
+        }
+      };
+    }
+
+    function ensureWorkflowStepShapes(wf) {
+      if (!wf) return { enabled: true, initialStepId: 'step_welcome', triggerPosition: { x: 40, y: 240 }, steps: [] };
+      if (!Array.isArray(wf.steps)) wf.steps = [];
+      if (!wf.triggerPosition) wf.triggerPosition = { x: 40, y: 240 };
+      wf.steps.forEach((s, idx) => {
         if (!s.position || typeof s.position.x !== 'number' || typeof s.position.y !== 'number') {
           s.position = { x: 340 + (idx % 3) * 350, y: 40 + Math.floor(idx / 3) * 165 };
         }
@@ -789,9 +986,76 @@
         if (!Array.isArray(s.negativeKeywords)) s.negativeKeywords = [];
         if (!Array.isArray(s.routes)) s.routes = [];
       });
+      return wf;
+    }
 
-      customersList = Array.isArray(data.customers) ? data.customers : [];
-      updateMasterButtonUI(activeConfig.botActive);
+    function ensureMultiCanvasState(data) {
+      if (!data.canvases || !Array.isArray(data.canvases) || data.canvases.length === 0) {
+        const settingsCopy = { ...(data.settings || {}) };
+        delete settingsCopy.pin;
+        data.canvases = [{
+          id: 'canvas_1',
+          name: 'Lienzo 1',
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+          settings: { ...getEmptyCanvasSettingsUI(), ...settingsCopy },
+          fallbackResponse: data.fallbackResponse || '',
+          workflow: ensureWorkflowStepShapes(data.workflow)
+        }];
+        data.activeCanvasId = 'canvas_1';
+      } else {
+        data.canvases.forEach(c => {
+          c.settings = { ...getEmptyCanvasSettingsUI(), ...(c.settings || {}) };
+          c.fallbackResponse = c.fallbackResponse || '';
+          c.workflow = ensureWorkflowStepShapes(c.workflow);
+        });
+      }
+      if (!data.activeCanvasId || !data.canvases.some(c => c.id === data.activeCanvasId)) {
+        data.activeCanvasId = data.canvases[0].id;
+      }
+    }
+
+    function getEditingCanvas() {
+      if (!activeConfig?.canvases) return null;
+      return activeConfig.canvases.find(c => c.id === editingCanvasId)
+        || activeConfig.canvases.find(c => c.id === activeConfig.activeCanvasId)
+        || activeConfig.canvases[0];
+    }
+
+    function syncEditingCanvasFromState() {
+      if (!activeConfig || !Array.isArray(activeConfig.canvases)) return;
+      const target = activeConfig.canvases.find(c => c.id === editingCanvasId);
+      if (!target) return;
+
+      const globalPin = activeConfig.settings?.pin;
+      const fbEl = document.getElementById('fallbackInput');
+      if (fbEl) activeConfig.fallbackResponse = fbEl.value;
+
+      const canvasSettings = { ...(activeConfig.settings || {}) };
+      delete canvasSettings.pin;
+      target.settings = { ...getEmptyCanvasSettingsUI(), ...canvasSettings };
+      target.fallbackResponse = activeConfig.fallbackResponse || '';
+      target.workflow = ensureWorkflowStepShapes(activeConfig.workflow);
+      target.updatedAt = Date.now();
+
+      if (globalPin !== undefined && activeConfig.settings) {
+        activeConfig.settings.pin = globalPin;
+      }
+    }
+
+    function hydrateEditingCanvasIntoView(canvas, { resetSim = true } = {}) {
+      if (!activeConfig || !canvas) return;
+      editingCanvasId = canvas.id;
+      const globalPin = activeConfig.settings?.pin;
+      canvas.workflow = ensureWorkflowStepShapes(canvas.workflow);
+
+      activeConfig.workflow = canvas.workflow;
+      activeConfig.settings = {
+        ...getEmptyCanvasSettingsUI(),
+        ...(canvas.settings || {}),
+        ...(globalPin ? { pin: globalPin } : {})
+      };
+      activeConfig.fallbackResponse = canvas.fallbackResponse || '';
 
       const isStrict = activeConfig.settings?.strictStepMode !== false;
       document.getElementById('strictModeToggle').checked = isStrict;
@@ -803,6 +1067,280 @@
 
       document.getElementById('fallbackInput').value = activeConfig.fallbackResponse || '';
 
+      renderCanvasBar();
+      renderWorkflowCanvas();
+      updateKPIs();
+      if (resetSim) resetSimulatorChat();
+      lucide.createIcons();
+    }
+
+    function renderCanvasBar() {
+      const container = document.getElementById('canvasTabsContainer');
+      if (!container || !activeConfig?.canvases) return;
+
+      const isViewingLive = editingCanvasId === activeConfig.activeCanvasId;
+      container.innerHTML = activeConfig.canvases.map(c => {
+        const isEditing = c.id === editingCanvasId;
+        const isLive = c.id === activeConfig.activeCanvasId;
+        return `
+          <button type="button"
+                  onclick="selectEditingCanvas('${escapeJsSingleQuote(c.id)}')"
+                  class="px-2.5 py-1 rounded-lg text-[11px] font-medium border flex items-center gap-1.5 transition-all ${
+                    isEditing
+                      ? 'bg-zinc-900 text-white border-zinc-900 shadow-xs'
+                      : 'bg-zinc-50 hover:bg-zinc-100 text-zinc-700 border-zinc-200'
+                  }">
+            <span class="truncate max-w-[130px]">${escapeHtml(c.name)}</span>
+            ${isLive ? `
+              <span class="text-[9px] font-semibold px-1.5 py-0.2 rounded-full ${
+                isEditing ? 'bg-emerald-500 text-white' : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+              }">⚡ En vivo</span>
+            ` : ''}
+          </button>
+        `;
+      }).join('');
+
+      const editing = getEditingCanvas();
+      const heading = document.getElementById('editingCanvasHeading');
+      if (heading && editing) {
+        heading.innerText = `Flujo: ${editing.name}`;
+      }
+
+      const draftBadge = document.getElementById('canvasDraftBadge');
+      if (draftBadge) {
+        draftBadge.classList.toggle('hidden', isViewingLive);
+      }
+
+      const btnDel = document.getElementById('btnDeleteCanvas');
+      if (btnDel) {
+        const canDelete = activeConfig.canvases.length > 1 && !isViewingLive;
+        btnDel.disabled = !canDelete;
+        btnDel.title = activeConfig.canvases.length <= 1
+          ? 'No puedes eliminar el único lienzo'
+          : isViewingLive
+            ? 'Activa otro lienzo antes de borrar el lienzo activo en Instagram'
+            : 'Eliminar este lienzo';
+      }
+
+      const btnAct = document.getElementById('btnActivateCanvas');
+      const btnActLbl = document.getElementById('btnActivateCanvasLabel');
+      if (btnAct && btnActLbl) {
+        if (isViewingLive) {
+          btnAct.className = 'px-2.5 py-1 bg-emerald-50 text-emerald-800 border border-emerald-200 text-[11px] font-medium rounded-lg flex items-center gap-1 cursor-default';
+          btnAct.disabled = true;
+          btnActLbl.innerText = 'Activo en IG';
+        } else {
+          btnAct.className = 'px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-medium rounded-lg flex items-center gap-1 transition-colors';
+          btnAct.disabled = false;
+          btnActLbl.innerText = 'Activar en IG';
+        }
+      }
+    }
+
+    function selectEditingCanvas(canvasId) {
+      if (!activeConfig?.canvases || canvasId === editingCanvasId) return;
+      if (linkingRouteState) cancelConnectMode();
+      selectedNodeId = null;
+      syncEditingCanvasFromState();
+      const target = activeConfig.canvases.find(c => c.id === canvasId);
+      if (!target) return;
+      hydrateEditingCanvasIntoView(target, { resetSim: true });
+    }
+
+    function createNewEmptyCanvas() {
+      if (!activeConfig?.canvases) return;
+      if (linkingRouteState) cancelConnectMode();
+      syncEditingCanvasFromState();
+      const nextNum = activeConfig.canvases.length + 1;
+      const nameInput = prompt('Nombre del nuevo lienzo vacío:', `Lienzo ${nextNum}`);
+      if (nameInput === null) return;
+      const newCanvas = createEmptyCanvasDataUI(nameInput.trim() || `Lienzo ${nextNum}`);
+      activeConfig.canvases.push(newCanvas);
+      selectedNodeId = newCanvas.workflow.initialStepId;
+      hydrateEditingCanvasIntoView(newCanvas, { resetSim: true });
+    }
+
+    function duplicateCurrentCanvas() {
+      const current = getEditingCanvas();
+      if (!current || !activeConfig?.canvases) return;
+      if (linkingRouteState) cancelConnectMode();
+      syncEditingCanvasFromState();
+
+      const defaultCopyName = `${current.name} (Copia)`;
+      const nameInput = prompt('Nombre para el lienzo duplicado:', defaultCopyName);
+      if (nameInput === null) return;
+
+      const clone = JSON.parse(JSON.stringify(current));
+      const suffix = `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 5)}`;
+      const idMap = {};
+      (clone.workflow?.steps || []).forEach((s, idx) => {
+        idMap[s.id] = `step_${idx}_${suffix}`;
+      });
+      clone.id = `canvas_${suffix}`;
+      clone.name = nameInput.trim() || defaultCopyName;
+      clone.createdAt = Date.now();
+      clone.updatedAt = Date.now();
+      clone.workflow.initialStepId = idMap[clone.workflow.initialStepId] || clone.workflow.steps[0]?.id;
+      clone.workflow.steps = (clone.workflow.steps || []).map(s => ({
+        ...s,
+        id: idMap[s.id] || s.id,
+        routes: (s.routes || []).map(r => ({
+          ...r,
+          targetStepId: idMap[r.targetStepId] || r.targetStepId
+        }))
+      }));
+
+      activeConfig.canvases.push(clone);
+      selectedNodeId = clone.workflow.initialStepId;
+      hydrateEditingCanvasIntoView(clone, { resetSim: true });
+    }
+
+    function renameCurrentCanvas() {
+      const current = getEditingCanvas();
+      if (!current) return;
+      const nextName = prompt('Nuevo nombre para este lienzo:', current.name);
+      if (nextName === null) return;
+      const trimmed = nextName.trim();
+      if (!trimmed) return;
+      current.name = trimmed;
+      current.updatedAt = Date.now();
+      renderCanvasBar();
+      lucide.createIcons();
+    }
+
+    function deleteCurrentCanvas() {
+      const current = getEditingCanvas();
+      if (!current || !activeConfig?.canvases || activeConfig.canvases.length <= 1) return;
+      if (current.id === activeConfig.activeCanvasId) {
+        alert('Primero activa otro lienzo en Instagram antes de borrar el lienzo que está en vivo.');
+        return;
+      }
+      if (!confirm(`¿Eliminar permanentemente el lienzo "${current.name}"?\nRecuerda pulsar Guardar después si quieres confirmar el borrado en la nube.`)) {
+        return;
+      }
+      activeConfig.canvases = activeConfig.canvases.filter(c => c.id !== current.id);
+      const nextCanvas = activeConfig.canvases.find(c => c.id === activeConfig.activeCanvasId) || activeConfig.canvases[0];
+      selectedNodeId = null;
+      hydrateEditingCanvasIntoView(nextCanvas, { resetSim: true });
+    }
+
+    function openActivateCanvasModal() {
+      const current = getEditingCanvas();
+      if (!current || current.id === activeConfig?.activeCanvasId) return;
+      document.getElementById('activateModalCanvasName').innerText = current.name;
+      const defaultRadio = document.querySelector('input[name="activatePauseMode"][value="none"]');
+      if (defaultRadio) defaultRadio.checked = true;
+      updateActivatePauseOptionsUI();
+      const modal = document.getElementById('activateCanvasModal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+      lucide.createIcons();
+    }
+
+    function closeActivateCanvasModal() {
+      const modal = document.getElementById('activateCanvasModal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    function updateActivatePauseOptionsUI() {
+      const mode = document.querySelector('input[name="activatePauseMode"]:checked')?.value || 'none';
+      const box = document.getElementById('activatePauseParamsBox');
+      const recentCol = document.getElementById('activateRecentWindowCol');
+      if (!box || !recentCol) return;
+      if (mode === 'none') {
+        box.classList.add('hidden');
+      } else {
+        box.classList.remove('hidden');
+        recentCol.classList.toggle('hidden', mode !== 'recent');
+      }
+    }
+
+    function buildProductionPayload(targetActiveId = null) {
+      syncEditingCanvasFromState();
+      const resolvedActiveId = targetActiveId || activeConfig.activeCanvasId;
+      const liveCanvas = activeConfig.canvases.find(c => c.id === resolvedActiveId) || activeConfig.canvases[0];
+      const globalPin = activeConfig.settings?.pin;
+      return {
+        ...activeConfig,
+        hooks: [],
+        activeCanvasId: liveCanvas.id,
+        workflow: liveCanvas.workflow,
+        settings: {
+          ...getEmptyCanvasSettingsUI(),
+          ...(liveCanvas.settings || {}),
+          ...(globalPin ? { pin: globalPin } : {})
+        },
+        fallbackResponse: liveCanvas.fallbackResponse || ''
+      };
+    }
+
+    async function confirmActivateCanvas() {
+      const target = getEditingCanvas();
+      if (!target) return;
+      const pauseMode = document.querySelector('input[name="activatePauseMode"]:checked')?.value || 'none';
+      const recentWithinHours = Number(document.getElementById('activateRecentHoursInput')?.value) || 12;
+      const pauseDurationHours = Number(document.getElementById('activatePauseDurationInput')?.value) || 12;
+
+      const btn = document.getElementById('btnConfirmActivateCanvas');
+      const origHtml = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = `<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i><span>Activando...</span>`;
+      lucide.createIcons();
+
+      try {
+        const payload = buildProductionPayload(target.id);
+        const res = await fetch('/api/config?action=activate_canvas', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-admin-pin': savedPin },
+          body: JSON.stringify({
+            activeCanvasId: target.id,
+            canvases: payload.canvases,
+            config: payload,
+            pauseMode,
+            recentWithinHours,
+            pauseDurationHours
+          })
+        });
+        const data = await res.json();
+        if (data.success) {
+          if (data.config) {
+            const hadUpstash = activeConfig.hasUpstash;
+            activeConfig = { ...data.config, hasUpstash: hadUpstash };
+            ensureMultiCanvasState(activeConfig);
+          } else {
+            activeConfig.activeCanvasId = target.id;
+          }
+          if (Array.isArray(data.customers)) {
+            customersList = data.customers;
+            renderCustomers();
+          }
+          const currentTarget = activeConfig.canvases.find(c => c.id === target.id) || activeConfig.canvases[0];
+          hydrateEditingCanvasIntoView(currentTarget, { resetSim: false });
+          closeActivateCanvasModal();
+          if (data.pausedCount > 0) {
+            alert(`Lienzo "${target.name}" activado en Instagram.\nSe pausaron ${data.pausedCount} cliente(s) por ${pauseDurationHours}h.`);
+          }
+        } else {
+          alert('Error al activar lienzo: ' + (data.error || 'Desconocido'));
+        }
+      } catch (err) {
+        console.error(err);
+        alert('Error de conexión al activar el lienzo.');
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = origHtml;
+        lucide.createIcons();
+      }
+    }
+
+    function loadConfigData(data, preferredCanvasId = null) {
+      activeConfig = data;
+      ensureMultiCanvasState(activeConfig);
+
+      customersList = Array.isArray(data.customers) ? data.customers : [];
+      updateMasterButtonUI(activeConfig.botActive);
+
       const txt = document.getElementById('storageText');
       if (activeConfig.hasUpstash) {
         txt.innerText = "Redis";
@@ -812,14 +1350,15 @@
         txt.className = "text-amber-600 font-medium";
       }
 
-      simCurrentStep = activeConfig.workflow.initialStepId || activeConfig.workflow.steps[0]?.id || 'step_welcome';
+      const initialCanvas = (preferredCanvasId && activeConfig.canvases.find(c => c.id === preferredCanvasId))
+        || activeConfig.canvases.find(c => c.id === activeConfig.activeCanvasId)
+        || activeConfig.canvases[0];
+
+      editingCanvasId = initialCanvas.id;
+      hydrateEditingCanvasIntoView(initialCanvas, { resetSim: true });
       setCanvasZoom(canvasZoom);
-      renderWorkflowCanvas();
       renderCustomers();
-      updateKPIs();
       startLiveCountdowns();
-      resetSimulatorChat();
-      lucide.createIcons();
     }
 
     function setViewMode(mode) {
@@ -909,17 +1448,26 @@
       viewport.style.backgroundPosition = `${-viewport.scrollLeft}px ${-viewport.scrollTop}px`;
     }
 
-    function setCanvasZoom(z) {
+    function setCanvasZoom(z, options = {}) {
       const viewport = document.getElementById('canvasViewport');
       const prevZoom = canvasZoom;
-      canvasZoom = Math.min(1.25, Math.max(0.55, Math.round(z * 20) / 20));
+      const smooth = Boolean(options && options.smooth);
+      const clamped = Math.min(1.5, Math.max(0.4, z));
+      canvasZoom = smooth ? Math.round(clamped * 100) / 100 : Math.round(clamped * 20) / 20;
 
       if (viewport && prevZoom !== canvasZoom && viewport.clientWidth > 0) {
-        const cx = (viewport.scrollLeft + viewport.clientWidth / 2) / prevZoom;
-        const cy = (viewport.scrollTop + viewport.clientHeight / 2) / prevZoom;
+        let rx = viewport.clientWidth / 2;
+        let ry = viewport.clientHeight / 2;
+        if (options && typeof options.anchorClientX === 'number' && typeof options.anchorClientY === 'number') {
+          const rect = viewport.getBoundingClientRect();
+          rx = options.anchorClientX - rect.left;
+          ry = options.anchorClientY - rect.top;
+        }
+        const cx = (viewport.scrollLeft + rx) / prevZoom;
+        const cy = (viewport.scrollTop + ry) / prevZoom;
         updateCanvasBounds();
-        viewport.scrollLeft = Math.max(0, cx * canvasZoom - viewport.clientWidth / 2);
-        viewport.scrollTop = Math.max(0, cy * canvasZoom - viewport.clientHeight / 2);
+        viewport.scrollLeft = Math.max(0, cx * canvasZoom - rx);
+        viewport.scrollTop = Math.max(0, cy * canvasZoom - ry);
       } else {
         updateCanvasBounds();
       }
@@ -1001,7 +1549,7 @@
 
         let matchesSearch = true;
         if (searchQ) {
-          const hay = normalizeStr([step.title, step.message, ...(step.keywords || []), ...(step.negativeKeywords || [])].join(' '));
+          const hay = normalizeStr([step.title, step.message, ...(step.keywords || []).map(getKeywordTextUI), ...(step.negativeKeywords || [])].join(' '));
           matchesSearch = hay.includes(searchQ);
         }
 
@@ -1093,8 +1641,14 @@
           refreshNodeSelectionClasses();
         };
 
-        const kwCount = (step.keywords || []).length;
+        const allKws = step.keywords || [];
+        const kwCount = allKws.length;
+        const parentKwCount = allKws.filter(isKeywordParentScopedUI).length;
+        const freeKwCount = kwCount - parentKwCount;
         const negCount = (step.negativeKeywords || []).length;
+        const kwBtnLabel = parentKwCount > 0
+          ? (freeKwCount > 0 ? `🔑 ${freeKwCount}🌐 · ${parentKwCount}🔒` : `🔑 ${parentKwCount}🔒 Paso ant.`)
+          : `🔑 Keywords (${kwCount})`;
 
         nodeEl.innerHTML = `
           <!-- Indicador flotante cuando está en modo elegir ventana destino -->
@@ -1192,8 +1746,8 @@
               <button type="button"
                       onclick="event.stopPropagation(); openNodeInspector('${escapeJsSingleQuote(step.id)}')"
                       class="flex-1 py-1 px-2 rounded-lg bg-zinc-100 hover:bg-zinc-200 text-zinc-800 text-[10px] font-medium transition-colors text-center"
-                      title="Configurar keywords de anuncios (${kwCount}), negativas (${negCount}) y prioridad">
-                🔑 Keywords (${kwCount}) · Más
+                      title="Keywords: ${freeKwCount} Libres (🌐), ${parentKwCount} Sujetas al paso anterior (🔒), ${negCount} negativas">
+                ${kwBtnLabel} · Más
               </button>
             </div>
           </div>
@@ -1561,12 +2115,67 @@
         viewport.addEventListener('wheel', (e) => {
           if (e.ctrlKey || e.metaKey) {
             e.preventDefault();
-            setCanvasZoom(canvasZoom + (e.deltaY < 0 ? 0.1 : -0.1));
+            setCanvasZoom(canvasZoom + (e.deltaY < 0 ? 0.1 : -0.1), {
+              anchorClientX: e.clientX,
+              anchorClientY: e.clientY
+            });
           }
         }, { passive: false });
 
+        // Pinch-to-zoom con dos dedos en dispositivos táctiles / teléfonos
+        const getTouchDistanceAndMid = (t1, t2) => ({
+          dist: Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY),
+          midX: (t1.clientX + t2.clientX) / 2,
+          midY: (t1.clientY + t2.clientY) / 2
+        });
+
+        viewport.addEventListener('touchstart', (e) => {
+          if (e.touches && e.touches.length === 2) {
+            e.preventDefault();
+            panningState = null;
+            draggingNodeState = null;
+            viewport.classList.remove('canvas-panning');
+            const { dist, midX, midY } = getTouchDistanceAndMid(e.touches[0], e.touches[1]);
+            pinchState = {
+              startDist: Math.max(10, dist),
+              startZoom: canvasZoom,
+              lastMidX: midX,
+              lastMidY: midY
+            };
+            suppressCanvasClickUntil = Date.now() + 260;
+          }
+        }, { passive: false });
+
+        viewport.addEventListener('touchmove', (e) => {
+          if (pinchState && e.touches && e.touches.length === 2) {
+            e.preventDefault();
+            const { dist, midX, midY } = getTouchDistanceAndMid(e.touches[0], e.touches[1]);
+            viewport.scrollLeft -= (midX - pinchState.lastMidX);
+            viewport.scrollTop -= (midY - pinchState.lastMidY);
+            pinchState.lastMidX = midX;
+            pinchState.lastMidY = midY;
+
+            const scaleRatio = dist / pinchState.startDist;
+            setCanvasZoom(pinchState.startZoom * scaleRatio, {
+              anchorClientX: midX,
+              anchorClientY: midY,
+              smooth: true
+            });
+          }
+        }, { passive: false });
+
+        const endPinchGesture = (e) => {
+          if (pinchState && (!e.touches || e.touches.length < 2)) {
+            pinchState = null;
+            panningState = null;
+            suppressCanvasClickUntil = Date.now() + 200;
+          }
+        };
+        viewport.addEventListener('touchend', endPinchGesture, { passive: true });
+        viewport.addEventListener('touchcancel', endPinchGesture, { passive: true });
+
         viewport.addEventListener('pointerdown', (e) => {
-          if (draggingNodeState || panningState) return;
+          if (pinchState || e.isPrimary === false || draggingNodeState || panningState) return;
 
           const isMiddleMouse = e.button === 1;
           if (!isMiddleMouse && e.button !== undefined && e.button !== 0) return;
@@ -1595,6 +2204,7 @@
       }
 
       document.addEventListener('pointermove', (e) => {
+        if (pinchState) return;
         if (draggingNodeState && (draggingNodeState.pointerId === undefined || e.pointerId === draggingNodeState.pointerId)) {
           const dx = (e.clientX - draggingNodeState.startClientX) / canvasZoom;
           const dy = (e.clientY - draggingNodeState.startClientY) / canvasZoom;
@@ -1922,12 +2532,27 @@
       const btnDelete = document.getElementById('inspBtnDelete');
       btnDelete.classList.toggle('hidden', isRoot || allSteps.length <= 1);
 
-      const kwChips = (step.keywords || []).map((kw, kIdx) => `
-        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-zinc-100 text-zinc-800 border border-zinc-200/80 text-[11px]">
-          <span>${escapeHtml(kw)}</span>
-          <button type="button" onclick="removeStepChip('${escapeJsSingleQuote(step.id)}', 'keywords', ${kIdx})" class="text-zinc-400 hover:text-zinc-800">×</button>
+      const kwChips = (step.keywords || []).map((kw, kIdx) => {
+        const kwText = getKeywordTextUI(kw);
+        const isParent = isKeywordParentScopedUI(kw);
+        return `
+        <span class="inline-flex items-center gap-1 pl-1.5 pr-1.5 py-0.5 rounded-md border text-[11px] ${
+          isParent
+            ? 'bg-violet-50 text-violet-900 border-violet-200'
+            : 'bg-zinc-100 text-zinc-800 border-zinc-200/80'
+        }">
+          <button type="button"
+                  onclick="toggleStepKeywordScope('${escapeJsSingleQuote(step.id)}', ${kIdx})"
+                  class="text-[10px] leading-none px-1 py-0.5 rounded ${
+                    isParent ? 'bg-violet-600 text-white' : 'bg-white text-zinc-600 border border-zinc-200 hover:border-zinc-400'
+                  }"
+                  title="${isParent ? '🔒 Sujeta al paso anterior conectado. Clic para volver Libre' : '🌐 Keyword libre en todo el flujo. Clic para sujetar al paso anterior'}">
+            ${isParent ? '🔒 Paso ant.' : '🌐 Libre'}
+          </button>
+          <span>${escapeHtml(kwText)}</span>
+          <button type="button" onclick="removeStepChip('${escapeJsSingleQuote(step.id)}', 'keywords', ${kIdx})" class="text-zinc-400 hover:text-zinc-900 ml-0.5">×</button>
         </span>
-      `).join('');
+      `;}).join('');
 
       const negChips = (step.negativeKeywords || []).map((neg, nIdx) => `
         <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-rose-50 text-rose-800 border border-rose-200 text-[11px]">
@@ -2026,15 +2651,65 @@
         <!-- 3. Ganchos Directos: Keywords & Negative Keywords -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5">
           <div class="bg-zinc-50/70 border border-zinc-200/80 rounded-xl p-3 space-y-2">
-            <div>
-              <label class="block text-[10px] font-semibold uppercase tracking-wider text-zinc-500">🔑 Keywords Activadoras (Anuncios / Directos)</label>
-              <p class="text-[10px] text-zinc-400">Si el mensaje contiene estas frases (ej: "cuanto pagan"), salta directo a este paso.</p>
+            <div class="flex flex-wrap items-start justify-between gap-2">
+              <div>
+                <label class="block text-[10px] font-semibold uppercase tracking-wider text-zinc-500">🔑 Keywords Activadoras</label>
+                <p class="text-[10px] text-zinc-400">Elige al añadir si cada keyword es <b>🌐 Libre</b> o <b>🔒 Sujeta al paso anterior</b> conectado.</p>
+              </div>
+              ${(step.keywords || []).length > 0 ? `
+                <div class="flex items-center gap-1 shrink-0">
+                  <button type="button" onclick="setAllStepKeywordsScope('${escapeJsSingleQuote(step.id)}', 'global')"
+                          class="px-1.5 py-0.5 text-[9.5px] font-medium rounded border border-zinc-200 bg-white hover:bg-zinc-100 text-zinc-600"
+                          title="Convertir todas a Libres (🌐)">Todas 🌐</button>
+                  <button type="button" onclick="setAllStepKeywordsScope('${escapeJsSingleQuote(step.id)}', 'parent')"
+                          class="px-1.5 py-0.5 text-[9.5px] font-medium rounded border border-violet-200 bg-violet-50 hover:bg-violet-100 text-violet-700"
+                          title="Sujetar todas al paso anterior conectado (🔒)">Todas 🔒</button>
+                </div>
+              ` : ''}
             </div>
-            <div class="flex flex-wrap gap-1 max-h-28 overflow-y-auto">${kwChips || '<span class="text-[10px] text-zinc-400 italic">Sin keywords</span>'}</div>
-            <input type="text" placeholder="Escribe y presiona Enter..."
-                   onkeydown="handleStepChipKey(event, '${escapeJsSingleQuote(step.id)}', 'keywords')"
-                   onblur="addStepChipsFromInput(this, '${escapeJsSingleQuote(step.id)}', 'keywords')"
-                   class="w-full px-2.5 py-1.5 bg-white border border-zinc-200 rounded-lg text-[11px] focus:outline-none focus:border-zinc-900" />
+            <div class="flex flex-wrap gap-1 max-h-32 overflow-y-auto">${kwChips || '<span class="text-[10px] text-zinc-400 italic">Sin keywords</span>'}</div>
+            <div class="space-y-1.5 pt-1 border-t border-zinc-200/60">
+              <div class="flex flex-wrap items-center gap-1">
+                <span class="text-[10px] text-zinc-500 font-medium mr-1">Al añadir:</span>
+                <button type="button"
+                        onmousedown="event.preventDefault()"
+                        onclick="setKeywordAddScope('global', '${escapeJsSingleQuote(step.id)}')"
+                        class="px-2 py-0.5 rounded-md text-[10px] font-medium border transition-colors ${
+                          keywordAddScopeMode === 'global'
+                            ? 'bg-zinc-900 text-white border-zinc-900'
+                            : 'bg-white text-zinc-600 border-zinc-200 hover:bg-zinc-100'
+                        }">
+                  🌐 Libre (cualquier momento)
+                </button>
+                <button type="button"
+                        onmousedown="event.preventDefault()"
+                        onclick="setKeywordAddScope('parent', '${escapeJsSingleQuote(step.id)}')"
+                        class="px-2 py-0.5 rounded-md text-[10px] font-medium border transition-colors ${
+                          keywordAddScopeMode === 'parent'
+                            ? 'bg-violet-600 text-white border-violet-600'
+                            : 'bg-white text-violet-700 border-violet-200 hover:bg-violet-50'
+                        }">
+                  🔒 Sujeta al paso anterior
+                </button>
+              </div>
+              <div class="flex items-center gap-1.5">
+                <input type="text"
+                       id="kwAddInput_${escapeHtml(step.id)}"
+                       placeholder="${keywordAddScopeMode === 'parent' ? 'Ej: vender, si... (solo tras paso conectado)' : 'Ej: horario, ubicacion... (libre)'}"
+                       onkeydown="handleStepChipKey(event, '${escapeJsSingleQuote(step.id)}', 'keywords')"
+                       class="flex-1 px-2.5 py-1.5 bg-white border ${keywordAddScopeMode === 'parent' ? 'border-violet-300 focus:border-violet-600' : 'border-zinc-200 focus:border-zinc-900'} rounded-lg text-[11px] focus:outline-none" />
+                <button type="button"
+                        onmousedown="event.preventDefault()"
+                        onclick="addStepChipsFromInput(document.getElementById('kwAddInput_${escapeJsSingleQuote(step.id)}'), '${escapeJsSingleQuote(step.id)}', 'keywords')"
+                        class="px-2.5 py-1.5 rounded-lg text-[11px] font-medium shrink-0 ${
+                          keywordAddScopeMode === 'parent'
+                            ? 'bg-violet-600 hover:bg-violet-700 text-white'
+                            : 'bg-zinc-900 hover:bg-zinc-800 text-white'
+                        }">
+                  + Añadir
+                </button>
+              </div>
+            </div>
           </div>
 
           <div class="bg-rose-50/30 border border-rose-200/70 rounded-xl p-3 space-y-2">
@@ -2099,7 +2774,8 @@
       document.getElementById('simDrawer').classList.remove('translate-x-full');
       simIsPaused = false;
       simIsNewCustomer = false;
-      const sampleInput = (step.keywords && step.keywords[0]) ? step.keywords[0] : step.title;
+      const firstKw = (step.keywords && step.keywords[0]) ? getKeywordTextUI(step.keywords[0]) : '';
+      const sampleInput = firstKw || step.title;
       document.getElementById('simInput').value = sampleInput;
       sendSimMessage();
     }
@@ -2110,6 +2786,43 @@
       deleteStep(id);
     }
 
+    function setKeywordAddScope(mode, stepId) {
+      keywordAddScopeMode = mode === 'parent' ? 'parent' : 'global';
+      const currentInputVal = document.getElementById(`kwAddInput_${stepId}`)?.value || '';
+      renderNodeInspectorBody(stepId);
+      const nextInput = document.getElementById(`kwAddInput_${stepId}`);
+      if (nextInput) {
+        nextInput.value = currentInputVal;
+        nextInput.focus();
+      }
+      lucide.createIcons();
+    }
+
+    function toggleStepKeywordScope(stepId, idx) {
+      const step = activeConfig.workflow.steps.find(s => s.id === stepId);
+      if (!step || !Array.isArray(step.keywords) || step.keywords[idx] === undefined) return;
+      const current = step.keywords[idx];
+      const text = getKeywordTextUI(current);
+      const nextParent = !isKeywordParentScopedUI(current);
+      step.keywords[idx] = nextParent ? { text, scope: 'parent' } : text;
+      renderNodeInspectorBody(stepId);
+      renderWorkflowCanvas();
+      lucide.createIcons();
+    }
+
+    function setAllStepKeywordsScope(stepId, targetScope) {
+      const step = activeConfig.workflow.steps.find(s => s.id === stepId);
+      if (!step || !Array.isArray(step.keywords)) return;
+      const isParent = targetScope === 'parent';
+      step.keywords = step.keywords.map(k => {
+        const text = getKeywordTextUI(k);
+        return isParent ? { text, scope: 'parent' } : text;
+      });
+      renderNodeInspectorBody(stepId);
+      renderWorkflowCanvas();
+      lucide.createIcons();
+    }
+
     function handleStepChipKey(event, stepId, field) {
       if (event.key === 'Enter' || event.key === ',') {
         event.preventDefault();
@@ -2118,6 +2831,7 @@
     }
 
     function addStepChipsFromInput(inputEl, stepId, field) {
+      if (!inputEl) return;
       const val = inputEl.value.trim();
       if (!val) return;
       const step = activeConfig.workflow.steps.find(s => s.id === stepId);
@@ -2126,10 +2840,25 @@
 
       const parts = val.split(',').map(p => p.trim()).filter(Boolean);
       parts.forEach(p => {
-        if (!step[field].includes(p)) step[field].push(p);
+        const normP = normalizeStr(p);
+        if (!normP) return;
+        if (field === 'keywords') {
+          const existingIdx = step[field].findIndex(item => normalizeStr(getKeywordTextUI(item)) === normP);
+          const entry = keywordAddScopeMode === 'parent' ? { text: p, scope: 'parent' } : p;
+          if (existingIdx >= 0) {
+            step[field][existingIdx] = entry;
+          } else {
+            step[field].push(entry);
+          }
+        } else {
+          if (!step[field].some(item => normalizeStr(item) === normP)) {
+            step[field].push(p);
+          }
+        }
       });
       inputEl.value = '';
       renderNodeInspectorBody(stepId);
+      renderWorkflowCanvas();
       lucide.createIcons();
     }
 
@@ -2138,6 +2867,7 @@
       if (!step || !Array.isArray(step[field])) return;
       step[field].splice(idx, 1);
       renderNodeInspectorBody(stepId);
+      renderWorkflowCanvas();
       lucide.createIcons();
     }
 
@@ -2519,17 +3249,25 @@
       btn.innerHTML = `<i data-lucide="loader-2" class="w-3 h-3 animate-spin"></i><span>Guardando...</span>`;
       lucide.createIcons();
 
-      activeConfig.fallbackResponse = document.getElementById('fallbackInput').value;
-      activeConfig.hooks = []; // En v2.5 todo el motor vive unificado en workflow.steps
+      const payload = buildProductionPayload();
 
       try {
         const res = await fetch('/api/config', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'x-admin-pin': savedPin },
-          body: JSON.stringify(activeConfig)
+          body: JSON.stringify(payload)
         });
         const data = await res.json();
         if (data.success) {
+          if (data.config) {
+            const hadUpstash = activeConfig.hasUpstash;
+            activeConfig = { ...data.config, hasUpstash: hadUpstash };
+            ensureMultiCanvasState(activeConfig);
+            const currentCanvas = getEditingCanvas();
+            if (currentCanvas) {
+              hydrateEditingCanvasIntoView(currentCanvas, { resetSim: false });
+            }
+          }
           btn.className = "px-3 py-1 bg-emerald-600 text-white text-[11px] font-medium rounded-lg flex items-center gap-1 transition-colors";
           btn.innerHTML = `<i data-lucide="check" class="w-3 h-3"></i><span>Guardado</span>`;
           lucide.createIcons();
@@ -2551,6 +3289,11 @@
     }
 
     function openSettingsModal() {
+      const current = getEditingCanvas();
+      const hintEl = document.getElementById('settingsCanvasHint');
+      if (hintEl) {
+        hintEl.innerText = current ? `Variables exclusivas del lienzo: ${current.name}` : 'Variables del lienzo actual';
+      }
       document.getElementById('settingBusinessName').value = activeConfig.settings?.businessName || '';
       document.getElementById('settingTiendaUrl').value = activeConfig.settings?.tiendaUrl || '';
       document.getElementById('settingMapsUrl').value = activeConfig.settings?.mapsUrl || '';
@@ -2571,6 +3314,7 @@
       activeConfig.settings.mapsUrl = document.getElementById('settingMapsUrl').value;
       activeConfig.settings.phone = document.getElementById('settingPhone').value;
       activeConfig.settings.advisorPauseHours = Number(document.getElementById('settingPauseHours').value) || 12;
+      syncEditingCanvasFromState();
       closeSettingsModal();
       saveCurrentConfig();
     }
@@ -2583,17 +3327,15 @@
     }
 
     function resetSimulatorChat() {
-      const steps = activeConfig?.workflow?.steps || [];
-      const root = steps.find(s => s.id === activeConfig?.workflow?.initialStepId) || steps.find(s => s.isRoot) || steps[0];
       simIsPaused = false;
       simIsNewCustomer = true;
-      simCurrentStep = root ? root.id : 'step_welcome';
+      simCurrentStep = null;
       updateSimBadge();
       const chat = document.getElementById('chatMessages');
       chat.innerHTML = `
         <div class="text-center text-[10px] text-zinc-400 my-1">Simulación reiniciada</div>
         <div class="bg-white border border-zinc-200 rounded-lg p-2.5 text-[11px] text-zinc-600 leading-relaxed">
-          💡 <b>Prueba tu diagrama n8n en vivo:</b> Escribe <b>"1"</b>, <b>"99"</b> (error estricto), <b>"¿Cuánto pagan por mi iPhone?"</b> o <b>"Menú"</b>.
+          💡 <b>Prueba tu diagrama n8n en vivo:</b> Escribe <b>"Hola"</b>, <b>"1"</b>, <b>"99"</b> (error estricto), <b>"¿Cuánto pagan por mi iPhone?"</b> o <b>"Menú"</b>.
         </div>
       `;
     }
@@ -2601,7 +3343,7 @@
     function updateSimBadge() {
       const badge = document.getElementById('simStateBadge');
       const stepObj = activeConfig?.workflow?.steps?.find(s => s.id === simCurrentStep);
-      const stepLabel = stepObj ? stepObj.title : (simCurrentStep || 'Inicio');
+      const stepLabel = stepObj ? stepObj.title : (simCurrentStep || 'Primer DM');
       if (simIsPaused) {
         badge.className = "text-[10px] text-amber-600 font-semibold";
         badge.innerText = `Pausa Humana (12h) • ${stepLabel}`;
@@ -2642,12 +3384,18 @@
       return clean.replace(/^(?:(?:la|el)\s+)?(?:(?:opcion|numero|num|nro)\s+)*(?:(?:la|el)\s+)?/, "").trim();
     }
 
-    function simFindMatchingNode(nodes, clean, requireLongKeyword = false) {
+    function simFindMatchingNode(nodes, clean, options = {}) {
+      const { requireLongKeyword = false, scope = 'all' } = typeof options === 'boolean'
+        ? { requireLongKeyword: options, scope: 'all' }
+        : (options || {});
       const cleanOption = stripMenuPrefixSim(clean);
       for (const n of nodes) {
         if (simHasNegative(n, clean)) continue;
         const ok = (n.keywords || []).some(k => {
-          const ck = normalizeStr(k);
+          const isParent = isKeywordParentScopedUI(k);
+          if (scope === 'global' && isParent) return false;
+          if (scope === 'parent' && !isParent) return false;
+          const ck = normalizeStr(getKeywordTextUI(k));
           if (!ck) return false;
           const optionOnly = ck.length <= 2 || SIM_NUMERIC_OPTION_WORDS.has(ck);
           if (requireLongKeyword && optionOnly) return false;
@@ -2689,6 +3437,7 @@
         let shouldPause = false;
         let shouldUnpause = false;
         let nextStep = simCurrentStep;
+        const activeStep = (!simIsNewCustomer && simCurrentStep) ? workflowSteps.find(s => s.id === simCurrentStep) : null;
 
         // 1. Comando Menu
         if ((clean === "menu" || clean === "activar bot" || clean === "/bot" || clean === "inicio") && rootStep) {
@@ -2700,7 +3449,16 @@
             appendSystemNotice("Silencio: Ficha técnica detectada mientras espera asesor.");
             return;
           }
-          const pausedMatched = simFindMatchingNode(sortedNodes.filter(s => s.allowedWhenPaused), clean);
+          const pausedAllowedNodes = sortedNodes.filter(s => s.allowedWhenPaused);
+          const pausedChildIds = new Set(
+            (activeStep && Array.isArray(activeStep.routes) ? activeStep.routes : [])
+              .map(r => r.targetStepId)
+              .filter(Boolean)
+          );
+          const pausedMatched = (pausedChildIds.size > 0
+            ? simFindMatchingNode(pausedAllowedNodes.filter(s => pausedChildIds.has(s.id)), clean, { scope: 'parent' })
+            : null)
+            || simFindMatchingNode(pausedAllowedNodes, clean, { scope: 'global' });
           if (pausedMatched) {
             reply = formatSimText(pausedMatched.message);
           } else {
@@ -2708,7 +3466,6 @@
             return;
           }
         } else {
-          const activeStep = simCurrentStep ? workflowSteps.find(s => s.id === simCurrentStep) : null;
           const effectiveActive = activeStep || (isStrict && !simIsNewCustomer ? rootStep : null);
           const activeRoutes = (effectiveActive && Array.isArray(effectiveActive.routes)) ? effectiveActive.routes : [];
           const specificRoutes = activeRoutes.filter(r => !isWildcardRouteUI(r));
@@ -2740,6 +3497,18 @@
             }
           }
 
+          // 3.5. Keywords sujetas al paso anterior conectado (🔒)
+          if (!matchedRoute && effectiveActive && activeRoutes.length > 0) {
+            const connectedIds = new Set(activeRoutes.map(r => r.targetStepId).filter(Boolean));
+            const connectedTargets = sortedNodes.filter(s => connectedIds.has(s.id));
+            if (connectedTargets.length > 0) {
+              const scopedMatched = simFindMatchingNode(connectedTargets, clean, { scope: 'parent', requireLongKeyword: false });
+              if (scopedMatched) {
+                applySimRoute({ targetStepId: scopedMatched.id }, scopedMatched);
+              }
+            }
+          }
+
           // 4. Siguiente paso automático con "Cualquier respuesta (*)" en paso posterior
           if (!matchedRoute && activeStep && !simIsNewCustomer && activeStep.id !== initialStepId && wildcardRoutes.length > 0) {
             for (const r of wildcardRoutes) {
@@ -2763,9 +3532,12 @@
             return;
           }
 
-          // 6. Keywords globales por prioridad
+          // 6. Keywords libres (🌐) globales por prioridad
           if (!matchedRoute) {
-            const matchedNode = simFindMatchingNode(sortedNodes, clean, isStrict && specificRoutes.length > 0);
+            const matchedNode = simFindMatchingNode(sortedNodes, clean, {
+              scope: 'global',
+              requireLongKeyword: isStrict && specificRoutes.length > 0
+            });
             if (matchedNode) {
               reply = formatSimText(matchedNode.message);
               nextStep = matchedNode.id;

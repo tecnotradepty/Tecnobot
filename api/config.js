@@ -8,6 +8,7 @@ const {
   pauseUser,
   unpauseUser,
   deleteCustomer,
+  pauseCustomersForCanvasSwitch,
   getRedisCredentials 
 } = require('../config/storage');
 
@@ -94,6 +95,51 @@ module.exports = async function handler(req, res) {
       return res.status(200).json({ success: true, customers });
     }
 
+    // Acción: Activar un lienzo en producción (+ pausa opcional de clientes)
+    if (action === 'activate_canvas') {
+      const current = await getConfig();
+      const bodyConfig = (req.body?.config && typeof req.body.config === 'object') ? req.body.config : req.body;
+      const targetCanvasId = String(req.body?.activeCanvasId || bodyConfig?.activeCanvasId || current.activeCanvasId || '').trim();
+      const rawCanvases = Array.isArray(bodyConfig?.canvases) && bodyConfig.canvases.length > 0
+        ? bodyConfig.canvases
+        : current.canvases;
+
+      if (!targetCanvasId || !rawCanvases.some(c => c.id === targetCanvasId)) {
+        return res.status(400).json({ error: 'El lienzo seleccionado no existe' });
+      }
+
+      const cleanConfig = {
+        ...current,
+        ...(bodyConfig || {}),
+        activeCanvasId: targetCanvasId,
+        canvases: rawCanvases
+      };
+      delete cleanConfig.customers;
+      delete cleanConfig.hasUpstash;
+      delete cleanConfig.pauseMode;
+      delete cleanConfig.recentWithinHours;
+      delete cleanConfig.pauseDurationHours;
+      delete cleanConfig.config;
+      delete cleanConfig.pin;
+
+      const result = await saveConfig(cleanConfig);
+      const pauseMode = req.body?.pauseMode || 'none';
+      const pauseResult = await pauseCustomersForCanvasSwitch(pauseMode, {
+        recentWithinHours: req.body?.recentWithinHours,
+        pauseDurationHours: req.body?.pauseDurationHours
+      });
+      const customers = await getCustomersList();
+
+      return res.status(200).json({
+        success: true,
+        message: 'Lienzo activado en producción',
+        persistence: result.persistence,
+        config: result.config,
+        pausedCount: pauseResult.pausedCount,
+        customers
+      });
+    }
+
     // Guardar configuración completa de ganchos y respuestas
     const newConfig = req.body;
     if (!newConfig || typeof newConfig !== 'object') {
@@ -109,7 +155,8 @@ module.exports = async function handler(req, res) {
     return res.status(200).json({
       success: true,
       message: 'Configuración actualizada con éxito',
-      persistence: result.persistence
+      persistence: result.persistence,
+      config: result.config
     });
   }
 

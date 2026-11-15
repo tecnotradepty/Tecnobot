@@ -2,11 +2,21 @@
 // SERVICIO DE ALMACENAMIENTO, CLIENTES Y ESTADO EN REDIS
 // ========================================================
 
-const { DEFAULT_CONFIG } = require('./responses');
+const { DEFAULT_CONFIG, normalizeText, getKeywordText, isParentScopedKeyword } = require('./responses');
 
-const CURRENT_SCHEMA_VERSION = 6;
+const CURRENT_SCHEMA_VERSION = 7;
 
-let inMemoryConfig = { ...DEFAULT_CONFIG, schemaVersion: CURRENT_SCHEMA_VERSION };
+const EMPTY_CANVAS_SETTINGS = {
+  businessName: '',
+  tiendaUrl: '',
+  mapsUrl: '',
+  phone: '',
+  advisorPauseHours: 12,
+  silentFallback: true,
+  strictStepMode: true
+};
+
+let inMemoryConfig = null;
 let inMemoryCustomers = {};
 const inMemoryPausedUsers = new Map();
 const inMemorySeenUsers = new Set();
@@ -82,6 +92,20 @@ const STEP_TO_HOOK_ID = {
   step_advisor: 'hook_advisor'
 };
 
+function normalizeKeywordEntryList(list) {
+  if (!Array.isArray(list)) return [];
+  const seen = new Set();
+  const out = [];
+  for (const item of list) {
+    const text = getKeywordText(item).trim();
+    const norm = normalizeText(text);
+    if (!norm || seen.has(norm)) continue;
+    seen.add(norm);
+    out.push(isParentScopedKeyword(item) ? { text, scope: 'parent' } : text);
+  }
+  return out;
+}
+
 function normalizeWorkflowStep(step, index = 0, fallbackStep = null) {
   const defaultPos = fallbackStep?.position || {
     x: 340 + (index % 3) * 340,
@@ -89,7 +113,7 @@ function normalizeWorkflowStep(step, index = 0, fallbackStep = null) {
   };
   return {
     id: step.id || fallbackStep?.id || `step_${Date.now()}_${index}`,
-    title: step.title || fallbackStep?.title || 'Paso Nuevo',
+    title: step.title !== undefined ? step.title : (fallbackStep?.title || 'Paso Nuevo'),
     type: step.type || fallbackStep?.type || 'response',
     isRoot: Boolean(step.isRoot),
     position: (step.position && typeof step.position.x === 'number' && typeof step.position.y === 'number')
@@ -99,7 +123,7 @@ function normalizeWorkflowStep(step, index = 0, fallbackStep = null) {
     autoPause: step.autoPause !== undefined ? Boolean(step.autoPause) : Boolean(fallbackStep?.autoPause),
     allowedWhenPaused: step.allowedWhenPaused !== undefined ? Boolean(step.allowedWhenPaused) : Boolean(fallbackStep?.allowedWhenPaused),
     unpauseOnTrigger: step.unpauseOnTrigger !== undefined ? Boolean(step.unpauseOnTrigger) : Boolean(fallbackStep?.unpauseOnTrigger),
-    keywords: Array.isArray(step.keywords) ? step.keywords : (fallbackStep?.keywords || []),
+    keywords: normalizeKeywordEntryList(Array.isArray(step.keywords) ? step.keywords : (fallbackStep?.keywords || [])),
     negativeKeywords: Array.isArray(step.negativeKeywords) ? step.negativeKeywords : (fallbackStep?.negativeKeywords || []),
     message: step.message !== undefined ? step.message : (fallbackStep?.message || ''),
     routes: Array.isArray(step.routes) ? step.routes : (fallbackStep?.routes || []),
@@ -107,14 +131,88 @@ function normalizeWorkflowStep(step, index = 0, fallbackStep = null) {
   };
 }
 
-/**
- * Sincroniza e hidrata configuraciones guardadas en versiones anteriores
- */
-function upgradeAndMergeConfig(saved) {
-  if (!saved || typeof saved !== 'object') {
-    return { ...DEFAULT_CONFIG, schemaVersion: CURRENT_SCHEMA_VERSION };
-  }
+function normalizeCanvasSettings(rawSettings = {}, fallbackSettings = null) {
+  const base = fallbackSettings || EMPTY_CANVAS_SETTINGS;
+  const pauseHours = Number(rawSettings.advisorPauseHours);
+  return {
+    businessName: rawSettings.businessName !== undefined ? String(rawSettings.businessName) : String(base.businessName || ''),
+    tiendaUrl: rawSettings.tiendaUrl !== undefined ? String(rawSettings.tiendaUrl) : String(base.tiendaUrl || ''),
+    mapsUrl: rawSettings.mapsUrl !== undefined ? String(rawSettings.mapsUrl) : String(base.mapsUrl || ''),
+    phone: rawSettings.phone !== undefined ? String(rawSettings.phone) : String(base.phone || ''),
+    advisorPauseHours: Number.isFinite(pauseHours) && pauseHours > 0 ? pauseHours : (base.advisorPauseHours || 12),
+    silentFallback: rawSettings.silentFallback !== undefined ? Boolean(rawSettings.silentFallback) : Boolean(base.silentFallback !== false),
+    strictStepMode: rawSettings.strictStepMode !== undefined ? Boolean(rawSettings.strictStepMode) : Boolean(base.strictStepMode !== false)
+  };
+}
 
+function createEmptyCanvasTemplate(name = 'Nuevo Lienzo', id = null) {
+  const now = Date.now();
+  const suffix = `${now.toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
+  const rootId = `step_start_${suffix}`;
+  return {
+    id: id || `canvas_${suffix}`,
+    name: String(name || 'Nuevo Lienzo').trim() || 'Nuevo Lienzo',
+    createdAt: now,
+    updatedAt: now,
+    settings: { ...EMPTY_CANVAS_SETTINGS },
+    fallbackResponse: '',
+    workflow: {
+      enabled: true,
+      initialStepId: rootId,
+      triggerPosition: { x: 40, y: 240 },
+      steps: [
+        {
+          id: rootId,
+          title: 'Paso 0: Inicio',
+          type: 'menu',
+          isRoot: true,
+          position: { x: 340, y: 210 },
+          priority: 1,
+          autoPause: false,
+          allowedWhenPaused: false,
+          unpauseOnTrigger: true,
+          keywords: [],
+          negativeKeywords: [],
+          message: '',
+          routes: [],
+          invalidMessage: null
+        }
+      ]
+    }
+  };
+}
+
+function normalizeCanvasEntry(rawCanvas = {}, idx = 0, fallbackSettings = null) {
+  const now = Date.now();
+  const rawWf = rawCanvas.workflow || {};
+  const rawSteps = Array.isArray(rawWf.steps) ? rawWf.steps : [];
+  let steps = rawSteps.map((s, sIdx) => normalizeWorkflowStep(s, sIdx, null));
+  if (steps.length === 0) {
+    steps = createEmptyCanvasTemplate(rawCanvas.name || `Lienzo ${idx + 1}`).workflow.steps;
+  }
+  const rootStep = steps.find(s => s.id === rawWf.initialStepId)
+    || steps.find(s => s.isRoot)
+    || steps[0];
+
+  return {
+    id: rawCanvas.id || `canvas_${idx + 1}_${now.toString(36)}`,
+    name: String(rawCanvas.name || `Lienzo ${idx + 1}`).trim() || `Lienzo ${idx + 1}`,
+    createdAt: Number(rawCanvas.createdAt) || now,
+    updatedAt: Number(rawCanvas.updatedAt) || now,
+    settings: normalizeCanvasSettings(rawCanvas.settings || {}, fallbackSettings),
+    fallbackResponse: rawCanvas.fallbackResponse !== undefined ? String(rawCanvas.fallbackResponse) : '',
+    workflow: {
+      enabled: rawWf.enabled !== undefined ? Boolean(rawWf.enabled) : true,
+      initialStepId: rootStep ? rootStep.id : steps[0].id,
+      triggerPosition: (rawWf.triggerPosition && typeof rawWf.triggerPosition.x === 'number' && typeof rawWf.triggerPosition.y === 'number')
+        ? { x: rawWf.triggerPosition.x, y: rawWf.triggerPosition.y }
+        : { x: 40, y: 240 },
+      steps
+    }
+  };
+}
+
+function upgradeLegacySingleWorkflow(saved) {
   const mergedSettings = {
     ...DEFAULT_CONFIG.settings,
     ...(saved.settings || {}),
@@ -129,7 +227,7 @@ function upgradeAndMergeConfig(saved) {
   const savedHooks = Array.isArray(saved.hooks) ? saved.hooks : [];
 
   let finalSteps;
-  if (savedVersion >= CURRENT_SCHEMA_VERSION && savedSteps.length > 0) {
+  if (savedVersion >= 6 && savedSteps.length > 0) {
     // En v6+, respetar exactamente los pasos, enlaces (incluso routes=[]) y keywords editados en el mapa
     finalSteps = savedSteps.map((s, idx) => {
       const def = defaultWorkflow.steps.find(d => d.id === s.id) || null;
@@ -252,25 +350,66 @@ function upgradeAndMergeConfig(saved) {
     || finalSteps.find(s => s.isRoot)
     || finalSteps[0];
 
-  const finalWorkflow = {
-    enabled: savedWorkflow.enabled !== undefined ? savedWorkflow.enabled : true,
-    initialStepId: rootStep ? rootStep.id : 'step_welcome',
-    triggerPosition: (savedWorkflow.triggerPosition && typeof savedWorkflow.triggerPosition.x === 'number')
-      ? { x: savedWorkflow.triggerPosition.x, y: savedWorkflow.triggerPosition.y }
-      : { x: 40, y: 295 },
-    steps: finalSteps
+  return {
+    settings: mergedSettings,
+    fallbackResponse: saved.fallbackResponse !== undefined ? String(saved.fallbackResponse) : DEFAULT_CONFIG.fallbackResponse,
+    workflow: {
+      enabled: savedWorkflow.enabled !== undefined ? savedWorkflow.enabled : true,
+      initialStepId: rootStep ? rootStep.id : 'step_welcome',
+      triggerPosition: (savedWorkflow.triggerPosition && typeof savedWorkflow.triggerPosition.x === 'number')
+        ? { x: savedWorkflow.triggerPosition.x, y: savedWorkflow.triggerPosition.y }
+        : { x: 40, y: 295 },
+      steps: finalSteps
+    }
   };
+}
+
+/**
+ * Sincroniza, migra a Multi-Lienzos (v7) y refleja el lienzo activo en producción
+ */
+function upgradeAndMergeConfig(saved) {
+  if (!saved || typeof saved !== 'object') {
+    return upgradeAndMergeConfig(DEFAULT_CONFIG);
+  }
+
+  const pin = saved.settings?.pin || process.env.ADMIN_PIN || DEFAULT_CONFIG.settings.pin;
+  let canvases;
+
+  if (Array.isArray(saved.canvases) && saved.canvases.length > 0) {
+    canvases = saved.canvases.map((c, idx) => normalizeCanvasEntry(c, idx, null));
+  } else {
+    const legacy = upgradeLegacySingleWorkflow(saved);
+    canvases = [
+      normalizeCanvasEntry({
+        id: 'canvas_1',
+        name: 'Lienzo 1',
+        settings: legacy.settings,
+        fallbackResponse: legacy.fallbackResponse,
+        workflow: legacy.workflow
+      }, 0, legacy.settings)
+    ];
+  }
+
+  const activeCanvas = canvases.find(c => c.id === saved.activeCanvasId) || canvases[0];
 
   return {
     ...DEFAULT_CONFIG,
     ...saved,
     botActive: saved.botActive !== undefined ? saved.botActive : true,
-    settings: mergedSettings,
+    activeCanvasId: activeCanvas.id,
+    canvases,
+    settings: {
+      ...activeCanvas.settings,
+      pin
+    },
+    fallbackResponse: activeCanvas.fallbackResponse,
     hooks: [],
-    workflow: finalWorkflow,
+    workflow: activeCanvas.workflow,
     schemaVersion: CURRENT_SCHEMA_VERSION
   };
 }
+
+inMemoryConfig = upgradeAndMergeConfig(DEFAULT_CONFIG);
 
 // ========================================================
 // 1. CONFIGURACIÓN DEL BOT
@@ -286,6 +425,7 @@ async function getConfig() {
         if (!parsed.schemaVersion || parsed.schemaVersion < CURRENT_SCHEMA_VERSION) {
           await executeRedis(["SET", "tecnobot_config", JSON.stringify(upgraded)]);
         }
+        inMemoryConfig = upgraded;
         return upgraded;
       } catch (e) {
         console.error('Error parseando tecnobot_config:', e);
@@ -296,20 +436,24 @@ async function getConfig() {
 }
 
 async function saveConfig(newConfig) {
-  inMemoryConfig = {
-    ...DEFAULT_CONFIG,
+  const currentPin = inMemoryConfig?.settings?.pin || DEFAULT_CONFIG.settings.pin;
+  const mergedInput = {
     ...newConfig,
-    schemaVersion: CURRENT_SCHEMA_VERSION
+    settings: {
+      ...(newConfig?.settings || {}),
+      pin: newConfig?.settings?.pin || currentPin
+    }
   };
+  inMemoryConfig = upgradeAndMergeConfig(mergedInput);
   const { isConnected } = getRedisCredentials();
 
   if (isConnected) {
     const res = await executeRedis(["SET", "tecnobot_config", JSON.stringify(inMemoryConfig)]);
     if (res !== null) {
-      return { success: true, persistence: 'upstash_redis' };
+      return { success: true, persistence: 'upstash_redis', config: inMemoryConfig };
     }
   }
-  return { success: true, persistence: 'memory' };
+  return { success: true, persistence: 'memory', config: inMemoryConfig };
 }
 
 // ========================================================
@@ -415,6 +559,65 @@ async function upsertCustomer(userId, patch = {}, accessToken = '') {
   return updated;
 }
 
+async function hydrateRedisCustomerKeys(map, now, syncTtl = true) {
+  let mapChanged = false;
+  try {
+    const [pausedKeys, seenKeys] = await Promise.all([
+      executeRedis(["KEYS", "tecnobot:paused:*"]),
+      executeRedis(["KEYS", "tecnobot:seen:*"])
+    ]);
+
+    const allDiscoveredIds = new Set();
+    if (Array.isArray(pausedKeys)) {
+      pausedKeys.forEach(k => {
+        const id = String(k).replace('tecnobot:paused:', '');
+        if (id) allDiscoveredIds.add(id);
+      });
+    }
+    if (Array.isArray(seenKeys)) {
+      seenKeys.forEach(k => {
+        const id = String(k).replace('tecnobot:seen:', '');
+        if (id) allDiscoveredIds.add(id);
+      });
+    }
+
+    for (const id of allDiscoveredIds) {
+      if (!map[id]) {
+        map[id] = {
+          id,
+          username: null,
+          name: null,
+          profilePic: null,
+          firstSeenAt: now,
+          lastInteractionAt: now,
+          lastMessage: 'Conversación previa en Instagram',
+          lastHookId: null,
+          pausedUntil: null,
+          pauseDurationMs: 43200000,
+          pauseReason: null,
+          messageCount: 1
+        };
+        mapChanged = true;
+      }
+
+      if (syncTtl && Array.isArray(pausedKeys) && pausedKeys.includes(`tecnobot:paused:${id}`)) {
+        if (!map[id].pausedUntil || Number(map[id].pausedUntil) <= now) {
+          const ttl = await executeRedis(["TTL", `tecnobot:paused:${id}`]);
+          if (typeof ttl === 'number' && ttl > 0) {
+            map[id].pausedUntil = now + (ttl * 1000);
+            map[id].pauseDurationMs = map[id].pauseDurationMs || 43200000;
+            map[id].pauseReason = map[id].pauseReason || 'En atención humana';
+            mapChanged = true;
+          }
+        }
+      }
+    }
+  } catch (e) {
+    console.error('[Customer Discovery Error]:', e);
+  }
+  return mapChanged;
+}
+
 /**
  * Devuelve la lista ordenada de clientes con su estado y tiempo restante de pausa en vivo.
  * Hidrata automáticamente clientes previos existentes en Redis (seen / paused).
@@ -428,61 +631,7 @@ async function getCustomersList() {
 
   // Descubrir clientes existentes en claves Redis previas (seen / paused)
   if (isConnected) {
-    try {
-      const [pausedKeys, seenKeys] = await Promise.all([
-        executeRedis(["KEYS", "tecnobot:paused:*"]),
-        executeRedis(["KEYS", "tecnobot:seen:*"])
-      ]);
-
-      const allDiscoveredIds = new Set();
-      if (Array.isArray(pausedKeys)) {
-        pausedKeys.forEach(k => {
-          const id = String(k).replace('tecnobot:paused:', '');
-          if (id) allDiscoveredIds.add(id);
-        });
-      }
-      if (Array.isArray(seenKeys)) {
-        seenKeys.forEach(k => {
-          const id = String(k).replace('tecnobot:seen:', '');
-          if (id) allDiscoveredIds.add(id);
-        });
-      }
-
-      for (const id of allDiscoveredIds) {
-        if (!map[id]) {
-          map[id] = {
-            id,
-            username: null,
-            name: null,
-            profilePic: null,
-            firstSeenAt: now,
-            lastInteractionAt: now,
-            lastMessage: 'Conversación previa en Instagram',
-            lastHookId: null,
-            pausedUntil: null,
-            pauseDurationMs: 43200000,
-            pauseReason: null,
-            messageCount: 1
-          };
-          mapChanged = true;
-        }
-
-        // Si tiene llave de pausa activa en Redis pero no en el mapa, sincronizar su TTL
-        if (Array.isArray(pausedKeys) && pausedKeys.includes(`tecnobot:paused:${id}`)) {
-          if (!map[id].pausedUntil || Number(map[id].pausedUntil) <= now) {
-            const ttl = await executeRedis(["TTL", `tecnobot:paused:${id}`]);
-            if (typeof ttl === 'number' && ttl > 0) {
-              map[id].pausedUntil = now + (ttl * 1000);
-              map[id].pauseDurationMs = map[id].pauseDurationMs || 43200000;
-              map[id].pauseReason = map[id].pauseReason || 'En atención humana';
-              mapChanged = true;
-            }
-          }
-        }
-      }
-    } catch (e) {
-      console.error('[Customer Discovery Error]:', e);
-    }
+    mapChanged = await hydrateRedisCustomerKeys(map, now, true);
   }
 
   // Hidratar perfiles de Instagram faltantes
@@ -655,11 +804,70 @@ async function getCustomerStep(userId) {
   return map[userId]?.currentStep || null;
 }
 
+async function pauseCustomersForCanvasSwitch(pauseMode = 'none', options = {}) {
+  if (!pauseMode || pauseMode === 'none') {
+    return { pausedCount: 0, pauseDurationHours: 0 };
+  }
+
+  const recentWithinHours = Math.max(1, Number(options.recentWithinHours) || 12);
+  const pauseDurationHours = Math.max(1, Number(options.pauseDurationHours) || 12);
+  const ttlSeconds = Math.round(pauseDurationHours * 3600);
+  const durationMs = ttlSeconds * 1000;
+  const now = Date.now();
+  const pausedUntil = now + durationMs;
+  const recentCutoff = now - recentWithinHours * 3600 * 1000;
+  const reason = pauseMode === 'all'
+    ? 'Cambio de lienzo activo (todos los clientes)'
+    : `Cambio de lienzo activo (últimas ${recentWithinHours}h)`;
+
+  const map = await getCustomersMap();
+  const { isConnected } = getRedisCredentials();
+  if (isConnected && pauseMode === 'all') {
+    await hydrateRedisCustomerKeys(map, now, false);
+  }
+
+  const targetIds = Object.keys(map).filter(id => {
+    if (pauseMode === 'all') return true;
+    if (pauseMode === 'recent') {
+      return Number(map[id]?.lastInteractionAt || 0) >= recentCutoff;
+    }
+    return false;
+  });
+
+  if (targetIds.length === 0) {
+    return { pausedCount: 0, pauseDurationHours };
+  }
+
+  for (const id of targetIds) {
+    map[id].pausedUntil = pausedUntil;
+    map[id].pauseDurationMs = durationMs;
+    map[id].pauseReason = reason;
+    if (!isConnected) {
+      inMemoryPausedUsers.set(id, pausedUntil);
+    }
+  }
+
+  await saveCustomersMap(map);
+
+  if (isConnected) {
+    for (let i = 0; i < targetIds.length; i += 20) {
+      const batch = targetIds.slice(i, i + 20);
+      await Promise.all(
+        batch.map(id => executeRedis(["SET", `tecnobot:paused:${id}`, "1", "EX", String(ttlSeconds)]))
+      );
+    }
+  }
+
+  return { pausedCount: targetIds.length, pauseDurationHours };
+}
+
 module.exports = {
+  CURRENT_SCHEMA_VERSION,
   getRedisCredentials,
   getConfig,
   saveConfig,
   upgradeAndMergeConfig,
+  createEmptyCanvasTemplate,
   getCustomersList,
   getCustomerStep,
   upsertCustomer,
@@ -667,5 +875,6 @@ module.exports = {
   isUserPaused,
   pauseUser,
   unpauseUser,
+  pauseCustomersForCanvasSwitch,
   isFirstTimeUser
 };
