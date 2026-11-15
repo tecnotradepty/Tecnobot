@@ -4,12 +4,13 @@
 const { resolveBotResponse, formatResponseText } = require('../config/responses');
 const { 
   getConfig, 
+  getCustomersMap,
   upsertCustomer,
   isUserPaused, 
   pauseUser, 
   unpauseUser, 
   isFirstTimeUser,
-  getCustomerStep
+  getCustomerContext
 } = require('../config/storage');
 
 module.exports = async function handler(req, res) {
@@ -57,7 +58,12 @@ module.exports = async function handler(req, res) {
               // Nota: Meta marca todos los mensajes salientes con is_echo=true, por lo que verificamos
               // si el texto saliente coincide con alguna respuesta automática del bot antes de asumir que fue un humano.
               const echoText = (event.message?.text || '').trim();
-              const isBotOwnReply = isKnownBotResponse(echoText, activeConfig);
+              let echoCustomer = null;
+              if (customerId) {
+                const customersMap = await getCustomersMap();
+                echoCustomer = customersMap[customerId] || null;
+              }
+              const isBotOwnReply = isKnownBotResponse(echoText, activeConfig, echoCustomer);
 
               if (customerId && !isBotOwnReply) {
                 console.log(`[Intervención Humana] Asesor respondió manualmente a ${customerId}. Silenciando bot por ${activeConfig.settings?.advisorPauseHours || 12}h.`);
@@ -83,13 +89,18 @@ module.exports = async function handler(req, res) {
             }
 
             // =================================================================
-            // 3. CONSULTAR ESTADO DEL CLIENTE EN REDIS (PAUSA, PASO Y HISTORIAL)
+            // 3. CONSULTAR ESTADO DEL CLIENTE EN REDIS (PAUSA, PASO Y PERFIL)
             // =================================================================
             const isPaused = await isUserPaused(senderId);
             const isNewCustomer = await isFirstTimeUser(senderId);
-            const currentStep = await getCustomerStep(senderId);
+            const {
+              customer: customerProfile,
+              currentStep,
+              fetchedProfile,
+              profileCheckedAt
+            } = await getCustomerContext(senderId, PAGE_ACCESS_TOKEN);
 
-            console.log(`[DM Recibido] De: ${senderId} | Nuevo: ${isNewCustomer} | Paso: ${currentStep} | EnPausa: ${isPaused} -> "${userMessage}"`);
+            console.log(`[DM Recibido] De: ${senderId} (@${customerProfile?.username || 'sin_username'}) | Nuevo: ${isNewCustomer} | Paso: ${currentStep} | EnPausa: ${isPaused} -> "${userMessage}"`);
 
             // =================================================================
             // 4. RESOLVER CON MOTOR DE PASOS (WORKFLOW) Y REGLAS
@@ -97,7 +108,7 @@ module.exports = async function handler(req, res) {
             const { text: replyText, hookId, nextStep, shouldPause, shouldUnpause } = resolveBotResponse(
               userMessage,
               activeConfig,
-              { isPaused, isNewCustomer, currentStep }
+              { isPaused, isNewCustomer, currentStep, customer: customerProfile }
             );
 
             const matchedStep = (activeConfig.workflow?.steps || []).find(s => s.id === hookId);
@@ -117,6 +128,8 @@ module.exports = async function handler(req, res) {
               senderId,
               {
                 lastMessage: userMessage,
+                ...(fetchedProfile || {}),
+                ...(profileCheckedAt ? { profileFetchedAt: profileCheckedAt } : {}),
                 ...(nextStep ? { currentStep: nextStep } : {}),
                 ...(hookId ? { lastHookId: hookId } : {}),
                 ...(hookLabel ? { lastHookTitle: hookLabel } : {}),
@@ -162,16 +175,59 @@ module.exports = async function handler(req, res) {
  * Comprueba si el mensaje de eco saliente fue generado por el propio bot
  * (Para que las respuestas informativas como Catálogo, Horario o Menú no silencien al bot por error)
  */
-function isKnownBotResponse(echoText, config) {
+function matchesTemplateWithUsername(echoText, rawTemplate, wfCfg) {
+  if (!rawTemplate || !/\{USERNAME\}/i.test(rawTemplate)) return false;
+
+  // Conservar el placeholder intacto mientras reemplazamos variables de negocio
+  const SENTINEL = '__TECNOBOT_USERNAME_TOKEN__';
+  const masked = String(rawTemplate).replace(/@?\{USERNAME\}/gi, SENTINEL);
+  const fullFormatted = formatResponseText(masked, wfCfg, {}).trim().toLowerCase();
+  const sentinelLower = SENTINEL.toLowerCase();
+  const sentinelPos = fullFormatted.indexOf(sentinelLower);
+  if (sentinelPos < 0) return false;
+  const formattedHead = fullFormatted.slice(0, Math.max(100, sentinelPos + sentinelLower.length + 30));
+  if (!formattedHead.includes(sentinelLower)) return false;
+
+  const parts = formattedHead.split(sentinelLower);
+  const staticChars = parts.join('').replace(/[^a-z0-9áéíóúüñ]/gi, '');
+  if (staticChars.length < 10) return false;
+
+  const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  let pattern = '^';
+  for (let i = 0; i < parts.length; i++) {
+    const seg = i < parts.length - 1 ? parts[i].replace(/[ \t]+$/, '') : parts[i];
+    pattern += escapeRegex(seg);
+    if (i < parts.length - 1) {
+      pattern += '[ \\t]*(?:@?[^\\r\\n]{0,40})?';
+    }
+  }
+
+  const echoHead = String(echoText || '').trim().slice(0, 140).toLowerCase();
+  try {
+    return new RegExp(pattern, 'i').test(echoHead);
+  } catch (_) {
+    return false;
+  }
+}
+
+function isKnownBotResponse(echoText, config, echoCustomer = null) {
   if (!echoText) return false;
   const cleanEcho = echoText.trim().slice(0, 40).toLowerCase();
   if (!cleanEcho) return false;
 
+  const formatCtx = echoCustomer ? { customer: echoCustomer } : {};
   const candidates = [];
+  const rawTemplates = [];
   const collectFromWorkflow = (wf, wfCfg) => {
     for (const step of wf?.steps || []) {
-      if (step.message) candidates.push(formatResponseText(step.message, wfCfg));
-      if (step.invalidMessage) candidates.push(formatResponseText(step.invalidMessage, wfCfg));
+      if (step.message) {
+        candidates.push(formatResponseText(step.message, wfCfg, formatCtx));
+        rawTemplates.push({ raw: step.message, cfg: wfCfg });
+      }
+      if (step.invalidMessage) {
+        candidates.push(formatResponseText(step.invalidMessage, wfCfg, formatCtx));
+        rawTemplates.push({ raw: step.invalidMessage, cfg: wfCfg });
+      }
     }
   };
 
@@ -180,20 +236,28 @@ function isKnownBotResponse(echoText, config) {
     const canvasCfg = { settings: canvas.settings || config.settings };
     collectFromWorkflow(canvas.workflow, canvasCfg);
     if (canvas.fallbackResponse) {
-      candidates.push(formatResponseText(canvas.fallbackResponse, canvasCfg));
+      candidates.push(formatResponseText(canvas.fallbackResponse, canvasCfg, formatCtx));
+      rawTemplates.push({ raw: canvas.fallbackResponse, cfg: canvasCfg });
     }
   }
   for (const hook of config.hooks || []) {
-    if (hook.response) candidates.push(formatResponseText(hook.response, config));
+    if (hook.response) {
+      candidates.push(formatResponseText(hook.response, config, formatCtx));
+      rawTemplates.push({ raw: hook.response, cfg: config });
+    }
   }
   if (config.fallbackResponse) {
-    candidates.push(formatResponseText(config.fallbackResponse, config));
+    candidates.push(formatResponseText(config.fallbackResponse, config, formatCtx));
+    rawTemplates.push({ raw: config.fallbackResponse, cfg: config });
   }
 
-  return candidates.some(raw => {
+  const exactMatch = candidates.some(raw => {
     const cleanCandidate = String(raw || '').trim().slice(0, 40).toLowerCase();
     return cleanCandidate && cleanEcho === cleanCandidate;
   });
+  if (exactMatch) return true;
+
+  return rawTemplates.some(({ raw, cfg }) => matchesTemplateWithUsername(echoText, raw, cfg));
 }
 
 /**

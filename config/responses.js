@@ -490,12 +490,33 @@ function normalizeText(str) {
 /**
  * Reemplaza variables dinámicas y limpia llaves accidentales en URLs
  */
-function formatResponseText(rawText, config) {
+function replaceUsernamePlaceholder(text, context = {}) {
+  if (!text) return "";
+  const rawUsername = String(
+    context?.customer?.username
+    || context?.username
+    || context?.customer?.name
+    || context?.name
+    || ""
+  ).trim().replace(/^@+/, "");
+
+  if (rawUsername) {
+    return text.replace(/\{USERNAME\}/gi, rawUsername);
+  }
+
+  // Si Meta no devolvió @username/nombre, omitir el placeholder sin dejar "@", espacios dobles ni "Hola ,"
+  let out = text.replace(/[ \t]+@?\{USERNAME\}(?:[ \t]*([,;.!?]))?/gi, (_, punct) => punct || "");
+  out = out.replace(/@?\{USERNAME\}(?:[,;.!?]?[ \t]*)/gi, "");
+  return out;
+}
+
+function formatResponseText(rawText, config = DEFAULT_CONFIG, context = {}) {
   if (!rawText) return "";
   let out = rawText;
   out = out.replace(/\{TIENDA_URL\}/g, config.settings?.tiendaUrl || "");
   out = out.replace(/\{MAPS_URL\}/g, config.settings?.mapsUrl || "");
   out = out.replace(/\{BUSINESS_NAME\}/g, config.settings?.businessName || "");
+  out = replaceUsernamePlaceholder(out, context);
   out = out.replace(/\{(\s*https?:\/\/[^\}]+)\}/g, '$1');
   return out;
 }
@@ -594,7 +615,7 @@ function findMatchingNode(nodes, clean, options = {}) {
  * Motor Principal de Razonamiento, Pasos de Workflow y Resolución de Respuestas
  * @param {string} userText - Texto enviado por el usuario
  * @param {object} config - Configuración activa
- * @param {object} context - { isPaused: boolean, isNewCustomer: boolean, currentStep: string }
+ * @param {object} context - { isPaused: boolean, isNewCustomer: boolean, currentStep: string, customer?: object }
  */
 function resolveBotResponse(userText, config = DEFAULT_CONFIG, context = {}) {
   const { isPaused = false, isNewCustomer = false, currentStep = null } = context;
@@ -634,7 +655,7 @@ function resolveBotResponse(userText, config = DEFAULT_CONFIG, context = {}) {
   // 1. Comando explícito para pedir el menú o reactivar el bot
   if ((clean === "menu" || clean === "activar bot" || clean === "/bot" || clean === "inicio") && rootStep) {
     return {
-      text: formatResponseText(rootStep.message, config),
+      text: formatResponseText(rootStep.message, config, context),
       hookId: rootStep.id,
       nextStep: rootStep.id,
       shouldPause: false,
@@ -647,7 +668,7 @@ function resolveBotResponse(userText, config = DEFAULT_CONFIG, context = {}) {
   const buildStepReply = (node) => {
     const targetStepId = node.nextStepId || node.id;
     return {
-      text: formatResponseText(node.message, config),
+      text: formatResponseText(node.message, config, context),
       hookId: node.id,
       nextStep: targetStepId,
       shouldPause: Boolean(node.autoPause || node.type === "handoff" || targetStepId === "step_advisor"),
@@ -673,7 +694,7 @@ function resolveBotResponse(userText, config = DEFAULT_CONFIG, context = {}) {
 
     if (matchedPaused) {
       return {
-        text: formatResponseText(matchedPaused.message, config),
+        text: formatResponseText(matchedPaused.message, config, context),
         hookId: matchedPaused.id,
         nextStep: currentStep,
         shouldPause: false,
@@ -779,7 +800,7 @@ function resolveBotResponse(userText, config = DEFAULT_CONFIG, context = {}) {
     && effectiveActiveStep.invalidMessage
   ) {
     return {
-      text: formatResponseText(effectiveActiveStep.invalidMessage, config),
+      text: formatResponseText(effectiveActiveStep.invalidMessage, config, context),
       hookId: "invalid_option_error",
       nextStep: effectiveActiveStep.id,
       shouldPause: false,
@@ -790,7 +811,7 @@ function resolveBotResponse(userText, config = DEFAULT_CONFIG, context = {}) {
   // 7. Si ningún nodo coincidió y es cliente nuevo: enviar paso inicial
   if (isNewCustomer && rootStep) {
     return {
-      text: formatResponseText(rootStep.message, config),
+      text: formatResponseText(rootStep.message, config, context),
       hookId: "hook_welcome_new_user",
       nextStep: rootStep.id,
       shouldPause: Boolean(rootStep.autoPause),
@@ -805,7 +826,7 @@ function resolveBotResponse(userText, config = DEFAULT_CONFIG, context = {}) {
   }
 
   return {
-    text: formatResponseText(config.fallbackResponse, config),
+    text: formatResponseText(config.fallbackResponse, config, context),
     hookId: null,
     nextStep: currentStep,
     shouldPause: false,

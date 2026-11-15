@@ -492,9 +492,11 @@ async function saveCustomersMap(mapObj) {
  */
 async function fetchInstagramProfile(userId, accessToken) {
   if (!userId || !accessToken) return null;
+  const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  const timer = controller ? setTimeout(() => controller.abort(), 2500) : null;
   try {
     const url = `https://graph.facebook.com/v21.0/${userId}?fields=name,username,profile_pic&access_token=${accessToken}`;
-    const res = await fetch(url);
+    const res = await fetch(url, controller ? { signal: controller.signal } : undefined);
     const data = await res.json();
     if (data && !data.error) {
       return {
@@ -505,6 +507,8 @@ async function fetchInstagramProfile(userId, accessToken) {
     }
   } catch (err) {
     console.error('[Profile Fetch Error]:', err);
+  } finally {
+    if (timer) clearTimeout(timer);
   }
   return null;
 }
@@ -536,7 +540,7 @@ async function upsertCustomer(userId, patch = {}, accessToken = '') {
   const effectiveToken = accessToken || process.env.PAGE_ACCESS_TOKEN || '';
   const shouldFetchProfile = (!existing.username || !existing.profileFetchedAt || (now - existing.profileFetchedAt > 86400000)) && effectiveToken;
 
-  if (shouldFetchProfile && !patch.username) {
+  if (shouldFetchProfile && !patch.username && !patch.profileFetchedAt) {
     const profile = await fetchInstagramProfile(userId, effectiveToken);
     existing.profileFetchedAt = now;
     if (profile) {
@@ -870,6 +874,46 @@ async function getCustomerStep(userId) {
   return map[userId]?.currentStep || null;
 }
 
+async function getCustomerContext(userId, accessToken = '') {
+  if (!userId) return { customer: null, currentStep: null, fetchedProfile: null, profileCheckedAt: null };
+  const map = await getCustomersMap();
+  const existing = map[userId] || null;
+  const effectiveToken = accessToken || process.env.PAGE_ACCESS_TOKEN || '';
+  const now = Date.now();
+
+  let fetchedProfile = null;
+  let profileCheckedAt = null;
+  const shouldFetchProfile = effectiveToken && (
+    !existing
+    || !existing.profileFetchedAt
+    || (!existing.username && (now - existing.profileFetchedAt > 300000))
+    || (now - existing.profileFetchedAt > 86400000)
+  );
+
+  if (shouldFetchProfile) {
+    profileCheckedAt = now;
+    const rawProfile = await fetchInstagramProfile(userId, effectiveToken);
+    if (rawProfile) {
+      fetchedProfile = {
+        username: rawProfile.username || existing?.username || null,
+        name: rawProfile.name || existing?.name || null,
+        profilePic: rawProfile.profilePic || existing?.profilePic || null
+      };
+    }
+  }
+
+  const customer = existing
+    ? { ...existing, ...(fetchedProfile || {}) }
+    : (fetchedProfile ? { id: String(userId), ...fetchedProfile } : null);
+
+  return {
+    customer,
+    currentStep: existing?.currentStep || null,
+    fetchedProfile,
+    profileCheckedAt
+  };
+}
+
 async function pauseCustomersForCanvasSwitch(pauseMode = 'none', options = {}) {
   if (!pauseMode || pauseMode === 'none') {
     return { pausedCount: 0, pauseDurationHours: 0 };
@@ -988,8 +1032,10 @@ module.exports = {
   saveConfig,
   upgradeAndMergeConfig,
   createEmptyCanvasTemplate,
+  getCustomersMap,
   getCustomersList,
   getCustomerStep,
+  getCustomerContext,
   upsertCustomer,
   deleteCustomer,
   cleanupCustomers,

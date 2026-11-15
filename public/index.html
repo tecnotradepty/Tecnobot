@@ -790,6 +790,21 @@
       </div>
     </div>
 
+    <div class="px-3 py-1.5 border-b border-zinc-200 bg-zinc-50 flex items-center justify-between gap-2 text-[11px]">
+      <span class="text-zinc-500">Cliente simulado:</span>
+      <div class="flex items-center gap-1 bg-white border border-zinc-200 rounded-md px-2 py-0.5 focus-within:border-zinc-900">
+        <span class="text-zinc-400 font-mono">@</span>
+        <input
+          type="text"
+          id="simUsernameInput"
+          value="cliente_ig"
+          placeholder="sin_usuario"
+          class="w-28 text-[11px] font-mono text-zinc-800 bg-transparent focus:outline-none"
+          title="Nombre de usuario usado al previsualizar {USERNAME} en el simulador"
+        />
+      </div>
+    </div>
+
     <div id="chatMessages" class="flex-1 p-3 overflow-y-auto space-y-2.5 text-xs bg-[#FAFAFA]"></div>
 
     <div class="p-2.5 border-t border-zinc-200 bg-white flex items-center gap-1.5">
@@ -2649,9 +2664,10 @@
 
         <!-- 2. Mensaje de Respuesta -->
         <div>
-          <div class="flex items-center justify-between mb-1">
+          <div class="flex items-center justify-between gap-2 mb-1 flex-wrap">
             <label class="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">Mensaje que envía el bot en Instagram</label>
-            <div class="flex items-center gap-1">
+            <div class="flex items-center gap-1 flex-wrap">
+              <button type="button" onclick="insertVariableInStep('${escapeJsSingleQuote(step.id)}', '{USERNAME}')" class="px-1.5 py-0.5 text-[10px] font-mono bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded" title="Inserta el nombre de usuario de Instagram del cliente">+Usuario</button>
               <button type="button" onclick="insertVariableInStep('${escapeJsSingleQuote(step.id)}', '{TIENDA_URL}')" class="px-1.5 py-0.5 text-[10px] font-mono bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded">+Tienda</button>
               <button type="button" onclick="insertVariableInStep('${escapeJsSingleQuote(step.id)}', '{MAPS_URL}')" class="px-1.5 py-0.5 text-[10px] font-mono bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded">+Maps</button>
               <button type="button" onclick="insertVariableInStep('${escapeJsSingleQuote(step.id)}', '{BUSINESS_NAME}')" class="px-1.5 py-0.5 text-[10px] font-mono bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded">+Negocio</button>
@@ -3663,11 +3679,21 @@
     }
 
     function formatSimText(raw) {
-      return (raw || '')
+      let out = (raw || '')
         .replace(/\{TIENDA_URL\}/g, activeConfig.settings?.tiendaUrl || '')
         .replace(/\{MAPS_URL\}/g, activeConfig.settings?.mapsUrl || '')
-        .replace(/\{BUSINESS_NAME\}/g, activeConfig.settings?.businessName || '')
-        .replace(/\{(\s*https?:\/\/[^\}]+)\}/g, '$1');
+        .replace(/\{BUSINESS_NAME\}/g, activeConfig.settings?.businessName || '');
+
+      const simInput = document.getElementById('simUsernameInput');
+      const simUsername = (simInput ? simInput.value : 'cliente_ig').trim().replace(/^@+/, '');
+      if (simUsername) {
+        out = out.replace(/\{USERNAME\}/gi, simUsername);
+      } else {
+        out = out.replace(/[ \t]+@?\{USERNAME\}(?:[ \t]*([,;.!?]))?/gi, (_, punct) => punct || '');
+        out = out.replace(/@?\{USERNAME\}(?:[,;.!?]?[ \t]*)/gi, '');
+      }
+
+      return out.replace(/\{(\s*https?:\/\/[^\}]+)\}/g, '$1');
     }
 
     function escapeHtml(str) {
