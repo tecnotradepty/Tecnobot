@@ -555,7 +555,11 @@ async function upsertCustomer(userId, patch = {}, accessToken = '') {
   delete updated.incrementCount;
 
   map[userId] = updated;
+  const prunedIds = pruneInactiveCustomersFromMap(map, Date.now(), CUSTOMER_RETENTION_DAYS, userId);
   await saveCustomersMap(map);
+  if (prunedIds.length > 0) {
+    await deleteRedisCustomerKeys(prunedIds, true);
+  }
   return updated;
 }
 
@@ -622,6 +626,61 @@ async function hydrateRedisCustomerKeys(map, now, syncTtl = true) {
  * Devuelve la lista ordenada de clientes con su estado y tiempo restante de pausa en vivo.
  * Hidrata automáticamente clientes previos existentes en Redis (seen / paused).
  */
+const CUSTOMER_RETENTION_DAYS = 7;
+const CUSTOMER_SEEN_TTL_SECONDS = String(CUSTOMER_RETENTION_DAYS * 24 * 60 * 60); // 604800s (7 días)
+
+function pruneInactiveCustomersFromMap(map, now = Date.now(), retentionDays = CUSTOMER_RETENTION_DAYS, excludeUserId = null) {
+  if (!map || typeof map !== 'object') return [];
+  const days = Math.max(1, Number(retentionDays) || CUSTOMER_RETENTION_DAYS);
+  const cutoffMs = days * 24 * 60 * 60 * 1000;
+  const prunedIds = [];
+
+  for (const [id, cust] of Object.entries(map)) {
+    if (excludeUserId && id === excludeUserId) continue;
+    if (!cust || typeof cust !== 'object') {
+      delete map[id];
+      prunedIds.push(id);
+      continue;
+    }
+
+    const pausedUntil = Number(cust.pausedUntil || 0);
+    if (pausedUntil > now) continue;
+
+    const lastActivity = Number(cust.lastInteractionAt || cust.firstSeenAt || cust.pausedUntil || 0);
+    if (lastActivity > 0 && (now - lastActivity) >= cutoffMs) {
+      delete map[id];
+      prunedIds.push(id);
+    }
+  }
+
+  return prunedIds;
+}
+
+async function deleteRedisKeyChunks(keys) {
+  const { isConnected } = getRedisCredentials();
+  if (!isConnected || !Array.isArray(keys) || keys.length === 0) return;
+
+  const CHUNK_SIZE = 50;
+  for (let i = 0; i < keys.length; i += CHUNK_SIZE) {
+    const chunk = keys.slice(i, i + CHUNK_SIZE);
+    await executeRedis(["DEL", ...chunk]);
+  }
+}
+
+async function deleteRedisCustomerKeys(userIds, includePaused = false) {
+  if (!Array.isArray(userIds) || userIds.length === 0) return;
+  const keys = [];
+  for (const id of userIds) {
+    inMemorySeenUsers.delete(id);
+    keys.push(`tecnobot:seen:${id}`);
+    if (includePaused) {
+      inMemoryPausedUsers.delete(id);
+      keys.push(`tecnobot:paused:${id}`);
+    }
+  }
+  await deleteRedisKeyChunks(keys);
+}
+
 async function getCustomersList() {
   const map = await getCustomersMap();
   const now = Date.now();
@@ -632,6 +691,13 @@ async function getCustomersList() {
   // Descubrir clientes existentes en claves Redis previas (seen / paused)
   if (isConnected) {
     mapChanged = await hydrateRedisCustomerKeys(map, now, true);
+  }
+
+  // Poda automática silenciosa: eliminar inactivos (> 7 días) sin pausa activa
+  const prunedIds = pruneInactiveCustomersFromMap(map, now, CUSTOMER_RETENTION_DAYS);
+  if (prunedIds.length > 0) {
+    mapChanged = true;
+    await deleteRedisCustomerKeys(prunedIds, true);
   }
 
   // Hidratar perfiles de Instagram faltantes
@@ -785,7 +851,7 @@ async function isFirstTimeUser(userId) {
   if (isConnected) {
     const seen = await executeRedis(["GET", `tecnobot:seen:${userId}`]);
     if (!seen) {
-      await executeRedis(["SET", `tecnobot:seen:${userId}`, "1", "EX", "7776000"]);
+      await executeRedis(["SET", `tecnobot:seen:${userId}`, "1", "EX", CUSTOMER_SEEN_TTL_SECONDS]);
       return true;
     }
     return false;
@@ -861,8 +927,62 @@ async function pauseCustomersForCanvasSwitch(pauseMode = 'none', options = {}) {
   return { pausedCount: targetIds.length, pauseDurationHours };
 }
 
+async function cleanupCustomers(mode = 'inactive', options = {}) {
+  const map = await getCustomersMap();
+  const now = Date.now();
+
+  if (mode === 'all') {
+    const mapIds = Object.keys(map);
+    const keysToDelete = new Set();
+    for (const id of mapIds) {
+      keysToDelete.add(`tecnobot:seen:${id}`);
+      keysToDelete.add(`tecnobot:paused:${id}`);
+    }
+
+    const { isConnected } = getRedisCredentials();
+    if (isConnected) {
+      const pausedKeys = await executeRedis(["KEYS", "tecnobot:paused:*"]);
+      if (Array.isArray(pausedKeys)) {
+        for (const k of pausedKeys) keysToDelete.add(k);
+      }
+      const seenKeys = await executeRedis(["KEYS", "tecnobot:seen:*"]);
+      if (Array.isArray(seenKeys)) {
+        for (const k of seenKeys) keysToDelete.add(k);
+      }
+    }
+
+    inMemoryPausedUsers.clear();
+    inMemorySeenUsers.clear();
+    // Guardar mapa vacío ("{}") en vez de DEL para evitar fallback a caché en memoria caliente
+    await saveCustomersMap({});
+    await deleteRedisKeyChunks(Array.from(keysToDelete));
+
+    return {
+      mode: 'all',
+      removedCount: mapIds.length,
+      remainingCount: 0,
+      clearedRedisKeys: keysToDelete.size
+    };
+  }
+
+  const retentionDays = Math.max(1, Number(options.days) || CUSTOMER_RETENTION_DAYS);
+  const prunedIds = pruneInactiveCustomersFromMap(map, now, retentionDays);
+  if (prunedIds.length > 0) {
+    await saveCustomersMap(map);
+    await deleteRedisCustomerKeys(prunedIds, true);
+  }
+
+  return {
+    mode: 'inactive',
+    days: retentionDays,
+    removedCount: prunedIds.length,
+    remainingCount: Object.keys(map).length
+  };
+}
+
 module.exports = {
   CURRENT_SCHEMA_VERSION,
+  CUSTOMER_RETENTION_DAYS,
   getRedisCredentials,
   getConfig,
   saveConfig,
@@ -872,6 +992,7 @@ module.exports = {
   getCustomerStep,
   upsertCustomer,
   deleteCustomer,
+  cleanupCustomers,
   isUserPaused,
   pauseUser,
   unpauseUser,

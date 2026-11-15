@@ -510,10 +510,10 @@
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-zinc-200 pb-2">
         <div>
           <h2 class="text-xs font-semibold uppercase tracking-wider text-zinc-600">Clientes & Pausas en Vivo</h2>
-          <p class="text-[11px] text-zinc-400">Paso actual y tiempo restante de silencio cuando tú atiendes manualmente.</p>
+          <p class="text-[11px] text-zinc-400">Paso actual y silencio manual. Los inactivos (+7 días) sin pausa se limpian solos.</p>
         </div>
 
-        <div class="flex items-center gap-1.5">
+        <div class="flex flex-wrap items-center gap-1.5">
           <input
             type="text"
             id="manualCustomerIdInput"
@@ -524,6 +524,20 @@
             onclick="pauseManualCustomer()"
             class="px-2.5 py-1 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-white text-[11px] font-medium transition-colors">
             + Pausar 12h
+          </button>
+          <button
+            onclick="cleanupCustomersUI('inactive')"
+            id="btnCleanupInactiveCustomers"
+            class="px-2.5 py-1 rounded-lg bg-white hover:bg-zinc-50 border border-zinc-200 text-zinc-700 text-[11px] font-medium transition-colors disabled:opacity-50"
+            title="Eliminar clientes inactivos (+7 días) sin pausa activa">
+            🧹 Limpiar +7d
+          </button>
+          <button
+            onclick="cleanupCustomersUI('all')"
+            id="btnCleanupAllCustomers"
+            class="px-2.5 py-1 rounded-lg bg-white hover:bg-red-50 border border-red-200 text-red-600 text-[11px] font-medium transition-colors disabled:opacity-50"
+            title="Vaciar toda la base de clientes registrados y pausas">
+            🗑️ Vaciar base
           </button>
           <button
             onclick="refreshCustomers()"
@@ -3194,6 +3208,45 @@
         const data = await res.json();
         if (data.success) { customersList = data.customers || []; renderCustomers(); updateKPIs(); }
       } catch (err) { console.error(err); }
+    }
+
+    async function cleanupCustomersUI(mode) {
+      if (mode === 'all') {
+        if (!confirm('⚠️ Esto borrará TODOS los clientes registrados (incluidos los que están en pausa manual). Todos volverán a recibir el flujo inicial cuando escriban. ¿Deseas continuar?')) return;
+        const typed = prompt('Para confirmar el vaciado completo de la base de clientes, escribe BORRAR:');
+        if ((typed || '').trim() !== 'BORRAR') return;
+      } else {
+        if (!confirm('¿Limpiar clientes inactivos con más de 7 días sin interacción? (Se conservarán los clientes que sigan en pausa manual activa).')) return;
+      }
+
+      const btnId = mode === 'all' ? 'btnCleanupAllCustomers' : 'btnCleanupInactiveCustomers';
+      const btn = document.getElementById(btnId);
+      if (btn) btn.disabled = true;
+
+      try {
+        const res = await fetch('/api/config?action=customers_cleanup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-admin-pin': savedPin },
+          body: JSON.stringify({ mode, days: 7 })
+        });
+        const data = await res.json();
+        if (data.success) {
+          customersList = data.customers || [];
+          renderCustomers();
+          updateKPIs();
+          const msg = mode === 'all'
+            ? `Base vaciada: ${data.removedCount || 0} clientes eliminados.`
+            : `Limpieza completada: ${data.removedCount || 0} clientes inactivos (+7 días) eliminados.`;
+          alert(msg);
+        } else {
+          alert(data.error || 'No se pudo completar la limpieza.');
+        }
+      } catch (err) {
+        console.error(err);
+        alert('Error de conexión al limpiar la base de clientes.');
+      } finally {
+        if (btn) btn.disabled = false;
+      }
     }
 
     // =========================================================

@@ -8,6 +8,7 @@ const {
   pauseUser,
   unpauseUser,
   deleteCustomer,
+  cleanupCustomers,
   pauseCustomersForCanvasSwitch,
   getRedisCredentials 
 } = require('../config/storage');
@@ -93,6 +94,17 @@ module.exports = async function handler(req, res) {
     if (action === 'customers_refresh') {
       const customers = await getCustomersList();
       return res.status(200).json({ success: true, customers });
+    }
+
+    // Acción: Limpiar clientes inactivos (+7 días) o vaciar base completa
+    if (action === 'customers_cleanup') {
+      const { mode = 'inactive', days } = req.body || {};
+      if (mode !== 'inactive' && mode !== 'all') {
+        return res.status(400).json({ error: 'Modo de limpieza inválido' });
+      }
+      const result = await cleanupCustomers(mode, { days });
+      const customers = await getCustomersList();
+      return res.status(200).json({ success: true, ...result, customers });
     }
 
     // Acción: Activar un lienzo en producción (+ pausa opcional de clientes)
