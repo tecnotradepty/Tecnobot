@@ -12,6 +12,7 @@ const {
   pauseCustomersForCanvasSwitch,
   getRedisCredentials 
 } = require('../config/storage');
+const { maybeRewriteWithGemini, getActiveGeminiModel } = require('../config/ai');
 
 const DEFAULT_PIN = process.env.ADMIN_PIN || "047514";
 
@@ -35,7 +36,9 @@ module.exports = async function handler(req, res) {
     return res.status(200).json({
       ...config,
       customers,
-      hasUpstash: isConnected
+      hasUpstash: isConnected,
+      hasGeminiKey: Boolean(String(process.env.GEMINI_API_KEY || '').trim()),
+      geminiModel: getActiveGeminiModel()
     });
   }
 
@@ -107,6 +110,22 @@ module.exports = async function handler(req, res) {
       return res.status(200).json({ success: true, ...result, customers });
     }
 
+    // Acción: Previsualizar reescritura con Gemini desde el Simulador
+    if (action === 'preview_ai_rewrite') {
+      const { baseText = '', userMessage = '', businessName = '', username = '' } = req.body || {};
+      const aiResult = await maybeRewriteWithGemini({
+        baseText,
+        userMessage,
+        businessName,
+        customer: username ? { username } : null,
+        enabled: true
+      });
+      return res.status(200).json({
+        success: true,
+        ...aiResult
+      });
+    }
+
     // Acción: Activar un lienzo en producción (+ pausa opcional de clientes)
     if (action === 'activate_canvas') {
       const current = await getConfig();
@@ -128,6 +147,8 @@ module.exports = async function handler(req, res) {
       };
       delete cleanConfig.customers;
       delete cleanConfig.hasUpstash;
+      delete cleanConfig.hasGeminiKey;
+      delete cleanConfig.geminiModel;
       delete cleanConfig.pauseMode;
       delete cleanConfig.recentWithinHours;
       delete cleanConfig.pauseDurationHours;
@@ -162,6 +183,8 @@ module.exports = async function handler(req, res) {
     const cleanConfig = { ...newConfig };
     delete cleanConfig.customers;
     delete cleanConfig.hasUpstash;
+    delete cleanConfig.hasGeminiKey;
+    delete cleanConfig.geminiModel;
 
     const result = await saveConfig(cleanConfig);
     return res.status(200).json({

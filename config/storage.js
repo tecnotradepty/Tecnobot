@@ -2,6 +2,7 @@
 // SERVICIO DE ALMACENAMIENTO, CLIENTES Y ESTADO EN REDIS
 // ========================================================
 
+const crypto = require('crypto');
 const { DEFAULT_CONFIG, normalizeText, getKeywordText, isParentScopedKeyword } = require('./responses');
 
 const CURRENT_SCHEMA_VERSION = 7;
@@ -20,6 +21,8 @@ let inMemoryConfig = null;
 let inMemoryCustomers = {};
 const inMemoryPausedUsers = new Map();
 const inMemorySeenUsers = new Set();
+const inMemoryBotEchoes = new Map();
+const inMemoryBotMids = new Map();
 
 function getRedisCredentials() {
   const urlCandidates = [
@@ -123,6 +126,7 @@ function normalizeWorkflowStep(step, index = 0, fallbackStep = null) {
     autoPause: step.autoPause !== undefined ? Boolean(step.autoPause) : Boolean(fallbackStep?.autoPause),
     allowedWhenPaused: step.allowedWhenPaused !== undefined ? Boolean(step.allowedWhenPaused) : Boolean(fallbackStep?.allowedWhenPaused),
     unpauseOnTrigger: step.unpauseOnTrigger !== undefined ? Boolean(step.unpauseOnTrigger) : Boolean(fallbackStep?.unpauseOnTrigger),
+    aiRewrite: step.aiRewrite !== undefined ? Boolean(step.aiRewrite) : Boolean(fallbackStep?.aiRewrite),
     keywords: normalizeKeywordEntryList(Array.isArray(step.keywords) ? step.keywords : (fallbackStep?.keywords || [])),
     negativeKeywords: Array.isArray(step.negativeKeywords) ? step.negativeKeywords : (fallbackStep?.negativeKeywords || []),
     message: step.message !== undefined ? step.message : (fallbackStep?.message || ''),
@@ -171,6 +175,7 @@ function createEmptyCanvasTemplate(name = 'Nuevo Lienzo', id = null) {
           autoPause: false,
           allowedWhenPaused: false,
           unpauseOnTrigger: true,
+          aiRewrite: false,
           keywords: [],
           negativeKeywords: [],
           message: '',
@@ -1024,6 +1029,71 @@ async function cleanupCustomers(mode = 'inactive', options = {}) {
   };
 }
 
+function hashBotEchoText(text) {
+  const normalized = String(text || '').trim().replace(/\s+/g, ' ').toLowerCase();
+  return crypto.createHash('sha256').update(normalized).digest('hex').slice(0, 24);
+}
+
+function pruneExpiredMemoryEntries(map, now) {
+  if (map.size <= 200) return;
+  for (const [k, exp] of map.entries()) {
+    if (exp <= now) map.delete(k);
+  }
+}
+
+async function registerBotOutgoingEcho(userId, messageText) {
+  if (!userId || !messageText) return;
+  const now = Date.now();
+  const ttlMs = 300 * 1000;
+  const key = `${userId}:${hashBotEchoText(messageText)}`;
+  pruneExpiredMemoryEntries(inMemoryBotEchoes, now);
+  inMemoryBotEchoes.set(key, now + ttlMs);
+
+  const { isConnected } = getRedisCredentials();
+  if (isConnected) {
+    await executeRedis(["SET", `tecnobot:bot_echo:${key}`, "1", "EX", "300"]);
+  }
+}
+
+async function registerBotOutgoingMid(messageId) {
+  if (!messageId) return;
+  const now = Date.now();
+  const ttlMs = 300 * 1000;
+  pruneExpiredMemoryEntries(inMemoryBotMids, now);
+  inMemoryBotMids.set(messageId, now + ttlMs);
+
+  const { isConnected } = getRedisCredentials();
+  if (isConnected) {
+    await executeRedis(["SET", `tecnobot:bot_mid:${messageId}`, "1", "EX", "300"]);
+  }
+}
+
+async function isRegisteredBotOutgoingEcho(userId, echoText, messageId = null) {
+  const now = Date.now();
+  const { isConnected } = getRedisCredentials();
+
+  if (messageId) {
+    const exp = inMemoryBotMids.get(messageId);
+    if (exp && exp > now) return true;
+    if (isConnected) {
+      const hit = await executeRedis(["GET", `tecnobot:bot_mid:${messageId}`]);
+      if (hit) return true;
+    }
+  }
+
+  if (userId && echoText) {
+    const key = `${userId}:${hashBotEchoText(echoText)}`;
+    const exp = inMemoryBotEchoes.get(key);
+    if (exp && exp > now) return true;
+    if (isConnected) {
+      const hit = await executeRedis(["GET", `tecnobot:bot_echo:${key}`]);
+      if (hit) return true;
+    }
+  }
+
+  return false;
+}
+
 module.exports = {
   CURRENT_SCHEMA_VERSION,
   CUSTOMER_RETENTION_DAYS,
@@ -1043,5 +1113,8 @@ module.exports = {
   pauseUser,
   unpauseUser,
   pauseCustomersForCanvasSwitch,
-  isFirstTimeUser
+  isFirstTimeUser,
+  registerBotOutgoingEcho,
+  registerBotOutgoingMid,
+  isRegisteredBotOutgoingEcho
 };

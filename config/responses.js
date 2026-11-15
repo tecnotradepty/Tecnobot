@@ -658,7 +658,8 @@ function resolveBotResponse(userText, config = DEFAULT_CONFIG, context = {}) {
       hookId: rootStep.id,
       nextStep: rootStep.id,
       shouldPause: false,
-      shouldUnpause: true
+      shouldUnpause: true,
+      aiRewrite: Boolean(rootStep.aiRewrite)
     };
   }
 
@@ -671,13 +672,14 @@ function resolveBotResponse(userText, config = DEFAULT_CONFIG, context = {}) {
       hookId: node.id,
       nextStep: targetStepId,
       shouldPause: Boolean(node.autoPause || node.type === "handoff" || targetStepId === "step_advisor"),
-      shouldUnpause: Boolean(node.unpauseOnTrigger)
+      shouldUnpause: Boolean(node.unpauseOnTrigger),
+      aiRewrite: Boolean(node.aiRewrite)
     };
   };
 
   if (isPaused) {
     if (looksLikeDeviceSpecs(clean)) {
-      return { text: null, hookId: null, nextStep: currentStep, shouldPause: false, shouldUnpause: false };
+      return { text: null, hookId: null, nextStep: currentStep, shouldPause: false, shouldUnpause: false, aiRewrite: false };
     }
 
     const pausedAllowedNodes = sortedNodes.filter(n => n.allowedWhenPaused);
@@ -699,7 +701,8 @@ function resolveBotResponse(userText, config = DEFAULT_CONFIG, context = {}) {
         hookId: matchedPaused.id,
         nextStep: unpause ? targetStepId : currentStep,
         shouldPause: false,
-        shouldUnpause: unpause
+        shouldUnpause: unpause,
+        aiRewrite: Boolean(matchedPaused.aiRewrite)
       };
     }
 
@@ -816,7 +819,8 @@ function resolveBotResponse(userText, config = DEFAULT_CONFIG, context = {}) {
       hookId: "hook_welcome_new_user",
       nextStep: rootStep.id,
       shouldPause: Boolean(rootStep.autoPause),
-      shouldUnpause: false
+      shouldUnpause: false,
+      aiRewrite: Boolean(rootStep.aiRewrite)
     };
   }
 

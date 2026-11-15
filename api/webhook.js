@@ -2,6 +2,7 @@
 // VERCEL SERVERLESS FUNCTION - INSTAGRAM WEBHOOK HANDLER
 // ========================================================
 const { resolveBotResponse, formatResponseText } = require('../config/responses');
+const { maybeRewriteWithGemini } = require('../config/ai');
 const { 
   getConfig, 
   getCustomersMap,
@@ -10,7 +11,10 @@ const {
   pauseUser, 
   unpauseUser, 
   isFirstTimeUser,
-  getCustomerContext
+  getCustomerContext,
+  registerBotOutgoingEcho,
+  registerBotOutgoingMid,
+  isRegisteredBotOutgoingEcho
 } = require('../config/storage');
 
 module.exports = async function handler(req, res) {
@@ -58,12 +62,16 @@ module.exports = async function handler(req, res) {
               // Nota: Meta marca todos los mensajes salientes con is_echo=true, por lo que verificamos
               // si el texto saliente coincide con alguna respuesta automática del bot antes de asumir que fue un humano.
               const echoText = (event.message?.text || '').trim();
-              let echoCustomer = null;
-              if (customerId) {
-                const customersMap = await getCustomersMap();
-                echoCustomer = customersMap[customerId] || null;
+              const echoMid = event.message?.mid || null;
+              let isBotOwnReply = await isRegisteredBotOutgoingEcho(customerId, echoText, echoMid);
+              if (!isBotOwnReply) {
+                let echoCustomer = null;
+                if (customerId) {
+                  const customersMap = await getCustomersMap();
+                  echoCustomer = customersMap[customerId] || null;
+                }
+                isBotOwnReply = isKnownBotResponse(echoText, activeConfig, echoCustomer);
               }
-              const isBotOwnReply = isKnownBotResponse(echoText, activeConfig, echoCustomer);
 
               if (customerId && !isBotOwnReply) {
                 console.log(`[Intervención Humana] Asesor respondió manualmente a ${customerId}. Silenciando bot por ${activeConfig.settings?.advisorPauseHours || 12}h.`);
@@ -105,7 +113,7 @@ module.exports = async function handler(req, res) {
             // =================================================================
             // 4. RESOLVER CON MOTOR DE PASOS (WORKFLOW) Y REGLAS
             // =================================================================
-            const { text: replyText, hookId, nextStep, shouldPause, shouldUnpause } = resolveBotResponse(
+            const { text: replyText, hookId, nextStep, shouldPause, shouldUnpause, aiRewrite } = resolveBotResponse(
               userMessage,
               activeConfig,
               { isPaused, isNewCustomer, currentStep, customer: customerProfile }
@@ -158,8 +166,33 @@ module.exports = async function handler(req, res) {
               continue;
             }
 
+            // Si la ventana tiene encendida la reescritura natural con Gemini, reescribir conservando links/opciones
+            let finalReplyText = replyText;
+            let wasAiRewritten = false;
+            if (aiRewrite) {
+              const aiResult = await maybeRewriteWithGemini({
+                baseText: replyText,
+                userMessage,
+                businessName: activeConfig.settings?.businessName || '',
+                customer: customerProfile,
+                enabled: true
+              });
+              finalReplyText = aiResult.text;
+              wasAiRewritten = Boolean(aiResult.rewritten);
+              if (!aiResult.rewritten && aiResult.reason && aiResult.reason !== 'missing_api_key') {
+                console.warn(`[IA Reescritura Fallback] Paso "${hookId}" usó mensaje base (${aiResult.reason}).`);
+              }
+            }
+
+            if (wasAiRewritten) {
+              await registerBotOutgoingEcho(senderId, finalReplyText);
+            }
+
             // Enviar respuesta a Instagram y esperar antes de cerrar la función
-            await sendInstagramMessage(igAccountId, senderId, replyText, PAGE_ACCESS_TOKEN);
+            const sentMid = await sendInstagramMessage(igAccountId, senderId, finalReplyText, PAGE_ACCESS_TOKEN);
+            if (wasAiRewritten && sentMid) {
+              await registerBotOutgoingMid(sentMid);
+            }
           }
         }
       }
@@ -285,10 +318,13 @@ async function sendInstagramMessage(accountId, recipientId, text, token) {
     const data = await response.json();
     if (data.error) {
       console.error('[Error de Meta API]:', data.error);
+      return null;
     } else {
       console.log(`[Respuesta Enviada a Instagram] Destino: ${recipientId} | ID: ${data.message_id}`);
+      return data.message_id || null;
     }
   } catch (error) {
     console.error('[Error de conexión al enviar mensaje]:', error);
+    return null;
   }
 }

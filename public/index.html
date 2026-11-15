@@ -847,7 +847,9 @@
     let linkingRouteState = null; // { sourceStepId, routeIdx } - cable siguiendo el mouse
     let activeRouteModalCtx = null; // { sourceStepId, routeIdx, isNew, preTargetId }
 
-    // Estado del Simulador
+    // Estado del Simulador y Gemini
+    let hasGeminiKey = false;
+    let activeGeminiModel = 'gemini-3.5-flash-lite';
     let simIsPaused = false;
     let simIsNewCustomer = true;
     let simCurrentStep = 'step_welcome';
@@ -992,6 +994,7 @@
               autoPause: false,
               allowedWhenPaused: false,
               unpauseOnTrigger: true,
+              aiRewrite: false,
               keywords: [],
               negativeKeywords: [],
               message: '',
@@ -1014,6 +1017,7 @@
         if (!Array.isArray(s.keywords)) s.keywords = [];
         if (!Array.isArray(s.negativeKeywords)) s.negativeKeywords = [];
         if (!Array.isArray(s.routes)) s.routes = [];
+        s.aiRewrite = Boolean(s.aiRewrite);
       });
       return wf;
     }
@@ -1290,7 +1294,7 @@
       const resolvedActiveId = targetActiveId || activeConfig.activeCanvasId;
       const liveCanvas = activeConfig.canvases.find(c => c.id === resolvedActiveId) || activeConfig.canvases[0];
       const globalPin = activeConfig.settings?.pin;
-      return {
+      const payload = {
         ...activeConfig,
         hooks: [],
         activeCanvasId: liveCanvas.id,
@@ -1302,6 +1306,11 @@
         },
         fallbackResponse: liveCanvas.fallbackResponse || ''
       };
+      delete payload.customers;
+      delete payload.hasUpstash;
+      delete payload.hasGeminiKey;
+      delete payload.geminiModel;
+      return payload;
     }
 
     async function confirmActivateCanvas() {
@@ -1365,6 +1374,8 @@
 
     function loadConfigData(data, preferredCanvasId = null) {
       activeConfig = data;
+      hasGeminiKey = Boolean(data.hasGeminiKey);
+      activeGeminiModel = data.geminiModel || 'gemini-3.5-flash-lite';
       ensureMultiCanvasState(activeConfig);
 
       customersList = Array.isArray(data.customers) ? data.customers : [];
@@ -1760,8 +1771,8 @@
               `}
             </div>
 
-            <!-- Pie de Ventanita: Auto-Pausa 1-clic & Ganchos Avanzados -->
-            <div class="flex items-center justify-between gap-1.5 pt-1.5 border-t border-zinc-100" onpointerdown="event.stopPropagation()">
+            <!-- Pie de Ventanita: Auto-Pausa, Switch IA & Ganchos Avanzados -->
+            <div class="flex flex-wrap items-center justify-between gap-1 pt-1.5 border-t border-zinc-100" onpointerdown="event.stopPropagation()">
               <button type="button"
                       onclick="toggleStepAutoPauseInline('${escapeJsSingleQuote(step.id)}')"
                       class="py-1 px-2 rounded-lg border text-[10px] font-medium transition-colors ${
@@ -1770,11 +1781,21 @@
                           : 'bg-white hover:bg-zinc-50 border-zinc-200 text-zinc-500'
                       }"
                       title="Activar/desactivar pausa de 12h para que atienda un humano">
-                ${step.autoPause ? '⏸️ Pausa 12h: Sí' : '⏸️ Pausa 12h: No'}
+                ${step.autoPause ? '⏸️ Pausa: Sí' : '⏸️ Pausa: No'}
+              </button>
+              <button type="button"
+                      onclick="toggleStepAiRewriteInline('${escapeJsSingleQuote(step.id)}')"
+                      class="py-1 px-2 rounded-lg border text-[10px] font-medium transition-colors ${
+                        step.aiRewrite
+                          ? 'bg-violet-50 border-violet-300 text-violet-800'
+                          : 'bg-white hover:bg-zinc-50 border-zinc-200 text-zinc-500'
+                      }"
+                      title="Switch IA: reescribe el mensaje base de esta ventana con estilo natural usando Gemini sin perder links ni opciones">
+                ${step.aiRewrite ? '✨ IA: On' : '✨ IA: Off'}
               </button>
               <button type="button"
                       onclick="event.stopPropagation(); openNodeInspector('${escapeJsSingleQuote(step.id)}')"
-                      class="flex-1 py-1 px-2 rounded-lg bg-zinc-100 hover:bg-zinc-200 text-zinc-800 text-[10px] font-medium transition-colors text-center"
+                      class="flex-1 min-w-[96px] py-1 px-2 rounded-lg bg-zinc-100 hover:bg-zinc-200 text-zinc-800 text-[10px] font-medium transition-colors text-center truncate"
                       title="Keywords: ${freeKwCount} Libres (🌐), ${parentKwCount} Sujetas al paso anterior (🔒), ${negCount} negativas">
                 ${kwBtnLabel} · Más
               </button>
@@ -2123,6 +2144,15 @@
       if (!step) return;
       step.autoPause = !step.autoPause;
       renderWorkflowCanvas();
+      lucide.createIcons();
+    }
+
+    function toggleStepAiRewriteInline(stepId) {
+      const step = activeConfig.workflow.steps.find(s => s.id === stepId);
+      if (!step) return;
+      step.aiRewrite = !step.aiRewrite;
+      renderWorkflowCanvas();
+      if (inspectingNodeId === stepId) renderNodeInspectorBody(stepId);
       lucide.createIcons();
     }
 
@@ -2660,6 +2690,18 @@
                    class="w-3.5 h-3.5 rounded text-zinc-900 border-zinc-300" />
             <span class="font-medium text-zinc-800">Responder incluso si está en pausa (ej: Horario/Maps)</span>
           </label>
+          <label class="inline-flex items-center gap-2 cursor-pointer select-none">
+            <input type="checkbox" ${step.aiRewrite ? 'checked' : ''} onchange="updateStepField('${escapeJsSingleQuote(step.id)}', 'aiRewrite', this.checked)"
+                   class="w-3.5 h-3.5 rounded text-violet-600 border-zinc-300" />
+            <span class="font-medium text-zinc-800">✨ Reescribir mensaje base con IA (Gemini)</span>
+          </label>
+          ${step.aiRewrite ? `
+            <div class="w-full text-[10.5px] px-2.5 py-1.5 rounded-lg border ${hasGeminiKey ? 'bg-violet-50 border-violet-200 text-violet-800' : 'bg-amber-50 border-amber-200 text-amber-800'}">
+              ${hasGeminiKey
+                ? `✨ Reescritura activa con <b>${escapeHtml(activeGeminiModel)}</b>: mantiene exactos {USERNAME}, enlaces URL y números de menú.`
+                : '⚠️ Falta configurar <code>GEMINI_API_KEY</code> en Vercel Environment Variables; mientras tanto responderá exactamente tu mensaje base.'}
+            </div>
+          ` : ''}
         </div>
 
         <!-- 2. Mensaje de Respuesta -->
@@ -2785,7 +2827,15 @@
 
     function updateStepField(stepId, field, val) {
       const step = activeConfig.workflow.steps.find(s => s.id === stepId);
-      if (step) step[field] = val;
+      if (!step) return;
+      step[field] = val;
+      if (field === 'autoPause' || field === 'aiRewrite') {
+        renderWorkflowCanvas();
+        if (inspectingNodeId === stepId && field === 'aiRewrite') {
+          renderNodeInspectorBody(stepId);
+        }
+        lucide.createIcons();
+      }
     }
 
     function setInspectorNodeAsRoot() {
@@ -2990,6 +3040,7 @@
         autoPause: false,
         allowedWhenPaused: false,
         unpauseOnTrigger: false,
+        aiRewrite: false,
         keywords: [],
         negativeKeywords: [],
         message: '',
@@ -3489,7 +3540,7 @@
       input.value = '';
       chat.scrollTop = chat.scrollHeight;
 
-      setTimeout(() => {
+      setTimeout(async () => {
         if (activeConfig.botActive === false) {
           appendSystemNotice("Bot pausado globalmente.");
           return;
@@ -3503,6 +3554,7 @@
         const isStrict = activeConfig.settings?.strictStepMode !== false;
 
         let reply = null;
+        let replyUseAiRewrite = false;
         let shouldPause = false;
         let shouldUnpause = false;
         let nextStep = simCurrentStep;
@@ -3511,6 +3563,7 @@
         // 1. Comando técnico de reactivación manual ("/bot" o "activar bot")
         if ((clean === "activar bot" || clean === "/bot") && rootStep) {
           reply = formatSimText(rootStep.message);
+          replyUseAiRewrite = Boolean(rootStep.aiRewrite);
           nextStep = rootStep.id;
           shouldUnpause = true;
         } else if (simIsPaused) {
@@ -3530,6 +3583,7 @@
             || simFindMatchingNode(pausedAllowedNodes, clean, { scope: 'global' });
           if (pausedMatched) {
             reply = formatSimText(pausedMatched.message);
+            replyUseAiRewrite = Boolean(pausedMatched.aiRewrite);
             if (pausedMatched.unpauseOnTrigger) {
               nextStep = pausedMatched.id;
               shouldUnpause = true;
@@ -3548,6 +3602,7 @@
           const applySimRoute = (r, target) => {
             matchedRoute = r;
             reply = formatSimText(target.message);
+            replyUseAiRewrite = Boolean(target.aiRewrite);
             nextStep = target.id;
             shouldPause = Boolean(target.autoPause || target.type === 'handoff' || target.id === 'step_advisor');
             shouldUnpause = Boolean(target.unpauseOnTrigger);
@@ -3613,6 +3668,7 @@
             });
             if (matchedNode) {
               reply = formatSimText(matchedNode.message);
+              replyUseAiRewrite = Boolean(matchedNode.aiRewrite);
               nextStep = matchedNode.id;
               shouldPause = Boolean(matchedNode.autoPause || matchedNode.type === 'handoff' || matchedNode.id === 'step_advisor');
               shouldUnpause = Boolean(matchedNode.unpauseOnTrigger);
@@ -3637,6 +3693,7 @@
 
           if (!reply && simIsNewCustomer && rootStep) {
             reply = formatSimText(rootStep.message);
+            replyUseAiRewrite = Boolean(rootStep.aiRewrite);
             nextStep = rootStep.id;
             shouldPause = Boolean(rootStep.autoPause);
           }
@@ -3658,16 +3715,46 @@
         if (shouldPause) simIsPaused = true;
         updateSimBadge();
 
+        let aiRewriteApplied = false;
+        if (reply && replyUseAiRewrite && hasGeminiKey && savedPin) {
+          try {
+            const simUserEl = document.getElementById('simUsernameInput');
+            const simUname = (simUserEl ? simUserEl.value : 'cliente_ig').trim().replace(/^@+/, '');
+            const aiRes = await fetch('/api/config?action=preview_ai_rewrite', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'x-admin-pin': savedPin },
+              body: JSON.stringify({
+                baseText: reply,
+                userMessage: text,
+                businessName: activeConfig.settings?.businessName || '',
+                username: simUname
+              })
+            });
+            const aiData = await aiRes.json();
+            if (aiData && aiData.success && aiData.text) {
+              reply = aiData.text;
+              aiRewriteApplied = Boolean(aiData.rewritten);
+            }
+          } catch (err) {
+            console.error('Error previsualizando IA:', err);
+          }
+        }
+
         if (reply) {
           const botBubble = document.createElement('div');
           botBubble.className = "flex gap-2 items-start";
           botBubble.innerHTML = `
             <div class="w-5 h-5 rounded-full bg-zinc-900 shrink-0 flex items-center justify-center text-[8px] font-bold text-white mt-0.5">TT</div>
-            <div class="bg-white border border-zinc-200 text-zinc-800 p-2.5 rounded-xl rounded-tl-xs max-w-[85%] whitespace-pre-line leading-relaxed">${escapeHtml(reply)}</div>
+            <div class="bg-white border border-zinc-200 text-zinc-800 p-2.5 rounded-xl rounded-tl-xs max-w-[85%] whitespace-pre-line leading-relaxed">
+              ${aiRewriteApplied ? '<div class="text-[9px] font-medium text-violet-700 mb-1">✨ Reescrito con Gemini</div>' : ''}${escapeHtml(reply)}
+            </div>
           `;
           chat.appendChild(botBubble);
         }
 
+        if (replyUseAiRewrite && !hasGeminiKey) {
+          appendSystemNotice("✨ Switch IA encendido en esta ventana (falta GEMINI_API_KEY en Vercel: mostrando mensaje base).");
+        }
         if (shouldPause) appendSystemNotice("Auto-Pausa (12h) activada.");
         chat.scrollTop = chat.scrollHeight;
       }, 150);
