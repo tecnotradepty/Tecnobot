@@ -3508,8 +3508,8 @@
         let nextStep = simCurrentStep;
         const activeStep = (!simIsNewCustomer && simCurrentStep) ? workflowSteps.find(s => s.id === simCurrentStep) : null;
 
-        // 1. Comando Menu
-        if ((clean === "menu" || clean === "activar bot" || clean === "/bot" || clean === "inicio") && rootStep) {
+        // 1. Comando técnico de reactivación manual ("/bot" o "activar bot")
+        if ((clean === "activar bot" || clean === "/bot") && rootStep) {
           reply = formatSimText(rootStep.message);
           nextStep = rootStep.id;
           shouldUnpause = true;
@@ -3530,6 +3530,10 @@
             || simFindMatchingNode(pausedAllowedNodes, clean, { scope: 'global' });
           if (pausedMatched) {
             reply = formatSimText(pausedMatched.message);
+            if (pausedMatched.unpauseOnTrigger) {
+              nextStep = pausedMatched.id;
+              shouldUnpause = true;
+            }
           } else {
             appendSystemNotice("Silencio: En pausa humana.");
             return;

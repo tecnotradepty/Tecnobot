@@ -43,7 +43,6 @@ const DEFAULT_CONFIG = {
           "buenos dias",
           "buenas tardes",
           "buenas noches",
-          "menu",
           "inicio",
           "start",
           "info",
@@ -652,8 +651,8 @@ function resolveBotResponse(userText, config = DEFAULT_CONFIG, context = {}) {
   const sortedNodes = [...workflowSteps, ...legacyExtras]
     .sort((a, b) => (b.priority || 0) - (a.priority || 0));
 
-  // 1. Comando explícito para pedir el menú o reactivar el bot
-  if ((clean === "menu" || clean === "activar bot" || clean === "/bot" || clean === "inicio") && rootStep) {
+  // 1. Comando técnico para reactivar manualmente el bot desde pausa ("/bot" o "activar bot")
+  if ((clean === "activar bot" || clean === "/bot") && rootStep) {
     return {
       text: formatResponseText(rootStep.message, config, context),
       hookId: rootStep.id,
@@ -693,12 +692,14 @@ function resolveBotResponse(userText, config = DEFAULT_CONFIG, context = {}) {
       || findMatchingNode(pausedAllowedNodes, clean, { scope: 'global' });
 
     if (matchedPaused) {
+      const targetStepId = matchedPaused.nextStepId || matchedPaused.id;
+      const unpause = Boolean(matchedPaused.unpauseOnTrigger);
       return {
         text: formatResponseText(matchedPaused.message, config, context),
         hookId: matchedPaused.id,
-        nextStep: currentStep,
+        nextStep: unpause ? targetStepId : currentStep,
         shouldPause: false,
-        shouldUnpause: false
+        shouldUnpause: unpause
       };
     }
 
