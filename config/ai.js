@@ -38,8 +38,39 @@ function cleanGeminiOutput(raw, baseText) {
   return out;
 }
 
+const GREETING_CORE = '(?:hola|hey(?:\\s+qu[eé]\\s+(?:tal|xop[aá]|sop[aá]|m[aá]s))?|buenas(?:\\s+(?:tardes|noches|d[ií]as))?|buenos\\s+d[ií]as|qu[eé]\\s+(?:tal|xop[aá]|sop[aá]|hay|m[aá]s)|xop[aá]|saludos|bienvenid[oa]s?(?:\\s+a\\s+[^!.,:\\n]+)?)';
+const STARTS_WITH_GREETING_RE = new RegExp(`^[¡!*\\s]*${GREETING_CORE}(?=$|[\\s,!?.:;*\\-)])`, 'i');
+const LEADING_GREETING_RE = new RegExp(
+  `^(?:[¡!*\\s]*${GREETING_CORE}(?=$|[\\s,!?.:;*\\-)])(?:[\\s,]+@[\\w.]+)?[!.,:,\\-\\s]*(?:¿?\\s*(?:c[oó]mo\\s+(?:est[aá]s|te\\s+va|andas|va\\s+todo)|todo\\s+bien)\\??[!.,\\s]*)?)(?:\\r?\\n)?`,
+  'i'
+);
+
+function startsWithGreeting(text) {
+  return STARTS_WITH_GREETING_RE.test(String(text || '').trim());
+}
+
+function stripLeadingGreetingIfNeeded(baseText, candidate, isInitialStep) {
+  if (isInitialStep || startsWithGreeting(baseText) || !startsWithGreeting(candidate)) {
+    return candidate;
+  }
+  const original = String(candidate || '').trim();
+  let current = original;
+  for (let i = 0; i < 3; i++) {
+    if (!startsWithGreeting(current)) break;
+    const next = current.replace(LEADING_GREETING_RE, '').trim();
+    if (!next || next === current || next.length < 6) break;
+    current = next;
+  }
+  if (current !== original && current.length >= 6) {
+    return current.charAt(0).toUpperCase() + current.slice(1);
+  }
+  return candidate;
+}
+
 function validateRewrittenMessage(baseText, rawCandidate, context = {}) {
-  const candidate = cleanGeminiOutput(rawCandidate, baseText);
+  const isInitialStep = Boolean(context?.isInitialStep);
+  let candidate = cleanGeminiOutput(rawCandidate, baseText);
+  candidate = stripLeadingGreetingIfNeeded(baseText, candidate, isInitialStep);
   if (!candidate || candidate.length < 4) {
     return { valid: false, reason: 'empty_output' };
   }
@@ -147,6 +178,7 @@ async function maybeRewriteWithGemini({
   userMessage = '',
   businessName = '',
   customer = null,
+  isInitialStep = false,
   enabled = false,
   timeoutMs = DEFAULT_AI_TIMEOUT_MS
 } = {}) {
@@ -164,19 +196,23 @@ async function maybeRewriteWithGemini({
   const modelCandidates = configuredModel ? [configuredModel] : FALLBACK_GEMINI_MODELS;
 
   const systemPrompt = [
-    `Eres el asistente de estilo de atención al cliente por DM de Instagram${businessName ? ` para "${businessName}"` : ''}.`,
-    'Tu única tarea es reescribir el MENSAJE BASE con un tono natural, cercano, humano y conciso en español, manteniendo exactamente su sentido.',
+    `Eres el asistente de atención al cliente por DM de Instagram${businessName ? ` para "${businessName}"` : ''} en Panamá.`,
+    'Tu única tarea es reescribir el MENSAJE BASE con un español panameño natural, cercano y amigable de tienda moderna (puedes usar toques suaves y naturales de jerga panameña como "qué xopá" al saludar, "por acá", "chequea", "con gusto", "dale", "me avisas", "cualquier cosa nos escribes", sin exagerar ni sonar vulgar o forzado).',
+    'NO uses modismos de otros países (prohibido decir "wey", "güey", "chamo", "pana", "parcero", "che", "tío", "bacano", "qué onda", "órale").',
+    isInitialStep
+      ? 'CONTEXTO DEL PASO (Paso 0 / Primer saludo): SÍ puedes abrir con un saludo panameño breve y amigable (ej: "¡Qué xopá!", "¡Hola!", "¡Buenas!") conservando el usuario si aparece en el mensaje base.'
+      : 'CONTEXTO DEL PASO (Después del Paso 0 — conversación ya iniciada): ESTÁ ESTRICTAMENTE PROHIBIDO iniciar o incluir saludos o bienvenidas ("Hola", "Buenas", "Qué tal", "Qué xopá", "Bienvenido", "¿Cómo estás?"). Ve DIRECTO al punto con la información de este paso.',
     'Reglas obligatorias:',
     '1. NO inventes precios, modelos, stock, direcciones, horarios, garantías ni servicios que no aparezcan en el mensaje base.',
     '2. Mantén EXACTOS y sin cambios todos los enlaces URL (https://...), teléfonos y nombres de usuario si aparecen.',
     '3. Si el mensaje base incluye números de menú u opciones (1, 2, 3, etc.), conserva TODOS esos números y opciones claros para que sigan funcionando igual.',
-    '4. No agregues preguntas abiertas ni texto de relleno si no aportan claridad.',
-    '5. Responde ÚNICAMENTE con el mensaje final listo para enviar en Instagram (sin comillas alrededor ni explicaciones).'
+    '4. Responde ÚNICAMENTE con el mensaje final listo para enviar en Instagram (sin comillas alrededor ni explicaciones).'
   ].join('\n');
 
   const safeClientMsg = String(userMessage || '').trim().slice(0, 260);
   const userPrompt = [
-    safeClientMsg ? `Mensaje del cliente (solo para adaptar el tono del saludo/contexto): "${safeClientMsg}"` : '',
+    safeClientMsg ? `Mensaje del cliente (solo para adaptar el tono): "${safeClientMsg}"` : '',
+    isInitialStep ? 'Posición en flujo: Paso 0 (inicio, puede llevar saludo panameño).' : 'Posición en flujo: Posterior al Paso 0 (NO incluir ningún saludo).',
     'Mensaje base obligatorio a reescribir:',
     `"""\n${safeBase}\n"""`
   ].filter(Boolean).join('\n\n');
@@ -186,7 +222,7 @@ async function maybeRewriteWithGemini({
     const model = modelCandidates[i];
     const result = await callGeminiGenerate({ apiKey, model, systemPrompt, userPrompt, timeoutMs });
     if (result.ok) {
-      const check = validateRewrittenMessage(safeBase, result.text, { customer });
+      const check = validateRewrittenMessage(safeBase, result.text, { customer, isInitialStep });
       if (check.valid) {
         return { text: check.text, rewritten: true, model };
       }

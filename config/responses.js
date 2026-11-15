@@ -659,7 +659,8 @@ function resolveBotResponse(userText, config = DEFAULT_CONFIG, context = {}) {
       nextStep: rootStep.id,
       shouldPause: false,
       shouldUnpause: true,
-      aiRewrite: Boolean(rootStep.aiRewrite)
+      aiRewrite: Boolean(rootStep.aiRewrite),
+      isInitialStep: true
     };
   }
 
@@ -673,13 +674,14 @@ function resolveBotResponse(userText, config = DEFAULT_CONFIG, context = {}) {
       nextStep: targetStepId,
       shouldPause: Boolean(node.autoPause || node.type === "handoff" || targetStepId === "step_advisor"),
       shouldUnpause: Boolean(node.unpauseOnTrigger),
-      aiRewrite: Boolean(node.aiRewrite)
+      aiRewrite: Boolean(node.aiRewrite),
+      isInitialStep: Boolean(node.isRoot || targetStepId === initialStepId)
     };
   };
 
   if (isPaused) {
     if (looksLikeDeviceSpecs(clean)) {
-      return { text: null, hookId: null, nextStep: currentStep, shouldPause: false, shouldUnpause: false, aiRewrite: false };
+      return { text: null, hookId: null, nextStep: currentStep, shouldPause: false, shouldUnpause: false, aiRewrite: false, isInitialStep: false };
     }
 
     const pausedAllowedNodes = sortedNodes.filter(n => n.allowedWhenPaused);
@@ -702,7 +704,8 @@ function resolveBotResponse(userText, config = DEFAULT_CONFIG, context = {}) {
         nextStep: unpause ? targetStepId : currentStep,
         shouldPause: false,
         shouldUnpause: unpause,
-        aiRewrite: Boolean(matchedPaused.aiRewrite)
+        aiRewrite: Boolean(matchedPaused.aiRewrite),
+        isInitialStep: Boolean(matchedPaused.isRoot || targetStepId === initialStepId)
       };
     }
 
@@ -820,7 +823,8 @@ function resolveBotResponse(userText, config = DEFAULT_CONFIG, context = {}) {
       nextStep: rootStep.id,
       shouldPause: Boolean(rootStep.autoPause),
       shouldUnpause: false,
-      aiRewrite: Boolean(rootStep.aiRewrite)
+      aiRewrite: Boolean(rootStep.aiRewrite),
+      isInitialStep: true
     };
   }
 

@@ -113,7 +113,7 @@ module.exports = async function handler(req, res) {
             // =================================================================
             // 4. RESOLVER CON MOTOR DE PASOS (WORKFLOW) Y REGLAS
             // =================================================================
-            const { text: replyText, hookId, nextStep, shouldPause, shouldUnpause, aiRewrite } = resolveBotResponse(
+            const { text: replyText, hookId, nextStep, shouldPause, shouldUnpause, aiRewrite, isInitialStep } = resolveBotResponse(
               userMessage,
               activeConfig,
               { isPaused, isNewCustomer, currentStep, customer: customerProfile }
@@ -175,6 +175,7 @@ module.exports = async function handler(req, res) {
                 userMessage,
                 businessName: activeConfig.settings?.businessName || '',
                 customer: customerProfile,
+                isInitialStep: Boolean(isInitialStep),
                 enabled: true
               });
               finalReplyText = aiResult.text;

@@ -112,12 +112,13 @@ module.exports = async function handler(req, res) {
 
     // Acción: Previsualizar reescritura con Gemini desde el Simulador
     if (action === 'preview_ai_rewrite') {
-      const { baseText = '', userMessage = '', businessName = '', username = '' } = req.body || {};
+      const { baseText = '', userMessage = '', businessName = '', username = '', isInitialStep = false } = req.body || {};
       const aiResult = await maybeRewriteWithGemini({
         baseText,
         userMessage,
         businessName,
         customer: username ? { username } : null,
+        isInitialStep: Boolean(isInitialStep),
         enabled: true
       });
       return res.status(200).json({

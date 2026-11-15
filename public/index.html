@@ -3555,6 +3555,7 @@
 
         let reply = null;
         let replyUseAiRewrite = false;
+        let replyIsInitialStep = false;
         let shouldPause = false;
         let shouldUnpause = false;
         let nextStep = simCurrentStep;
@@ -3564,6 +3565,7 @@
         if ((clean === "activar bot" || clean === "/bot") && rootStep) {
           reply = formatSimText(rootStep.message);
           replyUseAiRewrite = Boolean(rootStep.aiRewrite);
+          replyIsInitialStep = true;
           nextStep = rootStep.id;
           shouldUnpause = true;
         } else if (simIsPaused) {
@@ -3584,6 +3586,7 @@
           if (pausedMatched) {
             reply = formatSimText(pausedMatched.message);
             replyUseAiRewrite = Boolean(pausedMatched.aiRewrite);
+            replyIsInitialStep = Boolean(pausedMatched.isRoot || pausedMatched.id === rootStep?.id);
             if (pausedMatched.unpauseOnTrigger) {
               nextStep = pausedMatched.id;
               shouldUnpause = true;
@@ -3603,6 +3606,7 @@
             matchedRoute = r;
             reply = formatSimText(target.message);
             replyUseAiRewrite = Boolean(target.aiRewrite);
+            replyIsInitialStep = Boolean(target.isRoot || target.id === rootStep?.id);
             nextStep = target.id;
             shouldPause = Boolean(target.autoPause || target.type === 'handoff' || target.id === 'step_advisor');
             shouldUnpause = Boolean(target.unpauseOnTrigger);
@@ -3669,6 +3673,7 @@
             if (matchedNode) {
               reply = formatSimText(matchedNode.message);
               replyUseAiRewrite = Boolean(matchedNode.aiRewrite);
+              replyIsInitialStep = Boolean(matchedNode.isRoot || matchedNode.id === rootStep?.id);
               nextStep = matchedNode.id;
               shouldPause = Boolean(matchedNode.autoPause || matchedNode.type === 'handoff' || matchedNode.id === 'step_advisor');
               shouldUnpause = Boolean(matchedNode.unpauseOnTrigger);
@@ -3694,6 +3699,7 @@
           if (!reply && simIsNewCustomer && rootStep) {
             reply = formatSimText(rootStep.message);
             replyUseAiRewrite = Boolean(rootStep.aiRewrite);
+            replyIsInitialStep = true;
             nextStep = rootStep.id;
             shouldPause = Boolean(rootStep.autoPause);
           }
@@ -3727,7 +3733,8 @@
                 baseText: reply,
                 userMessage: text,
                 businessName: activeConfig.settings?.businessName || '',
-                username: simUname
+                username: simUname,
+                isInitialStep: replyIsInitialStep
               })
             });
             const aiData = await aiRes.json();
