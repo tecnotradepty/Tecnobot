@@ -1,10 +1,11 @@
 // ========================================================
-// REESCRITURA NATURAL DE RESPUESTAS CON GEMINI (OPCIONAL POR VENTANA)
+// MÓDULO IA GEMINI: REESCRITURA DE RESPUESTAS Y CLASIFICACIÓN DE HOOKS
 // ========================================================
 
 const DEFAULT_GEMINI_MODEL = 'gemini-3.5-flash-lite';
 const FALLBACK_GEMINI_MODELS = ['gemini-3.5-flash-lite', 'gemini-3.8-flash', 'gemini-2.5-flash'];
 const DEFAULT_AI_TIMEOUT_MS = 2800;
+const DEFAULT_CLASSIFY_TIMEOUT_MS = 2400;
 
 function getActiveGeminiModel() {
   return String(process.env.GEMINI_MODEL || '').trim() || DEFAULT_GEMINI_MODEL;
@@ -114,11 +115,22 @@ function validateRewrittenMessage(baseText, rawCandidate, context = {}) {
   return { valid: true, text: candidate };
 }
 
-async function callGeminiGenerate({ apiKey, model, systemPrompt, userPrompt, timeoutMs = DEFAULT_AI_TIMEOUT_MS }) {
+async function callGeminiGenerate({
+  apiKey,
+  model,
+  systemPrompt,
+  userPrompt,
+  timeoutMs = DEFAULT_AI_TIMEOUT_MS,
+  maxOutputTokens = 450,
+  responseMimeType = null
+}) {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
   const generationConfig = {
-    maxOutputTokens: 450
+    maxOutputTokens
   };
+  if (responseMimeType) {
+    generationConfig.responseMimeType = responseMimeType;
+  }
   if (/^gemini-3/i.test(model)) {
     generationConfig.thinkingConfig = { thinkingLevel: 'MINIMAL' };
   }
@@ -173,6 +185,175 @@ async function callGeminiGenerate({ apiKey, model, systemPrompt, userPrompt, tim
   }
 }
 
+function getModelCandidates() {
+  const configuredModel = String(process.env.GEMINI_MODEL || '').trim();
+  return configuredModel ? [configuredModel] : FALLBACK_GEMINI_MODELS;
+}
+
+async function runGeminiWithFallback({
+  apiKey,
+  systemPrompt,
+  userPrompt,
+  timeoutMs = DEFAULT_AI_TIMEOUT_MS,
+  maxOutputTokens = 450,
+  responseMimeType = null
+}) {
+  const modelCandidates = getModelCandidates();
+  let lastReason = 'api_error';
+  for (let i = 0; i < modelCandidates.length; i++) {
+    const model = modelCandidates[i];
+    const result = await callGeminiGenerate({
+      apiKey,
+      model,
+      systemPrompt,
+      userPrompt,
+      timeoutMs,
+      maxOutputTokens,
+      responseMimeType
+    });
+    if (result.ok) {
+      return { ...result, model };
+    }
+    lastReason = result.error || `http_${result.status}`;
+    // Solo intentar modelo alternativo si este modelo devolvió 404 (no encontrado en este proyecto)
+    if (result.status !== 404) break;
+  }
+  return { ok: false, error: lastReason };
+}
+
+function parseHookClassificationResponse(rawText, allowedIds) {
+  let cleaned = String(rawText || '').trim();
+  cleaned = cleaned.replace(/^```(?:json)?\s*\r?\n?/i, '').replace(/\r?\n?```$/, '').trim();
+  let parsed = null;
+  try {
+    parsed = JSON.parse(cleaned);
+  } catch (_) {
+    const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      try {
+        parsed = JSON.parse(jsonMatch[0]);
+      } catch (__) {
+        parsed = null;
+      }
+    }
+  }
+
+  if (!parsed || typeof parsed !== 'object') {
+    return { ok: false, matchedStepId: null, confidence: 'low', reason: 'invalid_json' };
+  }
+
+  const rawConf = String(parsed.confidence || 'medium').trim().toLowerCase();
+  const confidence = (rawConf === 'high' || rawConf === 'medium' || rawConf === 'low') ? rawConf : 'medium';
+  const reason = String(parsed.reason || '').trim().slice(0, 180);
+  const rawId = parsed.matchedStepId;
+
+  if (rawId === null || rawId === undefined || String(rawId).trim().toLowerCase() === 'null' || String(rawId).trim() === '') {
+    return { ok: true, matchedStepId: null, confidence, reason };
+  }
+
+  const candidateId = String(rawId).trim();
+  if (!allowedIds.has(candidateId)) {
+    return { ok: false, matchedStepId: null, confidence: 'low', reason: 'unknown_step_id' };
+  }
+
+  if (confidence === 'low') {
+    return { ok: true, matchedStepId: null, confidence: 'low', reason: reason || 'low_confidence' };
+  }
+
+  return { ok: true, matchedStepId: candidateId, confidence, reason };
+}
+
+function formatCandidatesForClassifier(candidates = []) {
+  return candidates.map(c => {
+    const item = {
+      id: c.id,
+      title: String(c.title || '').slice(0, 90),
+      type: c.type || 'response'
+    };
+    if (c.isRoot) item.isRoot = true;
+    if (c.connectedFromCurrentStep) {
+      item.connectedFromCurrentStep = true;
+      if (c.routeTrigger) item.routeTrigger = String(c.routeTrigger).slice(0, 120);
+    }
+    if (c.aiDescription) item.whenToChoose = String(c.aiDescription).trim().slice(0, 320);
+    if (Array.isArray(c.keywords) && c.keywords.length > 0) {
+      item.keywords = c.keywords.slice(0, 40);
+    }
+    if (Array.isArray(c.negativeKeywords) && c.negativeKeywords.length > 0) {
+      item.avoidIf = c.negativeKeywords.slice(0, 35);
+    }
+    if (c.messagePreview) {
+      item.replyPreview = String(c.messagePreview).trim().slice(0, 220);
+    }
+    return item;
+  });
+}
+
+async function classifyHookWithGemini({
+  userMessage = '',
+  businessName = '',
+  isNewCustomer = false,
+  currentStep = null,
+  candidates = [],
+  timeoutMs = DEFAULT_CLASSIFY_TIMEOUT_MS
+} = {}) {
+  const safeMsg = String(userMessage || '').trim().slice(0, 500);
+  if (!safeMsg || !Array.isArray(candidates) || candidates.length === 0) {
+    return { ok: false, matchedStepId: null, confidence: 'low', reason: 'no_candidates' };
+  }
+
+  const apiKey = String(process.env.GEMINI_API_KEY || '').trim();
+  if (!apiKey) {
+    return { ok: false, matchedStepId: null, confidence: 'low', reason: 'missing_api_key' };
+  }
+
+  const formattedCandidates = formatCandidatesForClassifier(candidates);
+  const allowedIds = new Set(formattedCandidates.map(c => c.id));
+
+  const systemPrompt = [
+    `Eres el clasificador de intención (hook router) para mensajes DM de Instagram${businessName ? ` de "${businessName}"` : ''} en Panamá.`,
+    'Tu tarea es leer el mensaje completo del cliente y determinar cuál de los HOOKS CANDIDATOS es el mejor para responderle, o devolver null si ninguno aplica.',
+    'Devuelve ÚNICAMENTE un objeto JSON válido con esta estructura exacta:',
+    '{"matchedStepId": "<id exacto del candidato o null>", "confidence": "high" | "medium" | "low", "reason": "<motivo breve en español>"}',
+    'Reglas críticas:',
+    '1. Analiza la intención real de TODA la frase completa, no te dejes engañar por palabras aisladas. Comprende español coloquial panameño (ej: "qué xopá", "agarran", "en cuánto me toman", "se me estrelló", "mandan pa\'l interior", "cuánto sale"), abreviaturas ("xq", "q", "disp", "cel") y errores de escritura.',
+    '2. Si un candidato incluye "whenToChoose", úsalo como guía prioritaria de cuándo elegirlo.',
+    '3. Respeta "avoidIf" (exclusiones): si la intención principal del cliente corresponde a una exclusión de un candidato, NO elijas ese candidato (elige el candidato correcto o null).',
+    '   - Ejemplo: "En cuánto me toman mi iPhone 13 con pantalla rota?" -> la intención principal es vender/entregar el equipo (Trade-In), NO repararlo aunque mencione "pantalla".',
+    '   - Ejemplo: "Tienen iPhone 14 de 128gb disponible y qué salud de batería trae?" -> la intención es comprar/consultar catálogo, NO taller ni ficha de venta.',
+    '4. Si "currentStep" está presente y un candidato tiene "connectedFromCurrentStep": true, dale prioridad cuando el mensaje responda a las opciones o preguntas de ese paso actual.',
+    '5. El paso raíz ("isRoot": true) SOLO debe elegirse si el cliente está saludando sin hacer otra consulta concreta o pidiendo el menú/opciones generales. Si saluda y además pregunta algo específico ("Hola, hasta qué hora abren?"), elige el hook específico (Horarios), NO el paso raíz.',
+    '6. Devuelve "matchedStepId": null si el mensaje es solo un agradecimiento/cierre corto ("gracias", "ok", "dale", "listo", "perfecto"), charla casual sin intención de negocio, emojis sin consulta, o únicamente una ficha técnica suelta sin pregunta ("85% 128gb esim sin piezas cambiadas").',
+    '7. Si no estás seguro, usa "confidence": "low" o "matchedStepId": null. NUNCA inventes un ID que no exista en los candidatos.'
+  ].join('\n');
+
+  const userPrompt = JSON.stringify({
+    isNewCustomer: Boolean(isNewCustomer),
+    currentStep: currentStep ? { id: currentStep.id, title: currentStep.title || '' } : null,
+    customerMessage: safeMsg,
+    candidates: formattedCandidates
+  });
+
+  const apiRes = await runGeminiWithFallback({
+    apiKey,
+    systemPrompt,
+    userPrompt,
+    timeoutMs,
+    maxOutputTokens: 160,
+    responseMimeType: 'application/json'
+  });
+
+  if (!apiRes.ok) {
+    return { ok: false, matchedStepId: null, confidence: 'low', reason: apiRes.error || 'api_error' };
+  }
+
+  const parsed = parseHookClassificationResponse(apiRes.text, allowedIds);
+  return {
+    ...parsed,
+    model: apiRes.model
+  };
+}
+
 async function maybeRewriteWithGemini({
   baseText,
   userMessage = '',
@@ -191,9 +372,6 @@ async function maybeRewriteWithGemini({
   if (!apiKey) {
     return { text: safeBase, rewritten: false, reason: 'missing_api_key' };
   }
-
-  const configuredModel = String(process.env.GEMINI_MODEL || '').trim();
-  const modelCandidates = configuredModel ? [configuredModel] : FALLBACK_GEMINI_MODELS;
 
   const systemPrompt = [
     `Eres el asistente de atención al cliente por DM de Instagram${businessName ? ` para "${businessName}"` : ''} en Panamá.`,
@@ -217,23 +395,23 @@ async function maybeRewriteWithGemini({
     `"""\n${safeBase}\n"""`
   ].filter(Boolean).join('\n\n');
 
-  let lastReason = 'api_error';
-  for (let i = 0; i < modelCandidates.length; i++) {
-    const model = modelCandidates[i];
-    const result = await callGeminiGenerate({ apiKey, model, systemPrompt, userPrompt, timeoutMs });
-    if (result.ok) {
-      const check = validateRewrittenMessage(safeBase, result.text, { customer, isInitialStep });
-      if (check.valid) {
-        return { text: check.text, rewritten: true, model };
-      }
-      return { text: safeBase, rewritten: false, reason: check.reason, model };
+  const result = await runGeminiWithFallback({
+    apiKey,
+    systemPrompt,
+    userPrompt,
+    timeoutMs,
+    maxOutputTokens: 450
+  });
+
+  if (result.ok) {
+    const check = validateRewrittenMessage(safeBase, result.text, { customer, isInitialStep });
+    if (check.valid) {
+      return { text: check.text, rewritten: true, model: result.model };
     }
-    lastReason = result.error || `http_${result.status}`;
-    // Solo intentar modelo alternativo si este modelo devolvió 404 (no encontrado en este proyecto)
-    if (result.status !== 404) break;
+    return { text: safeBase, rewritten: false, reason: check.reason, model: result.model };
   }
 
-  return { text: safeBase, rewritten: false, reason: lastReason };
+  return { text: safeBase, rewritten: false, reason: result.error || 'api_error' };
 }
 
 module.exports = {
@@ -242,5 +420,7 @@ module.exports = {
   extractRequiredUrls,
   extractMenuOptionNumbers,
   validateRewrittenMessage,
+  parseHookClassificationResponse,
+  classifyHookWithGemini,
   maybeRewriteWithGemini
 };

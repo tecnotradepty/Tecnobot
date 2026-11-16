@@ -1,6 +1,7 @@
 // ========================================================
-// MOTOR DE RAZONAMIENTO, REGLAS Y NEGATIVE KEYWORDS
+// MOTOR DE RAZONAMIENTO, REGLAS, NEGATIVE KEYWORDS E IA
 // ========================================================
+const { classifyHookWithGemini } = require('./ai');
 
 const DEFAULT_CONFIG = {
   // Estado maestro del bot (true = activo, false = pausado globalmente)
@@ -15,7 +16,9 @@ const DEFAULT_CONFIG = {
     pin: "047514",
     advisorPauseHours: 12, // Horas que el bot se silencia al pasar a modo humano
     silentFallback: true,  // true = No interrumpir con "No entendí" si el cliente escribe algo fuera de los ganchos
-    strictStepMode: true   // true = Modo Workflow Estricto (obliga a marcar opciones o salta error)
+    strictStepMode: true,  // true = Modo Workflow Estricto (obliga a marcar opciones o salta error)
+    aiRoutingEnabled: true, // true = Usa Gemini para interpretar frases completas y elegir el mejor hook
+    aiRoutingMode: "smart"  // "smart" (Híbrido Inteligente) | "fallback" (Solo Respaldo)
   },
 
   // ========================================================
@@ -588,7 +591,7 @@ function isParentScopedKeyword(entry) {
 }
 
 function findMatchingNode(nodes, clean, options = {}) {
-  const { requireLongKeyword = false, scope = 'all' } = options;
+  const { requireLongKeyword = false, scope = 'all', exactOnly = false } = options;
   const cleanOption = stripMenuPrefix(clean);
   for (const node of nodes) {
     if (hasNegativeMatch(node, clean)) continue;
@@ -601,7 +604,7 @@ function findMatchingNode(nodes, clean, options = {}) {
       if (!cleanKw) return false;
       const optionOnly = isOptionOnlyKeyword(cleanKw);
       if (requireLongKeyword && optionOnly) return false;
-      return optionOnly
+      return (optionOnly || exactOnly)
         ? (clean === cleanKw || cleanOption === cleanKw)
         : clean.includes(cleanKw);
     });
@@ -610,20 +613,8 @@ function findMatchingNode(nodes, clean, options = {}) {
   return null;
 }
 
-/**
- * Motor Principal de Razonamiento, Pasos de Workflow y Resolución de Respuestas
- * @param {string} userText - Texto enviado por el usuario
- * @param {object} config - Configuración activa
- * @param {object} context - { isPaused: boolean, isNewCustomer: boolean, currentStep: string, customer?: object }
- */
-function resolveBotResponse(userText, config = DEFAULT_CONFIG, context = {}) {
-  const { isPaused = false, isNewCustomer = false, currentStep = null } = context;
-
-  if (!userText || !userText.trim()) {
-    return { text: null, hookId: null, nextStep: currentStep, shouldPause: false, shouldUnpause: false };
-  }
-
-  const clean = normalizeText(userText);
+function prepareWorkflowState(config = DEFAULT_CONFIG, context = {}) {
+  const { isNewCustomer = false, currentStep = null } = context;
   const workflowSteps = Array.isArray(config.workflow?.steps) && config.workflow.steps.length > 0
     ? config.workflow.steps
     : DEFAULT_CONFIG.workflow.steps;
@@ -651,150 +642,217 @@ function resolveBotResponse(userText, config = DEFAULT_CONFIG, context = {}) {
   const sortedNodes = [...workflowSteps, ...legacyExtras]
     .sort((a, b) => (b.priority || 0) - (a.priority || 0));
 
-  // 1. Comando técnico para reactivar manualmente el bot desde pausa ("/bot" o "activar bot")
-  if ((clean === "activar bot" || clean === "/bot") && rootStep) {
-    return {
-      text: formatResponseText(rootStep.message, config, context),
-      hookId: rootStep.id,
-      nextStep: rootStep.id,
-      shouldPause: false,
-      shouldUnpause: true,
-      aiRewrite: Boolean(rootStep.aiRewrite),
-      isInitialStep: true
-    };
-  }
-
-  // 2. Si el usuario está en PAUSA (ya pidió Trade-In, Taller, Asesor o un humano le habló):
-  const activeStep = (!isNewCustomer && currentStep) ? workflowSteps.find(s => s.id === currentStep) : null;
-  const buildStepReply = (node) => {
-    const targetStepId = node.nextStepId || node.id;
-    return {
-      text: formatResponseText(node.message, config, context),
-      hookId: node.id,
-      nextStep: targetStepId,
-      shouldPause: Boolean(node.autoPause || node.type === "handoff" || targetStepId === "step_advisor"),
-      shouldUnpause: Boolean(node.unpauseOnTrigger),
-      aiRewrite: Boolean(node.aiRewrite),
-      isInitialStep: Boolean(node.isRoot || targetStepId === initialStepId)
-    };
-  };
-
-  if (isPaused) {
-    if (looksLikeDeviceSpecs(clean)) {
-      return { text: null, hookId: null, nextStep: currentStep, shouldPause: false, shouldUnpause: false, aiRewrite: false, isInitialStep: false };
-    }
-
-    const pausedAllowedNodes = sortedNodes.filter(n => n.allowedWhenPaused);
-    const activeTargetIds = new Set(
-      (activeStep && Array.isArray(activeStep.routes) ? activeStep.routes : [])
-        .map(r => r.targetStepId)
-        .filter(Boolean)
-    );
-    const matchedPaused = (activeTargetIds.size > 0
-      ? findMatchingNode(pausedAllowedNodes.filter(n => activeTargetIds.has(n.nextStepId || n.id)), clean, { scope: 'parent' })
-      : null)
-      || findMatchingNode(pausedAllowedNodes, clean, { scope: 'global' });
-
-    if (matchedPaused) {
-      const targetStepId = matchedPaused.nextStepId || matchedPaused.id;
-      const unpause = Boolean(matchedPaused.unpauseOnTrigger);
-      return {
-        text: formatResponseText(matchedPaused.message, config, context),
-        hookId: matchedPaused.id,
-        nextStep: unpause ? targetStepId : currentStep,
-        shouldPause: false,
-        shouldUnpause: unpause,
-        aiRewrite: Boolean(matchedPaused.aiRewrite),
-        isInitialStep: Boolean(matchedPaused.isRoot || targetStepId === initialStepId)
-      };
-    }
-
-    return { text: null, hookId: null, nextStep: currentStep, shouldPause: false, shouldUnpause: false };
-  }
-
-  // Preparar enlaces activos del paso donde se encuentra el cliente
+  const activeStep = (!isNewCustomer && currentStep)
+    ? workflowSteps.find(s => s.id === currentStep) || null
+    : null;
   const effectiveActiveStep = activeStep || (isStrictStepMode && !isNewCustomer ? rootStep : null);
-  const activeRoutes = (effectiveActiveStep && Array.isArray(effectiveActiveStep.routes)) ? effectiveActiveStep.routes : [];
+  const activeRoutes = (effectiveActiveStep && Array.isArray(effectiveActiveStep.routes))
+    ? effectiveActiveStep.routes
+    : [];
   const specificRoutes = activeRoutes.filter(r => !isWildcardRoute(r));
   const wildcardRoutes = activeRoutes.filter(r => isWildcardRoute(r));
 
-  // 3. Evaluar primero opciones específicas del paso activo (ej: teclas 1..6 o nombre de opción)
-  if (specificRoutes.length > 0) {
-    for (const route of specificRoutes) {
-      const targetStep = workflowSteps.find(s => s.id === route.targetStepId);
-      if (!targetStep) continue;
+  return {
+    workflowSteps,
+    initialStepId,
+    rootStep,
+    isStrictStepMode,
+    sortedNodes,
+    activeStep,
+    effectiveActiveStep,
+    activeRoutes,
+    specificRoutes,
+    wildcardRoutes
+  };
+}
 
-      const keyTokens = String(route.key || "")
-        .split(/[,|]/)
-        .map(k => normalizeText(k))
-        .filter(Boolean);
-      const cleanOption = stripMenuPrefix(clean);
-      const keyMatch = keyTokens.some(tk => clean === tk || cleanOption === tk);
+function buildStepReply(node, config, context, initialStepId, extra = {}) {
+  const targetStepId = node.nextStepId || node.id;
+  return {
+    text: formatResponseText(node.message, config, context),
+    hookId: node.id,
+    nextStep: targetStepId,
+    shouldPause: Boolean(node.autoPause || node.type === "handoff" || targetStepId === "step_advisor"),
+    shouldUnpause: Boolean(node.unpauseOnTrigger),
+    aiRewrite: Boolean(node.aiRewrite),
+    isInitialStep: Boolean(node.isRoot || targetStepId === initialStepId),
+    ...extra
+  };
+}
 
-      const cleanLabel = normalizeText(route.label);
-      const labelMatch = !keyMatch
-        && cleanLabel
-        && cleanLabel.length > 3
-        && clean.includes(cleanLabel)
-        && !hasNegativeMatch(targetStep, clean);
+function resolvePausedResponse(clean, state, config, context) {
+  const { currentStep = null } = context;
+  const { sortedNodes, activeStep, initialStepId } = state;
 
-      if (keyMatch || labelMatch) {
-        return buildStepReply(targetStep);
-      }
-    }
+  if (looksLikeDeviceSpecs(clean)) {
+    return { text: null, hookId: null, nextStep: currentStep, shouldPause: false, shouldUnpause: false, aiRewrite: false, isInitialStep: false };
   }
 
-  // 3.5. Evaluar keywords sujetas al paso anterior (🔒) únicamente de los pasos destino conectados al paso activo
-  if (effectiveActiveStep && activeRoutes.length > 0) {
-    const connectedIds = new Set(activeRoutes.map(r => r.targetStepId).filter(Boolean));
-    const connectedTargets = sortedNodes.filter(n => connectedIds.has(n.nextStepId || n.id));
-    if (connectedTargets.length > 0) {
-      const scopedMatch = findMatchingNode(connectedTargets, clean, {
-        scope: 'parent',
-        requireLongKeyword: false
-      });
-      if (scopedMatch) {
-        return buildStepReply(scopedMatch);
-      }
-    }
-  }
+  const pausedAllowedNodes = sortedNodes.filter(n => n.allowedWhenPaused);
+  const activeTargetIds = new Set(
+    (activeStep && Array.isArray(activeStep.routes) ? activeStep.routes : [])
+      .map(r => r.targetStepId)
+      .filter(Boolean)
+  );
+  const matchedPaused = (activeTargetIds.size > 0
+    ? findMatchingNode(pausedAllowedNodes.filter(n => activeTargetIds.has(n.nextStepId || n.id)), clean, { scope: 'parent' })
+    : null)
+    || findMatchingNode(pausedAllowedNodes, clean, { scope: 'global' });
 
-  // 4. Si el cliente está en un paso posterior (ej: Trade-In pidiendo detalles) con enlace "Cualquier respuesta (*)",
-  // capturar cualquier mensaje variable antes de detecciones globales (evita saltos accidentales a Catálogo o Silencio)
-  if (activeStep && !isNewCustomer && activeStep.id !== initialStepId && wildcardRoutes.length > 0) {
-    for (const route of wildcardRoutes) {
-      const targetStep = workflowSteps.find(s => s.id === route.targetStepId);
-      if (targetStep) return buildStepReply(targetStep);
-    }
-  }
-
-  // 5. Si el mensaje parece directamente una lista de especificaciones técnicas (sin paso siguiente libre esperando respuesta)
-  if (looksLikeDeviceSpecs(clean) && !clean.includes("vender") && !clean.includes("reparar")) {
-    const tradeinStepId = workflowSteps.some(s => s.id === "step_tradein") ? "step_tradein" : currentStep;
+  if (matchedPaused) {
+    const targetStepId = matchedPaused.nextStepId || matchedPaused.id;
+    const unpause = Boolean(matchedPaused.unpauseOnTrigger);
     return {
-      text: null,
-      hookId: "spec_detected_silent",
-      nextStep: tradeinStepId,
-      shouldPause: true,
-      shouldUnpause: false
+      text: formatResponseText(matchedPaused.message, config, context),
+      hookId: matchedPaused.id,
+      nextStep: unpause ? targetStepId : currentStep,
+      shouldPause: false,
+      shouldUnpause: unpause,
+      aiRewrite: Boolean(matchedPaused.aiRewrite),
+      isInitialStep: Boolean(matchedPaused.isRoot || targetStepId === initialStepId)
     };
   }
 
-  // 6. Evaluación global por prioridad solo para keywords libres (🌐) (protege intenciones directas de Meta Ads)
-  const matchedNode = findMatchingNode(sortedNodes, clean, {
-    scope: 'global',
-    requireLongKeyword: isStrictStepMode && specificRoutes.length > 0
-  });
+  return { text: null, hookId: null, nextStep: currentStep, shouldPause: false, shouldUnpause: false };
+}
 
-  if (matchedNode) {
-    return buildStepReply(matchedNode);
+function matchSpecificRoute(specificRoutes, workflowSteps, clean, { exactLabelOnly = false } = {}) {
+  if (specificRoutes.length === 0) return null;
+  const cleanOption = stripMenuPrefix(clean);
+  for (const route of specificRoutes) {
+    const targetStep = workflowSteps.find(s => s.id === route.targetStepId);
+    if (!targetStep) continue;
+
+    const keyTokens = String(route.key || "")
+      .split(/[,|]/)
+      .map(k => normalizeText(k))
+      .filter(Boolean);
+    const keyMatch = keyTokens.some(tk => clean === tk || cleanOption === tk);
+
+    const cleanLabel = normalizeText(route.label);
+    const labelMatch = !keyMatch
+      && cleanLabel
+      && cleanLabel.length > 3
+      && (exactLabelOnly ? (clean === cleanLabel || cleanOption === cleanLabel) : clean.includes(cleanLabel))
+      && !hasNegativeMatch(targetStep, clean);
+
+    if (keyMatch || labelMatch) {
+      return targetStep;
+    }
   }
+  return null;
+}
+
+function matchConnectedParentScoped(activeRoutes, sortedNodes, clean, { exactOnly = false } = {}) {
+  if (activeRoutes.length === 0) return null;
+  const connectedIds = new Set(activeRoutes.map(r => r.targetStepId).filter(Boolean));
+  const connectedTargets = sortedNodes.filter(n => connectedIds.has(n.nextStepId || n.id));
+  if (connectedTargets.length === 0) return null;
+  return findMatchingNode(connectedTargets, clean, {
+    scope: 'parent',
+    requireLongKeyword: false,
+    exactOnly
+  });
+}
+
+function buildDeviceSpecsSilentReply(workflowSteps, currentStep) {
+  const tradeinStepId = workflowSteps.some(s => s.id === "step_tradein") ? "step_tradein" : currentStep;
+  return {
+    text: null,
+    hookId: "spec_detected_silent",
+    nextStep: tradeinStepId,
+    shouldPause: true,
+    shouldUnpause: false
+  };
+}
+
+function buildAiCandidateSteps(state) {
+  const { workflowSteps, initialStepId, sortedNodes, effectiveActiveStep, specificRoutes } = state;
+
+  const connectedRoutesByTarget = new Map();
+  for (const route of specificRoutes) {
+    if (route.targetStepId) {
+      const existing = connectedRoutesByTarget.get(route.targetStepId);
+      const triggerText = [route.key, route.label].filter(Boolean).join(' | ');
+      connectedRoutesByTarget.set(
+        route.targetStepId,
+        existing ? `${existing}; ${triggerText}` : triggerText
+      );
+    }
+  }
+
+  const stepsWithIncomingRoutes = new Set();
+  for (const s of workflowSteps) {
+    for (const r of (s.routes || [])) {
+      if (r.targetStepId && r.targetStepId !== s.id) {
+        stepsWithIncomingRoutes.add(r.targetStepId);
+      }
+    }
+  }
+
+  const candidates = [];
+  for (const node of sortedNodes) {
+    const targetId = node.nextStepId || node.id;
+    const isRoot = Boolean(node.isRoot || targetId === initialStepId);
+    const routeTrigger = connectedRoutesByTarget.get(targetId) || '';
+    const connectedFromCurrentStep = Boolean(routeTrigger);
+
+    const allKws = Array.isArray(node.keywords) ? node.keywords : [];
+    const globalKeywords = allKws
+      .filter(k => !isParentScopedKeyword(k))
+      .map(k => getKeywordText(k).trim())
+      .filter(Boolean);
+    const parentKeywords = allKws
+      .filter(k => isParentScopedKeyword(k))
+      .map(k => getKeywordText(k).trim())
+      .filter(Boolean);
+
+    const aiDescription = String(node.aiDescription || '').trim();
+    const hasMessage = Boolean(String(node.message || '').trim());
+
+    if (!connectedFromCurrentStep) {
+      if (parentKeywords.length > 0 && globalKeywords.length === 0 && !aiDescription) {
+        continue;
+      }
+      if (!isRoot && globalKeywords.length === 0 && !aiDescription && stepsWithIncomingRoutes.has(targetId)) {
+        continue;
+      }
+      if (!isRoot && globalKeywords.length === 0 && !aiDescription && !hasMessage) {
+        continue;
+      }
+    }
+
+    const eligibleKeywords = connectedFromCurrentStep
+      ? Array.from(new Set([...parentKeywords, ...globalKeywords]))
+      : globalKeywords;
+
+    candidates.push({
+      id: node.id,
+      targetStepId: targetId,
+      title: node.title || '',
+      type: node.type || 'response',
+      isRoot,
+      connectedFromCurrentStep,
+      routeTrigger,
+      aiDescription,
+      keywords: eligibleKeywords,
+      negativeKeywords: Array.isArray(node.negativeKeywords) ? node.negativeKeywords.filter(Boolean) : [],
+      messagePreview: String(node.message || '').replace(/\s+/g, ' ').trim().slice(0, 220)
+    });
+  }
+
+  return candidates;
+}
+
+function resolvePostMatchFallbacks(state, config, context) {
+  const { isNewCustomer = false, currentStep = null } = context;
+  const { workflowSteps, rootStep, isStrictStepMode, effectiveActiveStep, specificRoutes, wildcardRoutes } = state;
 
   // 7. Respaldo por enlace "Cualquier respuesta (*)" en el menú raíz (solo si no hubo coincidencia específica ni global)
   if (!isNewCustomer && wildcardRoutes.length > 0) {
     for (const route of wildcardRoutes) {
       const targetStep = workflowSteps.find(s => s.id === route.targetStepId);
-      if (targetStep) return buildStepReply(targetStep);
+      if (targetStep) return buildStepReply(targetStep, config, context, state.initialStepId);
     }
   }
 
@@ -815,7 +873,7 @@ function resolveBotResponse(userText, config = DEFAULT_CONFIG, context = {}) {
     };
   }
 
-  // 7. Si ningún nodo coincidió y es cliente nuevo: enviar paso inicial
+  // 9. Si ningún nodo coincidió y es cliente nuevo: enviar paso inicial
   if (isNewCustomer && rootStep) {
     return {
       text: formatResponseText(rootStep.message, config, context),
@@ -828,7 +886,7 @@ function resolveBotResponse(userText, config = DEFAULT_CONFIG, context = {}) {
     };
   }
 
-  // 8. Modo Recepcionista (silentFallback):
+  // 10. Modo Recepcionista (silentFallback)
   const silentFallback = config.settings?.silentFallback !== false;
   if (silentFallback) {
     return { text: null, hookId: null, nextStep: currentStep, shouldPause: false, shouldUnpause: false };
@@ -843,9 +901,231 @@ function resolveBotResponse(userText, config = DEFAULT_CONFIG, context = {}) {
   };
 }
 
+/**
+ * Motor Principal Determinista (síncrono, sin llamadas a IA)
+ * @param {string} userText - Texto enviado por el usuario
+ * @param {object} config - Configuración activa
+ * @param {object} context - { isPaused: boolean, isNewCustomer: boolean, currentStep: string, customer?: object }
+ */
+function resolveBotResponse(userText, config = DEFAULT_CONFIG, context = {}) {
+  const { isPaused = false, isNewCustomer = false, currentStep = null } = context;
+
+  if (!userText || !userText.trim()) {
+    return { text: null, hookId: null, nextStep: currentStep, shouldPause: false, shouldUnpause: false };
+  }
+
+  const clean = normalizeText(userText);
+  const state = prepareWorkflowState(config, context);
+  const { workflowSteps, initialStepId, rootStep, isStrictStepMode, sortedNodes, activeStep, effectiveActiveStep, activeRoutes, specificRoutes, wildcardRoutes } = state;
+
+  // 1. Comando técnico para reactivar manualmente el bot desde pausa ("/bot" o "activar bot")
+  if ((clean === "activar bot" || clean === "/bot") && rootStep) {
+    return {
+      text: formatResponseText(rootStep.message, config, context),
+      hookId: rootStep.id,
+      nextStep: rootStep.id,
+      shouldPause: false,
+      shouldUnpause: true,
+      aiRewrite: Boolean(rootStep.aiRewrite),
+      isInitialStep: true
+    };
+  }
+
+  // 2. Si el usuario está en PAUSA: solo specs silenciosas y keywords permitidas en pausa
+  if (isPaused) {
+    return resolvePausedResponse(clean, state, config, context);
+  }
+
+  // 3. Evaluar opciones específicas del paso activo (ej: teclas 1..6 o nombre de opción)
+  const routeTarget = matchSpecificRoute(specificRoutes, workflowSteps, clean);
+  if (routeTarget) {
+    return buildStepReply(routeTarget, config, context, initialStepId);
+  }
+
+  // 3.5. Evaluar keywords sujetas al paso anterior (🔒) únicamente de los pasos destino conectados
+  if (effectiveActiveStep) {
+    const scopedMatch = matchConnectedParentScoped(activeRoutes, sortedNodes, clean);
+    if (scopedMatch) {
+      return buildStepReply(scopedMatch, config, context, initialStepId);
+    }
+  }
+
+  // 4. Paso posterior con enlace "Cualquier respuesta (*)"
+  if (activeStep && !isNewCustomer && activeStep.id !== initialStepId && wildcardRoutes.length > 0) {
+    for (const route of wildcardRoutes) {
+      const targetStep = workflowSteps.find(s => s.id === route.targetStepId);
+      if (targetStep) return buildStepReply(targetStep, config, context, initialStepId);
+    }
+  }
+
+  // 5. Ficha técnica suelta
+  if (looksLikeDeviceSpecs(clean) && !clean.includes("vender") && !clean.includes("reparar")) {
+    return buildDeviceSpecsSilentReply(workflowSteps, currentStep);
+  }
+
+  // 6. Evaluación global por prioridad solo para keywords libres (🌐)
+  const matchedNode = findMatchingNode(sortedNodes, clean, {
+    scope: 'global',
+    requireLongKeyword: isStrictStepMode && specificRoutes.length > 0
+  });
+
+  if (matchedNode) {
+    return buildStepReply(matchedNode, config, context, initialStepId);
+  }
+
+  return resolvePostMatchFallbacks(state, config, context);
+}
+
+/**
+ * Motor Híbrido: combina reglas exactas en 0ms con clasificación por frase completa en Gemini
+ * según settings.aiRoutingEnabled y settings.aiRoutingMode ('smart' | 'fallback').
+ */
+async function resolveBotResponseWithAi(userText, config = DEFAULT_CONFIG, context = {}, options = {}) {
+  const { isPaused = false, isNewCustomer = false, currentStep = null } = context;
+  const classifyFn = options.classifyFn || classifyHookWithGemini;
+
+  if (!userText || !userText.trim()) {
+    return { text: null, hookId: null, nextStep: currentStep, shouldPause: false, shouldUnpause: false };
+  }
+
+  const aiRoutingEnabled = Boolean(config.settings?.aiRoutingEnabled);
+  const aiRoutingMode = config.settings?.aiRoutingMode === 'fallback' ? 'fallback' : 'smart';
+
+  if (!aiRoutingEnabled || isPaused) {
+    return resolveBotResponse(userText, config, context);
+  }
+
+  const clean = normalizeText(userText);
+  const state = prepareWorkflowState(config, context);
+  const { workflowSteps, initialStepId, rootStep, isStrictStepMode, sortedNodes, activeStep, effectiveActiveStep, activeRoutes, specificRoutes, wildcardRoutes } = state;
+
+  // 1. Comando técnico para reactivar manualmente el bot ("/bot" o "activar bot")
+  if ((clean === "activar bot" || clean === "/bot") && rootStep) {
+    return {
+      text: formatResponseText(rootStep.message, config, context),
+      hookId: rootStep.id,
+      nextStep: rootStep.id,
+      shouldPause: false,
+      shouldUnpause: true,
+      aiRewrite: Boolean(rootStep.aiRewrite),
+      isInitialStep: true
+    };
+  }
+
+  const isSmartMode = aiRoutingMode === 'smart';
+
+  // 3. Opciones específicas del paso activo (teclas 1..6 en 0ms; etiqueta exacta en modo smart)
+  const routeTarget = matchSpecificRoute(specificRoutes, workflowSteps, clean, { exactLabelOnly: isSmartMode });
+  if (routeTarget) {
+    return buildStepReply(routeTarget, config, context, initialStepId);
+  }
+
+  // 3.5. Keywords sujetas al paso anterior (🔒)
+  if (effectiveActiveStep) {
+    const scopedMatch = matchConnectedParentScoped(activeRoutes, sortedNodes, clean, { exactOnly: isSmartMode });
+    if (scopedMatch) {
+      return buildStepReply(scopedMatch, config, context, initialStepId);
+    }
+  }
+
+  // 4. Paso posterior con enlace "Cualquier respuesta (*)"
+  if (activeStep && !isNewCustomer && activeStep.id !== initialStepId && wildcardRoutes.length > 0) {
+    for (const route of wildcardRoutes) {
+      const targetStep = workflowSteps.find(s => s.id === route.targetStepId);
+      if (targetStep) return buildStepReply(targetStep, config, context, initialStepId);
+    }
+  }
+
+  if (isSmartMode) {
+    // Coincidencia exacta de mensaje completo con keyword libre (🌐) en 0ms (ej: "hola", "horario", "ubicacion")
+    const exactGlobal = findMatchingNode(sortedNodes, clean, {
+      scope: 'global',
+      requireLongKeyword: isStrictStepMode && specificRoutes.length > 0,
+      exactOnly: true
+    });
+    if (exactGlobal) {
+      return buildStepReply(exactGlobal, config, context, initialStepId);
+    }
+
+    const candidates = buildAiCandidateSteps(state);
+    if (candidates.length > 0) {
+      const aiResult = await classifyFn({
+        userMessage: userText,
+        businessName: config.settings?.businessName || '',
+        isNewCustomer,
+        currentStep: effectiveActiveStep || activeStep,
+        candidates
+      });
+
+      if (aiResult.ok && aiResult.matchedStepId) {
+        const aiNode = sortedNodes.find(n => n.id === aiResult.matchedStepId);
+        if (aiNode) {
+          return buildStepReply(aiNode, config, context, initialStepId, {
+            matchedByAi: true,
+            aiReason: aiResult.reason || '',
+            aiConfidence: aiResult.confidence || 'medium',
+            aiModel: aiResult.model || null
+          });
+        }
+      }
+
+      if (!aiResult.ok) {
+        // Respaldo determinista completo si Gemini falla, expira o falta API key
+        return resolveBotResponse(userText, config, context);
+      }
+    }
+
+    // Gemini respondió ok con matchedStepId = null -> respetar si es ficha técnica pura y aplicar respaldos finales
+    if (looksLikeDeviceSpecs(clean) && !clean.includes("vender") && !clean.includes("reparar")) {
+      return buildDeviceSpecsSilentReply(workflowSteps, currentStep);
+    }
+
+    return resolvePostMatchFallbacks(state, config, context);
+  }
+
+  // Modo 'fallback': primero todas las reglas deterministas; si nada coincide, consultar Gemini
+  if (looksLikeDeviceSpecs(clean) && !clean.includes("vender") && !clean.includes("reparar")) {
+    return buildDeviceSpecsSilentReply(workflowSteps, currentStep);
+  }
+
+  const detGlobal = findMatchingNode(sortedNodes, clean, {
+    scope: 'global',
+    requireLongKeyword: isStrictStepMode && specificRoutes.length > 0
+  });
+  if (detGlobal) {
+    return buildStepReply(detGlobal, config, context, initialStepId);
+  }
+
+  const candidates = buildAiCandidateSteps(state);
+  if (candidates.length > 0) {
+    const aiResult = await classifyFn({
+      userMessage: userText,
+      businessName: config.settings?.businessName || '',
+      isNewCustomer,
+      currentStep: effectiveActiveStep || activeStep,
+      candidates
+    });
+    if (aiResult.ok && aiResult.matchedStepId) {
+      const aiNode = sortedNodes.find(n => n.id === aiResult.matchedStepId);
+      if (aiNode) {
+        return buildStepReply(aiNode, config, context, initialStepId, {
+          matchedByAi: true,
+          aiReason: aiResult.reason || '',
+          aiConfidence: aiResult.confidence || 'medium',
+          aiModel: aiResult.model || null
+        });
+      }
+    }
+  }
+
+  return resolvePostMatchFallbacks(state, config, context);
+}
+
 module.exports = {
   DEFAULT_CONFIG,
   resolveBotResponse,
+  resolveBotResponseWithAi,
+  buildAiCandidateSteps,
   normalizeText,
   formatResponseText,
   isWildcardRoute,

@@ -1,7 +1,7 @@
 // ========================================================
 // VERCEL SERVERLESS FUNCTION - INSTAGRAM WEBHOOK HANDLER
 // ========================================================
-const { resolveBotResponse, formatResponseText } = require('../config/responses');
+const { resolveBotResponseWithAi, formatResponseText } = require('../config/responses');
 const { maybeRewriteWithGemini } = require('../config/ai');
 const { 
   getConfig, 
@@ -111,13 +111,27 @@ module.exports = async function handler(req, res) {
             console.log(`[DM Recibido] De: ${senderId} (@${customerProfile?.username || 'sin_username'}) | Nuevo: ${isNewCustomer} | Paso: ${currentStep} | EnPausa: ${isPaused} -> "${userMessage}"`);
 
             // =================================================================
-            // 4. RESOLVER CON MOTOR DE PASOS (WORKFLOW) Y REGLAS
+            // 4. RESOLVER CON MOTOR HÍBRIDO (PASOS, KEYWORDS E IA GEMINI)
             // =================================================================
-            const { text: replyText, hookId, nextStep, shouldPause, shouldUnpause, aiRewrite, isInitialStep } = resolveBotResponse(
+            const {
+              text: replyText,
+              hookId,
+              nextStep,
+              shouldPause,
+              shouldUnpause,
+              aiRewrite,
+              isInitialStep,
+              matchedByAi,
+              aiReason,
+              aiModel
+            } = await resolveBotResponseWithAi(
               userMessage,
               activeConfig,
               { isPaused, isNewCustomer, currentStep, customer: customerProfile }
             );
+            if (matchedByAi) {
+              console.log(`[IA Hook Routing] "${userMessage}" -> "${hookId}" (${aiModel || 'gemini'}): ${aiReason || ''}`);
+            }
 
             const matchedStep = (activeConfig.workflow?.steps || []).find(s => s.id === hookId);
             const matchedHook = (activeConfig.hooks || []).find(h => h.id === hookId);

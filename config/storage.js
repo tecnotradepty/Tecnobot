@@ -14,7 +14,9 @@ const EMPTY_CANVAS_SETTINGS = {
   phone: '',
   advisorPauseHours: 12,
   silentFallback: true,
-  strictStepMode: true
+  strictStepMode: true,
+  aiRoutingEnabled: true,
+  aiRoutingMode: 'smart'
 };
 
 let inMemoryConfig = null;
@@ -127,6 +129,7 @@ function normalizeWorkflowStep(step, index = 0, fallbackStep = null) {
     allowedWhenPaused: step.allowedWhenPaused !== undefined ? Boolean(step.allowedWhenPaused) : Boolean(fallbackStep?.allowedWhenPaused),
     unpauseOnTrigger: step.unpauseOnTrigger !== undefined ? Boolean(step.unpauseOnTrigger) : Boolean(fallbackStep?.unpauseOnTrigger),
     aiRewrite: step.aiRewrite !== undefined ? Boolean(step.aiRewrite) : Boolean(fallbackStep?.aiRewrite),
+    aiDescription: step.aiDescription !== undefined ? String(step.aiDescription || '') : String(fallbackStep?.aiDescription || ''),
     keywords: normalizeKeywordEntryList(Array.isArray(step.keywords) ? step.keywords : (fallbackStep?.keywords || [])),
     negativeKeywords: Array.isArray(step.negativeKeywords) ? step.negativeKeywords : (fallbackStep?.negativeKeywords || []),
     message: step.message !== undefined ? step.message : (fallbackStep?.message || ''),
@@ -138,6 +141,8 @@ function normalizeWorkflowStep(step, index = 0, fallbackStep = null) {
 function normalizeCanvasSettings(rawSettings = {}, fallbackSettings = null) {
   const base = fallbackSettings || EMPTY_CANVAS_SETTINGS;
   const pauseHours = Number(rawSettings.advisorPauseHours);
+  const rawMode = rawSettings.aiRoutingMode;
+  const baseMode = base.aiRoutingMode === 'fallback' ? 'fallback' : 'smart';
   return {
     businessName: rawSettings.businessName !== undefined ? String(rawSettings.businessName) : String(base.businessName || ''),
     tiendaUrl: rawSettings.tiendaUrl !== undefined ? String(rawSettings.tiendaUrl) : String(base.tiendaUrl || ''),
@@ -145,7 +150,9 @@ function normalizeCanvasSettings(rawSettings = {}, fallbackSettings = null) {
     phone: rawSettings.phone !== undefined ? String(rawSettings.phone) : String(base.phone || ''),
     advisorPauseHours: Number.isFinite(pauseHours) && pauseHours > 0 ? pauseHours : (base.advisorPauseHours || 12),
     silentFallback: rawSettings.silentFallback !== undefined ? Boolean(rawSettings.silentFallback) : Boolean(base.silentFallback !== false),
-    strictStepMode: rawSettings.strictStepMode !== undefined ? Boolean(rawSettings.strictStepMode) : Boolean(base.strictStepMode !== false)
+    strictStepMode: rawSettings.strictStepMode !== undefined ? Boolean(rawSettings.strictStepMode) : Boolean(base.strictStepMode !== false),
+    aiRoutingEnabled: rawSettings.aiRoutingEnabled !== undefined ? Boolean(rawSettings.aiRoutingEnabled) : Boolean(base.aiRoutingEnabled),
+    aiRoutingMode: rawMode === 'fallback' ? 'fallback' : (rawMode === 'smart' ? 'smart' : baseMode)
   };
 }
 
@@ -176,6 +183,7 @@ function createEmptyCanvasTemplate(name = 'Nuevo Lienzo', id = null) {
           allowedWhenPaused: false,
           unpauseOnTrigger: true,
           aiRewrite: false,
+          aiDescription: '',
           keywords: [],
           negativeKeywords: [],
           message: '',

@@ -264,7 +264,7 @@
       <div class="studio-card rounded-xl p-2.5 cursor-pointer hover:border-zinc-300 transition-colors" onclick="setViewMode('workflow')">
         <p class="text-[10px] font-medium text-zinc-400 uppercase tracking-wider">Motor de Flujo</p>
         <p id="kpiWorkflowMode" class="text-xs font-semibold text-zinc-900 mt-0.5">Modo Estricto Activo</p>
-        <p class="text-[10px] text-zinc-400 mt-0.5">Validación estricta de opciones</p>
+        <p id="kpiAiRoutingSummary" class="text-[10px] text-zinc-400 mt-0.5">IA Hooks: Verificando...</p>
       </div>
 
       <div class="studio-card rounded-xl p-2.5 cursor-pointer hover:border-zinc-300 transition-colors" onclick="setViewMode('workflow')">
@@ -382,6 +382,25 @@
             <div class="w-7 h-4 bg-zinc-200 rounded-full peer peer-checked:after:translate-x-3 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all relative peer-checked:bg-zinc-900"></div>
             <span class="text-[11px] font-medium text-zinc-700">Modo Estricto</span>
           </label>
+
+          <!-- Toggle IA Clasificadora de Hooks (por Lienzo) -->
+          <div id="aiRoutingControlGroup" class="inline-flex flex-wrap items-center gap-1 bg-indigo-50/60 border border-indigo-200/80 rounded-lg px-2 py-1">
+            <label class="inline-flex items-center gap-1.5 cursor-pointer select-none" title="Usa Gemini para entender frases completas y elegir el mejor hook de este lienzo">
+              <input type="checkbox" id="aiRoutingToggle" class="sr-only peer" checked onchange="toggleAiRouting(this.checked)">
+              <div class="w-7 h-4 bg-zinc-200 rounded-full peer peer-checked:after:translate-x-3 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all relative peer-checked:bg-indigo-600"></div>
+              <span class="text-[11px] font-medium text-indigo-950">🧠 IA Hooks</span>
+            </label>
+            <select id="aiRoutingModeSelect"
+                    onchange="setAiRoutingMode(this.value)"
+                    class="text-[10.5px] font-medium bg-white border border-indigo-200 rounded-md px-1.5 py-0.5 text-indigo-900 focus:outline-none focus:border-indigo-500"
+                    title="Cuándo decide Gemini el mejor hook">
+              <option value="smart">Híbrido inteligente</option>
+              <option value="fallback">Solo respaldo</option>
+            </select>
+            <span id="aiRoutingNoKeyWarn" class="hidden text-[9.5px] font-medium px-1.5 py-0.5 rounded bg-amber-100 text-amber-800" title="Falta GEMINI_API_KEY en Vercel: usando solo reglas locales">
+              Sin API Key
+            </span>
+          </div>
 
           <!-- Controles de Zoom -->
           <div class="flex items-center bg-zinc-50 border border-zinc-200 rounded-lg p-0.5 text-[11px]">
@@ -964,7 +983,9 @@
         phone: '',
         advisorPauseHours: 12,
         silentFallback: true,
-        strictStepMode: true
+        strictStepMode: true,
+        aiRoutingEnabled: true,
+        aiRoutingMode: 'smart'
       };
     }
 
@@ -995,6 +1016,7 @@
               allowedWhenPaused: false,
               unpauseOnTrigger: true,
               aiRewrite: false,
+              aiDescription: '',
               keywords: [],
               negativeKeywords: [],
               message: '',
@@ -1018,6 +1040,7 @@
         if (!Array.isArray(s.negativeKeywords)) s.negativeKeywords = [];
         if (!Array.isArray(s.routes)) s.routes = [];
         s.aiRewrite = Boolean(s.aiRewrite);
+        if (s.aiDescription === undefined) s.aiDescription = '';
       });
       return wf;
     }
@@ -1093,6 +1116,14 @@
       const isStrict = activeConfig.settings?.strictStepMode !== false;
       document.getElementById('strictModeToggle').checked = isStrict;
       updateStrictModeUI(isStrict);
+
+      const aiEnabled = Boolean(activeConfig.settings?.aiRoutingEnabled);
+      const aiMode = activeConfig.settings?.aiRoutingMode === 'fallback' ? 'fallback' : 'smart';
+      const aiToggleEl = document.getElementById('aiRoutingToggle');
+      const aiModeEl = document.getElementById('aiRoutingModeSelect');
+      if (aiToggleEl) aiToggleEl.checked = aiEnabled;
+      if (aiModeEl) aiModeEl.value = aiMode;
+      updateAiRoutingUI(aiEnabled, aiMode);
 
       const isSilent = activeConfig.settings?.silentFallback !== false;
       document.getElementById('silentFallbackToggle').checked = isSilent;
@@ -1466,6 +1497,53 @@
       }
     }
 
+    function toggleAiRouting(checked) {
+      if (activeConfig?.settings) {
+        activeConfig.settings.aiRoutingEnabled = Boolean(checked);
+        if (!activeConfig.settings.aiRoutingMode) activeConfig.settings.aiRoutingMode = 'smart';
+      }
+      updateAiRoutingUI(Boolean(checked), activeConfig?.settings?.aiRoutingMode || 'smart');
+    }
+
+    function setAiRoutingMode(mode) {
+      const cleanMode = mode === 'fallback' ? 'fallback' : 'smart';
+      if (activeConfig?.settings) {
+        activeConfig.settings.aiRoutingMode = cleanMode;
+      }
+      updateAiRoutingUI(Boolean(activeConfig?.settings?.aiRoutingEnabled), cleanMode);
+    }
+
+    function updateAiRoutingUI(enabled, mode = 'smart') {
+      const group = document.getElementById('aiRoutingControlGroup');
+      const modeSel = document.getElementById('aiRoutingModeSelect');
+      const noKeyWarn = document.getElementById('aiRoutingNoKeyWarn');
+      const kpiSummary = document.getElementById('kpiAiRoutingSummary');
+      const cleanMode = mode === 'fallback' ? 'fallback' : 'smart';
+
+      if (group) {
+        group.className = enabled
+          ? 'inline-flex flex-wrap items-center gap-1 bg-indigo-50/70 border border-indigo-200 rounded-lg px-2 py-1'
+          : 'inline-flex flex-wrap items-center gap-1 bg-zinc-50 border border-zinc-200 rounded-lg px-2 py-1';
+      }
+      if (modeSel) {
+        modeSel.classList.toggle('hidden', !enabled);
+        modeSel.value = cleanMode;
+      }
+      if (noKeyWarn) {
+        noKeyWarn.classList.toggle('hidden', !(enabled && !hasGeminiKey));
+      }
+      if (kpiSummary) {
+        if (!enabled) {
+          kpiSummary.innerText = 'IA Hooks: Apagado (solo reglas)';
+        } else if (!hasGeminiKey) {
+          kpiSummary.innerText = 'IA Hooks: Falta GEMINI_API_KEY en Vercel';
+        } else {
+          const modeLabel = cleanMode === 'fallback' ? 'Solo respaldo' : 'Híbrido inteligente';
+          kpiSummary.innerText = `IA Hooks: ${modeLabel} (${activeGeminiModel})`;
+        }
+      }
+    }
+
     // =========================================================
     // 3. LIENZO N8N / MANYCHAT (NODOS FLOTANTES & CABLES SVG)
     // =========================================================
@@ -1589,7 +1667,7 @@
 
         let matchesSearch = true;
         if (searchQ) {
-          const hay = normalizeStr([step.title, step.message, ...(step.keywords || []).map(getKeywordTextUI), ...(step.negativeKeywords || [])].join(' '));
+          const hay = normalizeStr([step.title, step.message, step.aiDescription || '', ...(step.keywords || []).map(getKeywordTextUI), ...(step.negativeKeywords || [])].join(' '));
           matchesSearch = hay.includes(searchQ);
         }
 
@@ -1686,9 +1764,11 @@
         const parentKwCount = allKws.filter(isKeywordParentScopedUI).length;
         const freeKwCount = kwCount - parentKwCount;
         const negCount = (step.negativeKeywords || []).length;
-        const kwBtnLabel = parentKwCount > 0
+        const hasAiDesc = Boolean(String(step.aiDescription || '').trim());
+        const kwBaseLabel = parentKwCount > 0
           ? (freeKwCount > 0 ? `🔑 ${freeKwCount}🌐 · ${parentKwCount}🔒` : `🔑 ${parentKwCount}🔒 Paso ant.`)
           : `🔑 Keywords (${kwCount})`;
+        const kwBtnLabel = hasAiDesc ? `🧠 ${kwBaseLabel}` : kwBaseLabel;
 
         nodeEl.innerHTML = `
           <!-- Indicador flotante cuando está en modo elegir ventana destino -->
@@ -2720,6 +2800,25 @@
                     class="w-full p-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-zinc-800 leading-relaxed focus:outline-none focus:bg-white focus:border-zinc-900">${escapeHtml(step.message)}</textarea>
         </div>
 
+        <!-- 2.5. Criterio Semántico para IA Hooks -->
+        <div class="bg-indigo-50/40 border border-indigo-200/80 rounded-xl p-3 space-y-1.5">
+          <div class="flex items-center justify-between gap-2 flex-wrap">
+            <label class="text-[10px] font-semibold uppercase tracking-wider text-indigo-900">🧠 Cuándo elegir este hook (Opcional — para IA Gemini)</label>
+            <span class="text-[10px] text-indigo-700">
+              ${activeConfig.settings?.aiRoutingEnabled
+                ? (hasGeminiKey ? 'Activo en este lienzo' : 'Falta GEMINI_API_KEY en Vercel')
+                : 'Tip: activa "🧠 IA Hooks" en la barra del lienzo'}
+            </span>
+          </div>
+          <p class="text-[10px] text-indigo-700/80 leading-snug">
+            Describe en lenguaje natural qué intenciones o frases completas del cliente deben activar esta ventana (ej: "Cuando pregunten si aceptamos su teléfono como abono o cuánto le damos por él, incluso con pantalla rota").
+          </p>
+          <textarea id="stepAiDesc_${escapeHtml(step.id)}" rows="2"
+                    placeholder="Opcional: describe la intención ideal para que Gemini elija esta ventana..."
+                    oninput="updateStepField('${escapeJsSingleQuote(step.id)}', 'aiDescription', this.value)"
+                    class="w-full p-2 bg-white border border-indigo-200 rounded-lg text-[11px] text-zinc-800 placeholder:text-zinc-400 leading-snug focus:outline-none focus:border-indigo-500">${escapeHtml(step.aiDescription || '')}</textarea>
+        </div>
+
         <!-- 3. Ganchos Directos: Keywords & Negative Keywords -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5">
           <div class="bg-zinc-50/70 border border-zinc-200/80 rounded-xl p-3 space-y-2">
@@ -3041,6 +3140,7 @@
         allowedWhenPaused: false,
         unpauseOnTrigger: false,
         aiRewrite: false,
+        aiDescription: '',
         keywords: [],
         negativeKeywords: [],
         message: '',
@@ -3526,6 +3626,194 @@
       return null;
     }
 
+    function resolveSimLocally(text) {
+      const clean = normalizeStr(text);
+      const workflowSteps = activeConfig.workflow?.steps || [];
+      const initialStepId = activeConfig.workflow?.initialStepId || workflowSteps[0]?.id;
+      const rootStep = workflowSteps.find(s => s.id === initialStepId) || workflowSteps.find(s => s.isRoot) || workflowSteps[0];
+      const sortedNodes = [...workflowSteps].sort((a, b) => (b.priority || 0) - (a.priority || 0));
+      const isStrict = activeConfig.settings?.strictStepMode !== false;
+
+      let reply = null;
+      let replyUseAiRewrite = false;
+      let replyIsInitialStep = false;
+      let shouldPause = false;
+      let shouldUnpause = false;
+      let nextStep = simCurrentStep;
+      let hookId = null;
+      let notice = null;
+      const activeStep = (!simIsNewCustomer && simCurrentStep) ? workflowSteps.find(s => s.id === simCurrentStep) : null;
+
+      // 1. Comando técnico de reactivación manual ("/bot" o "activar bot")
+      if ((clean === "activar bot" || clean === "/bot") && rootStep) {
+        reply = formatSimText(rootStep.message);
+        replyUseAiRewrite = Boolean(rootStep.aiRewrite);
+        replyIsInitialStep = true;
+        hookId = rootStep.id;
+        nextStep = rootStep.id;
+        shouldUnpause = true;
+      } else if (simIsPaused) {
+        if (looksLikeSpecsSim(clean)) {
+          return { earlyReturn: true, notice: "Silencio: Ficha técnica detectada mientras espera asesor." };
+        }
+        const pausedAllowedNodes = sortedNodes.filter(s => s.allowedWhenPaused);
+        const pausedChildIds = new Set(
+          (activeStep && Array.isArray(activeStep.routes) ? activeStep.routes : [])
+            .map(r => r.targetStepId)
+            .filter(Boolean)
+        );
+        const pausedMatched = (pausedChildIds.size > 0
+          ? simFindMatchingNode(pausedAllowedNodes.filter(s => pausedChildIds.has(s.id)), clean, { scope: 'parent' })
+          : null)
+          || simFindMatchingNode(pausedAllowedNodes, clean, { scope: 'global' });
+        if (pausedMatched) {
+          reply = formatSimText(pausedMatched.message);
+          replyUseAiRewrite = Boolean(pausedMatched.aiRewrite);
+          replyIsInitialStep = Boolean(pausedMatched.isRoot || pausedMatched.id === rootStep?.id);
+          hookId = pausedMatched.id;
+          if (pausedMatched.unpauseOnTrigger) {
+            nextStep = pausedMatched.id;
+            shouldUnpause = true;
+          }
+        } else {
+          return { earlyReturn: true, notice: "Silencio: En pausa humana." };
+        }
+      } else {
+        const effectiveActive = activeStep || (isStrict && !simIsNewCustomer ? rootStep : null);
+        const activeRoutes = (effectiveActive && Array.isArray(effectiveActive.routes)) ? effectiveActive.routes : [];
+        const specificRoutes = activeRoutes.filter(r => !isWildcardRouteUI(r));
+        const wildcardRoutes = activeRoutes.filter(r => isWildcardRouteUI(r));
+        let matchedRoute = null;
+
+        const applySimRoute = (r, target) => {
+          matchedRoute = r;
+          reply = formatSimText(target.message);
+          replyUseAiRewrite = Boolean(target.aiRewrite);
+          replyIsInitialStep = Boolean(target.isRoot || target.id === rootStep?.id);
+          hookId = target.id;
+          nextStep = target.id;
+          shouldPause = Boolean(target.autoPause || target.type === 'handoff' || target.id === 'step_advisor');
+          shouldUnpause = Boolean(target.unpauseOnTrigger);
+        };
+
+        // 3. Opciones específicas del paso activo
+        if (specificRoutes.length > 0) {
+          for (const r of specificRoutes) {
+            const target = workflowSteps.find(s => s.id === r.targetStepId);
+            if (!target) continue;
+            const tokens = String(r.key || '').split(/[,|]/).map(t => normalizeStr(t)).filter(Boolean);
+            const cleanOption = stripMenuPrefixSim(clean);
+            const keyMatch = tokens.some(tk => clean === tk || cleanOption === tk);
+            const cl = normalizeStr(r.label);
+            const labelMatch = !keyMatch && cl && cl.length > 3 && clean.includes(cl) && !simHasNegative(target, clean);
+            if (keyMatch || labelMatch) {
+              applySimRoute(r, target);
+              break;
+            }
+          }
+        }
+
+        // 3.5. Keywords sujetas al paso anterior conectado (🔒)
+        if (!matchedRoute && effectiveActive && activeRoutes.length > 0) {
+          const connectedIds = new Set(activeRoutes.map(r => r.targetStepId).filter(Boolean));
+          const connectedTargets = sortedNodes.filter(s => connectedIds.has(s.id));
+          if (connectedTargets.length > 0) {
+            const scopedMatched = simFindMatchingNode(connectedTargets, clean, { scope: 'parent', requireLongKeyword: false });
+            if (scopedMatched) {
+              applySimRoute({ targetStepId: scopedMatched.id }, scopedMatched);
+            }
+          }
+        }
+
+        // 4. Siguiente paso automático con "Cualquier respuesta (*)" en paso posterior
+        if (!matchedRoute && activeStep && !simIsNewCustomer && activeStep.id !== initialStepId && wildcardRoutes.length > 0) {
+          for (const r of wildcardRoutes) {
+            const target = workflowSteps.find(s => s.id === r.targetStepId);
+            if (target) {
+              applySimRoute(r, target);
+              break;
+            }
+          }
+        }
+
+        // 5. Detección silenciosa de ficha técnica suelta
+        if (!matchedRoute && looksLikeSpecsSim(clean) && !clean.includes("vender") && !clean.includes("reparar")) {
+          nextStep = workflowSteps.some(s => s.id === 'step_tradein') ? 'step_tradein' : simCurrentStep;
+          return {
+            earlyReturn: true,
+            specPause: true,
+            nextStep,
+            notice: "Ficha técnica detectada -> Auto-Pausa (12h) para asesor."
+          };
+        }
+
+        // 6. Keywords libres (🌐) globales por prioridad
+        if (!matchedRoute) {
+          const matchedNode = simFindMatchingNode(sortedNodes, clean, {
+            scope: 'global',
+            requireLongKeyword: isStrict && specificRoutes.length > 0
+          });
+          if (matchedNode) {
+            reply = formatSimText(matchedNode.message);
+            replyUseAiRewrite = Boolean(matchedNode.aiRewrite);
+            replyIsInitialStep = Boolean(matchedNode.isRoot || matchedNode.id === rootStep?.id);
+            hookId = matchedNode.id;
+            nextStep = matchedNode.id;
+            shouldPause = Boolean(matchedNode.autoPause || matchedNode.type === 'handoff' || matchedNode.id === 'step_advisor');
+            shouldUnpause = Boolean(matchedNode.unpauseOnTrigger);
+          }
+        }
+
+        // 7. Respaldo por enlace "Cualquier respuesta (*)" en menú raíz
+        if (!reply && !simIsNewCustomer && wildcardRoutes.length > 0) {
+          for (const r of wildcardRoutes) {
+            const target = workflowSteps.find(s => s.id === r.targetStepId);
+            if (target) {
+              applySimRoute(r, target);
+              break;
+            }
+          }
+        }
+
+        if (!reply && isStrict && !simIsNewCustomer && effectiveActive && specificRoutes.length > 0 && effectiveActive.invalidMessage) {
+          reply = formatSimText(effectiveActive.invalidMessage);
+          hookId = 'invalid_option_error';
+          nextStep = effectiveActive.id;
+        }
+
+        if (!reply && simIsNewCustomer && rootStep) {
+          reply = formatSimText(rootStep.message);
+          replyUseAiRewrite = Boolean(rootStep.aiRewrite);
+          replyIsInitialStep = true;
+          hookId = 'hook_welcome_new_user';
+          nextStep = rootStep.id;
+          shouldPause = Boolean(rootStep.autoPause);
+        }
+
+        if (!reply) {
+          if (activeConfig.settings?.silentFallback !== false) {
+            return {
+              earlyReturn: true,
+              markActive: true,
+              notice: "Recepcionista: Mensaje libre no reconocido, guardando silencio."
+            };
+          }
+          reply = formatSimText(activeConfig.fallbackResponse);
+        }
+      }
+
+      return {
+        reply,
+        replyUseAiRewrite,
+        replyIsInitialStep,
+        shouldPause,
+        shouldUnpause,
+        nextStep,
+        hookId,
+        notice
+      };
+    }
+
     function sendSimMessage() {
       const input = document.getElementById('simInput');
       const text = input.value.trim();
@@ -3546,12 +3834,8 @@
           return;
         }
 
-        const clean = normalizeStr(text);
-        const workflowSteps = activeConfig.workflow?.steps || [];
-        const initialStepId = activeConfig.workflow?.initialStepId || workflowSteps[0]?.id;
-        const rootStep = workflowSteps.find(s => s.id === initialStepId) || workflowSteps.find(s => s.isRoot) || workflowSteps[0];
-        const sortedNodes = [...workflowSteps].sort((a, b) => (b.priority || 0) - (a.priority || 0));
-        const isStrict = activeConfig.settings?.strictStepMode !== false;
+        const simUserEl = document.getElementById('simUsernameInput');
+        const simUname = (simUserEl ? simUserEl.value : 'cliente_ig').trim().replace(/^@+/, '');
 
         let reply = null;
         let replyUseAiRewrite = false;
@@ -3559,159 +3843,70 @@
         let shouldPause = false;
         let shouldUnpause = false;
         let nextStep = simCurrentStep;
-        const activeStep = (!simIsNewCustomer && simCurrentStep) ? workflowSteps.find(s => s.id === simCurrentStep) : null;
+        let hookId = null;
+        let matchedByAi = false;
+        let aiReason = '';
+        let usedBackendRoute = false;
 
-        // 1. Comando técnico de reactivación manual ("/bot" o "activar bot")
-        if ((clean === "activar bot" || clean === "/bot") && rootStep) {
-          reply = formatSimText(rootStep.message);
-          replyUseAiRewrite = Boolean(rootStep.aiRewrite);
-          replyIsInitialStep = true;
-          nextStep = rootStep.id;
-          shouldUnpause = true;
-        } else if (simIsPaused) {
-          if (looksLikeSpecsSim(clean)) {
-            appendSystemNotice("Silencio: Ficha técnica detectada mientras espera asesor.");
-            return;
-          }
-          const pausedAllowedNodes = sortedNodes.filter(s => s.allowedWhenPaused);
-          const pausedChildIds = new Set(
-            (activeStep && Array.isArray(activeStep.routes) ? activeStep.routes : [])
-              .map(r => r.targetStepId)
-              .filter(Boolean)
-          );
-          const pausedMatched = (pausedChildIds.size > 0
-            ? simFindMatchingNode(pausedAllowedNodes.filter(s => pausedChildIds.has(s.id)), clean, { scope: 'parent' })
-            : null)
-            || simFindMatchingNode(pausedAllowedNodes, clean, { scope: 'global' });
-          if (pausedMatched) {
-            reply = formatSimText(pausedMatched.message);
-            replyUseAiRewrite = Boolean(pausedMatched.aiRewrite);
-            replyIsInitialStep = Boolean(pausedMatched.isRoot || pausedMatched.id === rootStep?.id);
-            if (pausedMatched.unpauseOnTrigger) {
-              nextStep = pausedMatched.id;
-              shouldUnpause = true;
-            }
-          } else {
-            appendSystemNotice("Silencio: En pausa humana.");
-            return;
-          }
-        } else {
-          const effectiveActive = activeStep || (isStrict && !simIsNewCustomer ? rootStep : null);
-          const activeRoutes = (effectiveActive && Array.isArray(effectiveActive.routes)) ? effectiveActive.routes : [];
-          const specificRoutes = activeRoutes.filter(r => !isWildcardRouteUI(r));
-          const wildcardRoutes = activeRoutes.filter(r => isWildcardRouteUI(r));
-          let matchedRoute = null;
-
-          const applySimRoute = (r, target) => {
-            matchedRoute = r;
-            reply = formatSimText(target.message);
-            replyUseAiRewrite = Boolean(target.aiRewrite);
-            replyIsInitialStep = Boolean(target.isRoot || target.id === rootStep?.id);
-            nextStep = target.id;
-            shouldPause = Boolean(target.autoPause || target.type === 'handoff' || target.id === 'step_advisor');
-            shouldUnpause = Boolean(target.unpauseOnTrigger);
-          };
-
-          // 3. Opciones específicas del paso activo
-          if (specificRoutes.length > 0) {
-            for (const r of specificRoutes) {
-              const target = workflowSteps.find(s => s.id === r.targetStepId);
-              if (!target) continue;
-              const tokens = String(r.key || '').split(/[,|]/).map(t => normalizeStr(t)).filter(Boolean);
-              const cleanOption = stripMenuPrefixSim(clean);
-              const keyMatch = tokens.some(tk => clean === tk || cleanOption === tk);
-              const cl = normalizeStr(r.label);
-              const labelMatch = !keyMatch && cl && cl.length > 3 && clean.includes(cl) && !simHasNegative(target, clean);
-              if (keyMatch || labelMatch) {
-                applySimRoute(r, target);
-                break;
-              }
-            }
-          }
-
-          // 3.5. Keywords sujetas al paso anterior conectado (🔒)
-          if (!matchedRoute && effectiveActive && activeRoutes.length > 0) {
-            const connectedIds = new Set(activeRoutes.map(r => r.targetStepId).filter(Boolean));
-            const connectedTargets = sortedNodes.filter(s => connectedIds.has(s.id));
-            if (connectedTargets.length > 0) {
-              const scopedMatched = simFindMatchingNode(connectedTargets, clean, { scope: 'parent', requireLongKeyword: false });
-              if (scopedMatched) {
-                applySimRoute({ targetStepId: scopedMatched.id }, scopedMatched);
-              }
-            }
-          }
-
-          // 4. Siguiente paso automático con "Cualquier respuesta (*)" en paso posterior
-          if (!matchedRoute && activeStep && !simIsNewCustomer && activeStep.id !== initialStepId && wildcardRoutes.length > 0) {
-            for (const r of wildcardRoutes) {
-              const target = workflowSteps.find(s => s.id === r.targetStepId);
-              if (target) {
-                applySimRoute(r, target);
-                break;
-              }
-            }
-          }
-
-          // 5. Detección silenciosa de ficha técnica suelta (cuando no hay paso libre conectado)
-          if (!matchedRoute && looksLikeSpecsSim(clean) && !clean.includes("vender") && !clean.includes("reparar")) {
-            nextStep = workflowSteps.some(s => s.id === 'step_tradein') ? 'step_tradein' : simCurrentStep;
-            shouldPause = true;
-            simIsPaused = true;
-            simIsNewCustomer = false;
-            simCurrentStep = nextStep;
-            updateSimBadge();
-            appendSystemNotice("Ficha técnica detectada -> Auto-Pausa (12h) para asesor.");
-            return;
-          }
-
-          // 6. Keywords libres (🌐) globales por prioridad
-          if (!matchedRoute) {
-            const matchedNode = simFindMatchingNode(sortedNodes, clean, {
-              scope: 'global',
-              requireLongKeyword: isStrict && specificRoutes.length > 0
+        if (activeConfig.settings?.aiRoutingEnabled && hasGeminiKey && savedPin) {
+          try {
+            const routeRes = await fetch('/api/config?action=preview_ai_route', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'x-admin-pin': savedPin },
+              body: JSON.stringify({
+                userMessage: text,
+                workflow: activeConfig.workflow,
+                settings: activeConfig.settings,
+                fallbackResponse: activeConfig.fallbackResponse,
+                isPaused: simIsPaused,
+                isNewCustomer: simIsNewCustomer,
+                currentStep: simCurrentStep,
+                customer: simUname ? { username: simUname } : null
+              })
             });
-            if (matchedNode) {
-              reply = formatSimText(matchedNode.message);
-              replyUseAiRewrite = Boolean(matchedNode.aiRewrite);
-              replyIsInitialStep = Boolean(matchedNode.isRoot || matchedNode.id === rootStep?.id);
-              nextStep = matchedNode.id;
-              shouldPause = Boolean(matchedNode.autoPause || matchedNode.type === 'handoff' || matchedNode.id === 'step_advisor');
-              shouldUnpause = Boolean(matchedNode.unpauseOnTrigger);
+            const routeData = await routeRes.json();
+            if (routeData && routeData.success) {
+              usedBackendRoute = true;
+              reply = routeData.text || null;
+              hookId = routeData.hookId || null;
+              nextStep = routeData.nextStep !== undefined ? routeData.nextStep : simCurrentStep;
+              shouldPause = Boolean(routeData.shouldPause);
+              shouldUnpause = Boolean(routeData.shouldUnpause);
+              replyUseAiRewrite = Boolean(routeData.aiRewrite);
+              replyIsInitialStep = Boolean(routeData.isInitialStep);
+              matchedByAi = Boolean(routeData.matchedByAi);
+              aiReason = routeData.aiReason || '';
             }
+          } catch (err) {
+            console.error('Error previsualizando IA Hooks:', err);
           }
+        }
 
-          // 7. Respaldo por enlace "Cualquier respuesta (*)" en menú raíz
-          if (!reply && !simIsNewCustomer && wildcardRoutes.length > 0) {
-            for (const r of wildcardRoutes) {
-              const target = workflowSteps.find(s => s.id === r.targetStepId);
-              if (target) {
-                applySimRoute(r, target);
-                break;
-              }
-            }
-          }
-
-          if (!reply && isStrict && !simIsNewCustomer && effectiveActive && specificRoutes.length > 0 && effectiveActive.invalidMessage) {
-            reply = formatSimText(effectiveActive.invalidMessage);
-            nextStep = effectiveActive.id;
-          }
-
-          if (!reply && simIsNewCustomer && rootStep) {
-            reply = formatSimText(rootStep.message);
-            replyUseAiRewrite = Boolean(rootStep.aiRewrite);
-            replyIsInitialStep = true;
-            nextStep = rootStep.id;
-            shouldPause = Boolean(rootStep.autoPause);
-          }
-
-          if (!reply) {
-            if (activeConfig.settings?.silentFallback !== false) {
-              appendSystemNotice("Recepcionista: Mensaje libre no reconocido, guardando silencio.");
+        if (!usedBackendRoute) {
+          const localRes = resolveSimLocally(text);
+          if (localRes.earlyReturn) {
+            if (localRes.specPause) {
+              simIsPaused = true;
+              simIsNewCustomer = false;
+              simCurrentStep = localRes.nextStep;
+              updateSimBadge();
+            } else if (localRes.markActive) {
               simIsNewCustomer = false;
               updateSimBadge();
-              return;
             }
-            reply = formatSimText(activeConfig.fallbackResponse);
+            if (localRes.notice) appendSystemNotice(localRes.notice);
+            return;
+          }
+          reply = localRes.reply;
+          replyUseAiRewrite = localRes.replyUseAiRewrite;
+          replyIsInitialStep = localRes.replyIsInitialStep;
+          shouldPause = localRes.shouldPause;
+          shouldUnpause = localRes.shouldUnpause;
+          nextStep = localRes.nextStep;
+          hookId = localRes.hookId;
+
+          if (activeConfig.settings?.aiRoutingEnabled && !hasGeminiKey && !simIsPaused) {
+            appendSystemNotice("🧠 IA Hooks activa (falta GEMINI_API_KEY en Vercel: simulando solo con reglas locales).");
           }
         }
 
@@ -3721,11 +3916,20 @@
         if (shouldPause) simIsPaused = true;
         updateSimBadge();
 
+        if (!reply) {
+          if (hookId === 'spec_detected_silent') {
+            appendSystemNotice("Ficha técnica detectada -> Auto-Pausa (12h) para asesor.");
+          } else if (simIsPaused) {
+            appendSystemNotice("Silencio: En pausa humana.");
+          } else {
+            appendSystemNotice("Recepcionista: Mensaje libre no reconocido, guardando silencio.");
+          }
+          return;
+        }
+
         let aiRewriteApplied = false;
         if (reply && replyUseAiRewrite && hasGeminiKey && savedPin) {
           try {
-            const simUserEl = document.getElementById('simUsernameInput');
-            const simUname = (simUserEl ? simUserEl.value : 'cliente_ig').trim().replace(/^@+/, '');
             const aiRes = await fetch('/api/config?action=preview_ai_rewrite', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json', 'x-admin-pin': savedPin },
@@ -3747,12 +3951,16 @@
           }
         }
 
+        const matchedStepObj = hookId ? (activeConfig?.workflow?.steps || []).find(s => s.id === hookId) : null;
+        const matchedStepLabel = matchedStepObj ? matchedStepObj.title : hookId;
+
         if (reply) {
           const botBubble = document.createElement('div');
           botBubble.className = "flex gap-2 items-start";
           botBubble.innerHTML = `
             <div class="w-5 h-5 rounded-full bg-zinc-900 shrink-0 flex items-center justify-center text-[8px] font-bold text-white mt-0.5">TT</div>
             <div class="bg-white border border-zinc-200 text-zinc-800 p-2.5 rounded-xl rounded-tl-xs max-w-[85%] whitespace-pre-line leading-relaxed">
+              ${matchedByAi ? `<div class="text-[9px] font-medium text-indigo-700 mb-1">🧠 Hook IA: ${escapeHtml(matchedStepLabel || '')}${aiReason ? ' · ' + escapeHtml(aiReason) : ''}</div>` : ''}
               ${aiRewriteApplied ? '<div class="text-[9px] font-medium text-violet-700 mb-1">✨ Reescrito con Gemini</div>' : ''}${escapeHtml(reply)}
             </div>
           `;

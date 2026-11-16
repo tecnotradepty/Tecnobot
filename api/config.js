@@ -13,6 +13,7 @@ const {
   getRedisCredentials 
 } = require('../config/storage');
 const { maybeRewriteWithGemini, getActiveGeminiModel } = require('../config/ai');
+const { DEFAULT_CONFIG, resolveBotResponseWithAi } = require('../config/responses');
 
 const DEFAULT_PIN = process.env.ADMIN_PIN || "047514";
 
@@ -108,6 +109,43 @@ module.exports = async function handler(req, res) {
       const result = await cleanupCustomers(mode, { days });
       const customers = await getCustomersList();
       return res.status(200).json({ success: true, ...result, customers });
+    }
+
+    // Acción: Previsualizar selección de hook con IA desde el Simulador (paridad exacta con webhook)
+    if (action === 'preview_ai_route') {
+      const {
+        userMessage = '',
+        workflow = null,
+        settings = {},
+        fallbackResponse = '',
+        isPaused = false,
+        isNewCustomer = false,
+        currentStep = null,
+        customer = null
+      } = req.body || {};
+
+      const draftConfig = {
+        ...DEFAULT_CONFIG,
+        settings: {
+          ...DEFAULT_CONFIG.settings,
+          ...(settings && typeof settings === 'object' ? settings : {})
+        },
+        workflow: (workflow && Array.isArray(workflow.steps)) ? workflow : DEFAULT_CONFIG.workflow,
+        fallbackResponse: typeof fallbackResponse === 'string' ? fallbackResponse : DEFAULT_CONFIG.fallbackResponse,
+        hooks: []
+      };
+
+      const routeResult = await resolveBotResponseWithAi(userMessage, draftConfig, {
+        isPaused: Boolean(isPaused),
+        isNewCustomer: Boolean(isNewCustomer),
+        currentStep: currentStep || null,
+        customer: customer || null
+      });
+
+      return res.status(200).json({
+        success: true,
+        ...routeResult
+      });
     }
 
     // Acción: Previsualizar reescritura con Gemini desde el Simulador
